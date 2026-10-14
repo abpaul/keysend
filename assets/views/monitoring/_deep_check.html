@@ -1,0 +1,18 @@
+{% if deep_check %}
+<div class="plain">
+  <h2 class="heading-l" id="deep-check">{{ t(key="deep_check_heading", date=deep_check.date) }}</h2>
+  {% if deep_check.sections | length > 1 %}
+  <p>{{ t(key="deep_check_intro") }}</p>
+  {% else %}
+  <p>{{ t(key="deep_check_found_nothing") }}</p>
+  {% endif %}
+</div>
+{% for section in deep_check.sections %}
+{% include "monitoring/_deep_section.html" %}
+{% endfor %}
+{% else %}
+<div class="plain">
+  <h2 class="heading-l" id="deep-check">{{ t(key="deep_check_none_title") }}</h2>
+  <p>{{ t(key="deep_check_none_text") }}</p>
+</div>
+{% endif %}

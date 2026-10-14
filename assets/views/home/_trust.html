@@ -1,0 +1,19 @@
+    <div class="field field--plum">
+    <section class="wrap sec" aria-labelledby="read-only">
+      <div class="trust">
+        <h2 id="read-only">{{ t(key="footer_read_only") }}</h2>
+        <div>
+          <p>{{ t(key="home_trust_read") }}</p>
+          <p>{% set link %}<a href="/privacy">{{ t(key="home_trust_privacy_link") }}</a>{% endset %}{{ t(key="home_trust_data", link=link) }}</p>
+        </div>
+        <div>
+          <h3>{{ t(key="home_cannot_title") }}</h3>
+          <ul class="ticks">
+            <li>{{ t(key="home_cannot_change") }}</li>
+            <li>{{ t(key="home_cannot_judge") }}</li>
+            <li>{{ t(key="home_cannot_sure") }}</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+    </div>

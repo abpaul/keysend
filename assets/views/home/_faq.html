@@ -1,0 +1,13 @@
+    <div class="field">
+    <section class="wrap sec split" aria-labelledby="questions">
+      <div class="sec-head">
+        <h2 id="questions">{{ t(key="home_faq_title") }}</h2>
+      </div>
+      <div class="faq">
+{% for item in questions %}        <details>
+          <summary>{{ item.question | safe }}</summary>
+          <p>{{ item.answer | safe }}</p>
+        </details>
+{% endfor %}      </div>
+    </section>
+    </div>

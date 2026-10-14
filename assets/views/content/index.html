@@ -1,0 +1,20 @@
+{% extends "home/base.html" %}
+{% block title %}{{ title }} | KeySend{% endblock title %}
+{% block description %}{{ t(key="content_description") }}{% endblock description %}
+{% block head_extra %}
+  <link rel="canonical" href="https://keysend.app{{ path }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="KeySend">
+  <meta property="og:url" content="https://keysend.app{{ path }}">
+  <meta property="og:title" content="{{ title }}">
+  <meta property="og:description" content="{{ t(key="content_description") }}">
+{% if noindex %}  <meta name="robots" content="noindex,follow">{% endif %}
+  <link rel="alternate" type="application/rss+xml" title="KeySend" href="/feed.xml">
+{% endblock head_extra %}
+{% block main %}
+<section class="wrap lp-sec prose narrow">
+  <h1 class="h-l">{{ title }}</h1>
+  <nav aria-label="{{ t(key="content_resources_label") }}"><a href="/blog">{{ t(key="content_articles") }}</a> · <a href="/thoughts">{{ t(key="content_thoughts") }}</a> · <a href="/guides">{{ t(key="content_guides") }}</a> · <a href="/tools">{{ t(key="content_tools") }}</a> · <a href="/feed.xml">{{ t(key="content_rss") }}</a></nav>
+{% if entries %}<ul>{% for entry in entries %}<li><h2 class="h-m"><a href="{{ entry.path }}">{{ entry.title }}</a></h2><p>{{ entry.description }}</p><time datetime="{{ entry.publish_at }}">{{ entry.publish_at | truncate(length=10, end="") }}</time></li>{% endfor %}</ul>{% else %}<p>{{ t(key="content_empty") }}</p>{% endif %}
+</section>
+{% endblock main %}

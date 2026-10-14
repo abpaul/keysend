@@ -1,0 +1,67 @@
+{% extends "home/base.html" %}
+{% block title %}{{ t(key="home_title") }} | KeySend{% endblock title %}
+{% block description %}{{ t(key="home_description", count=limit, trial_days=trial_days, price=price_text) }}{% endblock description %}
+{% block head_extra %}
+  <link rel="canonical" href="https://keysend.app/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="KeySend">
+  <meta property="og:url" content="https://keysend.app/">
+  <meta property="og:title" content="{{ t(key="home_title") }}">
+  <meta property="og:description" content="{{ t(key="home_og_description") }}">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"KeySend","url":"https://keysend.app/","applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"{{ t(key="home_ld_description") }}","offers":{"@type":"Offer","price":"{{ price }}","priceCurrency":"USD","description":"{{ t(key="home_ld_offer", count=limit, trial_days=trial_days) }}"},"publisher":{"@id":"{{ organization_id }}"}}</script>
+  <script type="application/ld+json">{{ schema | safe }}</script>
+
+  <link rel="stylesheet" href="{{ assets["parts.css"] }}">
+{%- endblock head_extra %}
+{% block built_with %}{% endblock built_with %}
+{% block main %}
+{% set hl %}<mark class="hl">{% endset %}{% set endhl %}</mark>{% endset %}
+{% set from = "home-hero" %}{% set hero_update = true %}{% set hero_for = t(key="home_hero_for") %}{% set hero_title = t(key="home_hero_title", hl=hl, endhl=endhl) %}{% set hero_lede = t(key="home_hero_lede") %}{% include "home/_hero.html" %}
+
+    <div class="field field--citron field--under">
+    <section class="wrap sec" aria-labelledby="how">
+      <p class="definition">{{ t(key="home_definition") }}</p>
+      <div class="start">
+        <h2 id="how">{{ t(key="home_start_title") }}</h2>
+        <ol class="steps">
+          <li>{{ t(key="home_start_1") }}</li>
+          <li>{{ t(key="home_start_2") }}</li>
+          <li>{{ t(key="home_start_3", hl=hl, endhl=endhl) }}</li>
+        </ol>
+        <p class="fine">{{ t(key="home_start_note") }}</p>
+      </div>
+      <p class="for-row">{{ t(key="home_for_label") }} <a href="/for/agency-clients">{{ t(key="home_for_agency_clients") }}</a> <a href="/for/marketing-managers">{{ t(key="home_for_managers") }}</a></p>
+    </section>
+    </div>
+
+    <div class="field field--ink">
+    <section class="wrap sec" aria-labelledby="problem">
+      <div class="problem-top">
+        <div class="sec-head">
+          <h2 id="problem">{{ t(key="home_problem_title", hl=hl, endhl=endhl) }}</h2>
+          <p>{{ t(key="home_problem_intro") }}</p>
+        </div>
+{% include "home/_month.html" %}
+      </div>
+      <ul class="pains">
+        <li><h3>{{ t(key="home_pain_stopped_title") }}</h3><p>{{ t(key="home_pain_stopped_text") }}</p></li>
+        <li><h3>{{ t(key="home_pain_clicks_title") }}</h3><p>{{ t(key="home_pain_clicks_text") }}</p></li>
+        <li><h3>{{ t(key="home_pain_budget_title") }}</h3><p>{{ t(key="home_pain_budget_text") }}</p></li>
+        <li><h3>{{ t(key="home_pain_columns_title") }}</h3><p>{{ t(key="home_pain_columns_text") }}</p></li>
+      </ul>
+      <p class="pains-close">{{ t(key="home_problem_close") }}</p>
+    </section>
+    </div>
+
+{% set title = t(key="home_update_title", hl=hl, endhl=endhl) %}{% include "home/_update_points.html" %}
+{% set title = t(key="home_dashboard_title") %}{% include "home/_dashboard.html" %}
+{% include "home/_missed.html" %}
+{% set title = t(key="home_rec_title") %}{% set outro = t(key="home_rec_outro") %}{% include "home/_recommendations.html" %}
+{% set title = t(key="home_deep_title") %}{% include "home/_deep_check.html" %}
+{% set tiles = ["alert", "weekly", "export"] %}{% set title = t(key="home_email_title") %}{% set intro = t(key="home_email_intro") %}{% include "home/_inbox.html" %}
+{% include "home/_founder.html" %}
+{% include "home/_trust.html" %}
+{% set from = "home-price" %}{% include "home/_price.html" %}
+{% include "home/_faq.html" %}
+{% set from = "home-closing" %}{% set title = t(key="home_closing_title", hl=hl, endhl=endhl) %}{% include "home/_closing.html" %}
+{% endblock main %}

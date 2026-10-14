@@ -1,0 +1,47 @@
+name: Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      samples:
+        description: Cold loads for each page
+        default: '3'
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_TEST_DEBUG: 0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - run: echo "SERVER_DIRECTORY=$RUNNER_TEMP/keysend-server" >> "$GITHUB_ENV"
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - run: cargo test --locked --no-run
+      - name: Start the seeded server
+        run: scripts/serve-seeded.sh "$SERVER_DIRECTORY"
+      - name: Measure the signed-in pages on a phone profile
+        env:
+          SAMPLES: ${{ inputs.samples }}
+          KEYSEND_MEASURE_PATHS: /ad-accounts,/subscription,/settings
+        run: |
+          KEYSEND_CHROMIUM="$(command -v google-chrome)" KEYSEND_SESSION="$(cat "$SERVER_DIRECTORY/cookie")" \
+            node scripts/measure-browser.mjs "$RUNNER_TEMP/benchmark" "http://$(cat "$SERVER_DIRECTORY/address")" "$SAMPLES"
+      - name: Stop the seeded server
+        if: always()
+        run: touch "$SERVER_DIRECTORY/stop"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: benchmark
+          path: |
+            ${{ runner.temp }}/benchmark/
+            ${{ runner.temp }}/keysend-server/server.log
+          retention-days: 30

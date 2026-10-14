@@ -1,0 +1,21 @@
+{% extends "email/base.html" %}
+{% block content %}
+                <tr>
+                  <td style="padding:0 0 10px; font-size:15px; line-height:22px; font-weight:700; color:#5126A6;">{{ t(key="email_alert_for", account=account, date=date) }}</td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 20px;"><h1 style="margin:0; font-size:34px; line-height:36px; font-weight:800; letter-spacing:-0.04em; color:#292039;">{% set parts = headline_parts %}{% include "email/_parts.html" %}</h1></td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 16px; font-size:19px; line-height:28px;">{% set parts = lead_parts %}{% include "email/_parts.html" %}</td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 16px; font-size:15px; line-height:22px; color:#5C5470;">{{ facts_line }}</td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 24px;">{{ t(key="email_what_to_do", action=action) }}</td>
+                </tr>
+                <tr>
+                  <td style="padding:0;"><a href="{{ link }}" style="display:inline-block; padding:12px 24px; border-radius:12px; background:#5126A6; color:#FFFFFF; font-size:17px; line-height:24px; font-weight:700; text-decoration:none;">{{ t(key="email_open", name=account) }}</a></td>
+                </tr>
+{% endblock content %}

@@ -1,0 +1,45 @@
+{% extends "app/base.html" %}
+{% block title %}{% if error %}{{ t(key="error_title", title=t(key="select_title")) }}{% else %}{{ t(key="select_title") }}{% endif %}{% endblock title %}
+{% block nav %}{% endblock nav %}
+{% block content %}
+{% if choices | length == 0 %}
+<h1 class="heading-xl">{% if first %}<span class="caption">{{ t(key="step_of", step=3, total=4) }}</span>{% endif %}{{ t(key="select_none_title") }}</h1>
+
+<div class="card">
+  <p class="lead">{{ t(key="select_none_lead") }}</p>
+  <p>{{ t(key="select_none_hint") }}</p>
+  <div class="actions">
+    <a class="button" href="/connect">{{ t(key="connect_google_ads") }}</a>
+    <a href="/ad-accounts">{{ t(key="back_to_ad_accounts") }}</a>
+  </div>
+</div>
+{% else %}
+{% if error %}
+<div class="error-summary" role="alert" aria-labelledby="error-title">
+  <h2 class="heading-s" id="error-title">{{ t(key="error_summary_title") }}</h2>
+  <ul class="plain-list">
+    <li><a href="#account-1">{{ error }}</a></li>
+  </ul>
+</div>
+{% endif %}
+
+<form class="form" method="post" action="/ad-accounts/choose/{{ selection_id }}">
+  <fieldset class="fieldset fieldset--page" aria-describedby="choose-hint{% if error %} choose-error{% endif %}">
+    <legend><h1 class="heading-xl">{% if first %}<span class="caption">{{ t(key="step_of", step=3, total=4) }}</span>{% endif %}{{ t(key="select_title") }}</h1></legend>
+    <div class="card">
+      <p class="hint" id="choose-hint">{{ t(key="select_hint_limit", count=limit) }} {{ t(key="select_hint_found", count=choices | length) }}</p>
+      {% if error %}<p class="error-message" id="choose-error"><span class="visually-hidden">{{ t(key="error_message", message=error) }}</span><span aria-hidden="true">{{ error }}</span></p>{% endif %}
+      <div class="choices">
+        {% for choice in choices %}
+        <label class="choice"><input type="checkbox" name="ad_account" value="{{ choice.customer_id }}"{% if loop.first %} id="account-1"{% endif %}{% if choice.added %} checked disabled{% elif choice.checked %} checked{% endif %}><span>{{ choice.name }} <small class="num">{{ choice.display_id }}</small>{% if choice.added %}<small>{{ t(key="select_already_added") }}</small>{% endif %}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+  </fieldset>
+
+  <div class="actions">
+    <button class="button" type="submit">{{ t(key="continue_button") }}</button>
+  </div>
+</form>
+{% endif %}
+{% endblock content %}

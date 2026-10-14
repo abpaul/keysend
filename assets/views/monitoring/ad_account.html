@@ -1,0 +1,150 @@
+{% extends "app/base.html" %}
+{% block title %}{{ ad.name }}{% endblock title %}
+{% block nav_accounts %} aria-current="page"{% endblock nav_accounts %}
+{% block head %}{% if not update %}<script type="module" src="{{ assets["turbo.min.js"] }}"></script>{% endif %}{% if window %}<script defer src="{{ assets["window-switch.js"] }}"></script>{% endif %}{% endblock head %}
+{% block body_attrs %}{% if not update %} data-turbo="false"{% endif %}{% endblock body_attrs %}
+{% block page_class %} page--wide{% endblock page_class %}
+{% block content %}
+<div class="page-head">
+  <h1 class="heading-xl">{% if not update %}<span class="caption">{{ t(key="step_of", step=4, total=4) }}</span>{% endif %}{{ ad.name }}</h1>
+  {% if update %}
+  <div class="actions">
+    <a class="button" href="{{ export_href }}">{{ t(key="export_pdf") }}</a>
+    <a href="{{ settings_href }}">{{ t(key="settings") }}</a>
+  </div>
+  {% endif %}
+</div>
+
+{% if deep_checked %}{% set panel_empty = t(key="ad_account_panel_empty_deep") %}{% else %}{% set panel_empty = t(key="ad_account_panel_empty_none") %}{% endif %}
+{% if update or recommendations | length > 0 %}{% include "monitoring/_recommendations.html" %}{% endif %}
+
+{% include "monitoring/_notice.html" %}
+
+<div class="bento">
+  {% if update %}
+  <div class="cell cell--8">
+    {% include "monitoring/_update.html" %}
+  </div>
+  {% else %}
+  <div class="cell cell--8">
+    <turbo-frame id="first-update"{% if not reading_failed %} src="/ad-accounts/{{ ad.id }}/first-update"{% endif %}>
+      {% include "monitoring/_first_update.html" %}
+    </turbo-frame>
+  </div>
+  {% endif %}
+
+  <section class="card cell cell--4" aria-labelledby="top-recommendations">
+    <h2 class="heading-m" id="top-recommendations">{{ t(key="ad_account_first_title") }}</h2>
+    {% if recommendations | length > 0 %}
+    <ol class="plain-list top">
+      {% for recommendation in recommendations %}{% if loop.index0 < 3 %}
+      <li><span>{% set parts = recommendation.action_parts %}{% include "monitoring/_parts.html" %}</span></li>
+      {% endif %}{% endfor %}
+    </ol>
+    <p class="small"><a href="{{ panel_href }}">{{ t(key="ad_account_open_recommendations", count=recommendations | length) }}</a></p>
+    {% else %}
+    <p class="muted">{{ panel_empty }}</p>
+    {% endif %}
+  </section>
+
+  {% if window %}
+  {% include "monitoring/_metrics.html" %}
+
+  <section class="card cell cell--8" aria-labelledby="trend">
+    {% set chart = trend %}{% set chart_id = "trend" %}{% set chart_kind = "trend" %}{% include "monitoring/_chart.html" %}
+  </section>
+
+  <section class="card cell cell--4" aria-labelledby="campaign-shares">
+    {% set chart = campaign_shares %}{% set chart_id = "campaign-shares" %}{% set chart_kind = "shares" %}{% include "monitoring/_chart.html" %}
+  </section>
+
+  <div class="flow cell">
+    {% if cost_weeks %}
+    <section class="card" aria-labelledby="cost-weeks">
+      {% set chart = cost_weeks %}{% set chart_id = "cost-weeks" %}{% set chart_kind = "weeks" %}{% include "monitoring/_chart.html" %}
+      {% if delay_note %}<p class="chart-note">{{ delay_note }}</p>{% endif %}
+    </section>
+    {% endif %}
+
+    {% if search_share %}
+    <section class="card" aria-labelledby="search-share">
+      {% set chart = search_share %}{% set chart_id = "search-share" %}{% set chart_kind = "stack" %}{% include "monitoring/_chart.html" %}
+    </section>
+    {% endif %}
+
+    <section class="card" aria-labelledby="device-shares">
+      {% set chart = device_shares %}{% set chart_id = "device-shares" %}{% set chart_kind = "shares" %}{% include "monitoring/_chart.html" %}
+      <p class="small"><a href="{{ breakdowns_href }}">{{ t(key="ad_account_breakdowns_link") }}</a></p>
+    </section>
+  </div>
+
+  <section class="card cell" aria-labelledby="campaigns">
+    <h2 class="heading-m" id="campaigns">{{ t(key="ad_account_campaigns_title") }}</h2>
+    {% if campaigns | length > 0 %}
+    <table class="data">
+      <caption class="visually-hidden">{{ t(key="ad_account_campaigns_caption", count=window.days) }}</caption>
+      <thead>
+        <tr>
+          <th scope="col">{{ t(key="ad_account_campaign_column") }}</th>
+          <th scope="col" class="spark-cell"><span aria-hidden="true">{{ t(key="ad_account_spark_days") }}</span><span class="visually-hidden">{{ t(key="ad_account_spark_label") }}</span></th>
+          {% for header in campaign_headers %}<th scope="col" class="num">{{ header }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for campaign in campaigns %}
+        <tr>
+          <th scope="row"><a class="campaign-name" href="{{ campaign.href }}">{{ campaign.name }}</a></th>
+          <td class="spark-cell">{% if campaign.sparkline %}{{ campaign.sparkline | safe }}{% endif %}</td>
+          {% for cell in campaign.cells %}<td class="num">{{ cell.value }} <span class="was">{{ cell.was }}</span></td>{% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">{{ t(key="ad_account_no_campaign") }}</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if update %}
+  <section class="card cell" aria-labelledby="earlier">
+    <h2 class="heading-m" id="earlier">{{ t(key="earlier_updates") }}</h2>
+    {% if earlier | length > 0 %}
+    <ol class="plain-list updates">
+      {% for item in earlier %}{% if loop.index0 < 3 %}
+      <li>
+        <h3>{{ item.date }}</h3>
+        <p>{% set parts = item.summary %}{% include "monitoring/_parts.html" %}</p>
+      </li>
+      {% endif %}{% endfor %}
+    </ol>
+    {% if earlier | length > 3 %}
+    <details class="more">
+      <summary>{{ t(key="show_more_updates", count=earlier | length - 3) }}</summary>
+      <ol class="plain-list updates" start="4">
+        {% for item in earlier %}{% if loop.index0 >= 3 %}
+        <li>
+          <h3>{{ item.date }}</h3>
+          <p>{% set parts = item.summary %}{% include "monitoring/_parts.html" %}</p>
+        </li>
+        {% endif %}{% endfor %}
+      </ol>
+    </details>
+    {% endif %}
+    {% else %}
+    <p class="muted">{{ t(key="ad_account_no_earlier") }}</p>
+    {% endif %}
+  </section>
+  {% endif %}
+</div>
+
+{% if not update %}
+<div class="plain">
+  <div class="actions">
+    <a class="button" href="{{ export_href }}">{{ t(key="export_pdf") }}</a>
+    <a href="{{ settings_href }}">{{ t(key="settings") }}</a>
+  </div>
+  <p class="small muted">{{ t(key="ad_account_export_note", count=window_days) }}</p>
+</div>
+{% endif %}
+{% endblock content %}

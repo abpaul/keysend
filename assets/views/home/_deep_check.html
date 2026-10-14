@@ -1,0 +1,12 @@
+    <div class="field">
+    <section class="wrap sec" aria-labelledby="deep-check">
+      <div class="sec-head">
+        <h2 id="deep-check">{{ title }}</h2>
+        <p>{{ t(key="home_deep_intro") }}</p>
+      </div>
+      {% set heading = "h3" %}
+      <figure class="demo">
+        {% set section = search_terms %}{% include "monitoring/_deep_section.html" %}
+      </figure>
+    </section>
+    </div>

@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "path": "/guides/sample-guide-lemonade-stand-ledger",
+      "title": "Sample guide: the lemonade stand ledger",
+      "description": "A placeholder guide for this repository. It follows an invented lemonade stand through one week of notes.",
+      "publish_at": "2026-01-05T08:00:00Z",
+      "kind": "guide",
+      "cluster": "sample-ledger",
+      "body_html": "<article class=\"wrap lp-sec prose\" style=\"max-width:860px\"><nav aria-label=\"Breadcrumb\"><a href=\"/resources\">Resources</a> / <a href=\"/guides\">Guides</a></nav><h1 class=\"h-l\">Sample guide: the lemonade stand ledger</h1><p>Published <time datetime=\"2026-01-05T08:00:00Z\">5 January 2026</time> · Sample</p><section><h2>Why this page exists</h2><p>This guide is filler. It ships with the source code so that the guide pages, the indexes and the sitemap have something to show.</p><p>Nothing here is advice. The lemonade stand, its owner Mira and every figure were made up for the sample.</p></section><section><h2>A week at the stand</h2><p>Mira writes three things in a notebook each evening: cups poured, coins in the jar and lemons left in the crate.</p><p>On Thursday it rains and the notebook shows four cups. She draws a small cloud beside the line so that the low day explains itself later.</p></section><section><h2>What the notebook is for</h2><ul><li>One line for each day, in the same order every time.</li><li>A mark beside any day with an unusual cause.</li><li>A total at the end of the week, written once.</li></ul></section></article>"
+    },
+    {
+      "path": "/guides/sample-guide-labelling-garden-rows",
+      "title": "Sample guide: labelling the rows of a garden",
+      "description": "A second placeholder guide. An invented allotment shows how a page with a table looks in this application.",
+      "publish_at": "2026-01-12T08:00:00Z",
+      "kind": "guide",
+      "cluster": "sample-garden",
+      "body_html": "<article class=\"wrap lp-sec prose\" style=\"max-width:860px\"><nav aria-label=\"Breadcrumb\"><a href=\"/resources\">Resources</a> / <a href=\"/guides\">Guides</a></nav><h1 class=\"h-l\">Sample guide: labelling the rows of a garden</h1><p>Published <time datetime=\"2026-01-12T08:00:00Z\">12 January 2026</time> · Sample</p><section><h2>The allotment</h2><p>Plot 12 is imaginary. It has four rows, and each row gets a wooden stick with a name and a sowing week written on it.</p></section><section><h2>The rows</h2><div style=\"overflow-x:auto\"><table><thead><tr><th scope=\"col\">Row</th><th scope=\"col\">Crop</th><th scope=\"col\">Sown in week</th></tr></thead><tbody><tr><td>1</td><td>Radish</td><td>14</td></tr><tr><td>2</td><td>Chard</td><td>15</td></tr><tr><td>3</td><td>Peas</td><td>15</td></tr><tr><td>4</td><td>Empty</td><td>Not sown</td></tr></tbody></table></div></section><section><h2>After the first frost</h2><p>The sticks stay in the ground over winter. In spring the gardener reads them before digging, and the empty row is the first to be planted.</p></section></article>"
+    },
+    {
+      "path": "/tools/sample-share-calculator",
+      "title": "Sample calculator: one part as a share of a whole",
+      "description": "A placeholder calculator for this repository. It divides a part by a whole and shows the answer as a percent.",
+      "publish_at": "2026-01-05T08:00:00Z",
+      "kind": "tool",
+      "cluster": "sample-ledger",
+      "body_html": "<article class=\"wrap lp-sec prose\" style=\"max-width:860px\"><nav aria-label=\"Breadcrumb\"><a href=\"/resources\">Resources</a> / <a href=\"/tools\">Tools</a></nav><h1 class=\"h-l\">Sample calculator: one part as a share of a whole</h1><p>Published <time datetime=\"2026-01-05T08:00:00Z\">5 January 2026</time> · Sample</p><section><h2>The rule</h2><p>Divide the part by the whole and multiply by one hundred. Twelve cups out of forty-eight is a quarter of the jug, which is 25 percent.</p><p>A whole of zero has no share. The calculator says so and does not print a number.</p></section><section><h2>Try it</h2><form data-sample-calculator=\"share\"><p><label>Part<br><input required type=\"number\" min=\"0\" step=\"any\" name=\"part\" value=\"12\" style=\"font:inherit;min-height:44px;max-width:100%;padding:6px 10px;box-sizing:border-box\"></label></p><p><label>Whole<br><input required type=\"number\" min=\"0\" step=\"any\" name=\"whole\" value=\"48\" style=\"font:inherit;min-height:44px;max-width:100%;padding:6px 10px;box-sizing:border-box\"></label></p><button class=\"btn btn-citron\" type=\"submit\">Calculate</button><output aria-live=\"polite\" style=\"display:block;margin-top:1rem\"></output></form><noscript><p>This sample calculator needs JavaScript. The rule above still tells you how to work it out by hand.</p></noscript><p>The sample script runs in the browser and sends nothing to a server.</p></section></article>"
+    },
+    {
+      "path": "/tools/sample-daily-average-calculator",
+      "title": "Sample calculator: the average for one day",
+      "description": "A second placeholder calculator. It spreads a total over a number of days.",
+      "publish_at": "2026-01-12T08:00:00Z",
+      "kind": "tool",
+      "cluster": "sample-garden",
+      "body_html": "<article class=\"wrap lp-sec prose\" style=\"max-width:860px\"><nav aria-label=\"Breadcrumb\"><a href=\"/resources\">Resources</a> / <a href=\"/tools\">Tools</a></nav><h1 class=\"h-l\">Sample calculator: the average for one day</h1><p>Published <time datetime=\"2026-01-12T08:00:00Z\">12 January 2026</time> · Sample</p><section><h2>The rule</h2><p>Divide the total by the number of days. Ninety-one watering cans over seven days is thirteen cans a day.</p><p>With zero days there is nothing to divide by, and the calculator reports that.</p></section><section><h2>Try it</h2><form data-sample-calculator=\"average\"><p><label>Total<br><input required type=\"number\" min=\"0\" step=\"any\" name=\"total\" value=\"91\" style=\"font:inherit;min-height:44px;max-width:100%;padding:6px 10px;box-sizing:border-box\"></label></p><p><label>Days<br><input required type=\"number\" min=\"0\" step=\"any\" name=\"days\" value=\"7\" style=\"font:inherit;min-height:44px;max-width:100%;padding:6px 10px;box-sizing:border-box\"></label></p><button class=\"btn btn-citron\" type=\"submit\">Calculate</button><output aria-live=\"polite\" style=\"display:block;margin-top:1rem\"></output></form><noscript><p>This sample calculator needs JavaScript. The rule above still tells you how to work it out by hand.</p></noscript><p>The sample script runs in the browser and sends nothing to a server.</p></section></article>"
+    },
+    {
+      "path": "/blog/sample-article-the-rainy-thursday",
+      "title": "Sample article: the rainy Thursday",
+      "description": "A placeholder article. One wet afternoon at an invented lemonade stand, told in a few paragraphs.",
+      "publish_at": "2026-01-06T08:00:00Z",
+      "kind": "article",
+      "cluster": "sample-ledger",
+      "body_html": "<article class=\"wrap lp-sec prose\" style=\"max-width:860px\"><nav aria-label=\"Breadcrumb\"><a href=\"/resources\">Resources</a> / <a href=\"/blog\">Blog</a></nav><h1 class=\"h-l\">Sample article: the rainy Thursday</h1><p>Published <time datetime=\"2026-01-06T08:00:00Z\">6 January 2026</time> · Sample</p><section><h2>Four cups</h2><p>The awning leaked at two in the afternoon. Mira moved the jug under the dry corner and waited for the street to fill again. It did not.</p><p>She poured four cups that day, all of them for the postman and his cousins.</p></section><section><h2>The note in the margin</h2><p>That evening the notebook got its small cloud. A month later the cloud was the only reason the line made sense.</p></section></article>"
+    },
+    {
+      "path": "/blog/sample-article-counting-seed-packets",
+      "title": "Sample article: counting the seed packets",
+      "description": "A second placeholder article, about an invented gardener who counts seed packets every March.",
+      "publish_at": "2026-01-13T08:00:00Z",
+      "kind": "article",
+      "cluster": "sample-garden",
+      "body_html": "<article class=\"wrap lp-sec prose\" style=\"max-width:860px\"><nav aria-label=\"Breadcrumb\"><a href=\"/resources\">Resources</a> / <a href=\"/blog\">Blog</a></nav><h1 class=\"h-l\">Sample article: counting the seed packets</h1><p>Published <time datetime=\"2026-01-13T08:00:00Z\">13 January 2026</time> · Sample</p><section><h2>The biscuit tin</h2><p>The packets live in a biscuit tin on the shed shelf. Every March the gardener tips them on the bench and sorts them by the month printed on the back.</p><p>Eleven packets this year. Two are older than the shed.</p></section><section><h2>What gets sown</h2><p>The old packets go in row 4 as an experiment. Nobody expects much, and the stick for that row says so.</p></section></article>"
+    },
+    {
+      "path": "/blog/sample-article-scheduled-far-ahead",
+      "title": "Sample article: scheduled far ahead",
+      "description": "A placeholder article with a publication date far in the future. The application must not show it.",
+      "publish_at": "2099-01-06T08:00:00Z",
+      "kind": "article",
+      "cluster": "sample-ledger",
+      "body_html": "<article class=\"wrap lp-sec prose\" style=\"max-width:860px\"><nav aria-label=\"Breadcrumb\"><a href=\"/resources\">Resources</a> / <a href=\"/blog\">Blog</a></nav><h1 class=\"h-l\">Sample article: scheduled far ahead</h1><p>Published <time datetime=\"2099-01-06T08:00:00Z\">6 January 2099</time> · Sample</p><section><h2>Not yet</h2><p>This entry exists to exercise scheduling. Until its publication time it answers not-found and is absent from every index, the feed and the sitemap.</p></section></article>"
+    },
+    {
+      "path": "/thoughts/sample-thought-write-the-total-once",
+      "title": "Sample thought: write the total once",
+      "description": "A placeholder short note about an invented notebook.",
+      "publish_at": "2026-01-07T08:00:00Z",
+      "kind": "thought",
+      "cluster": "sample-ledger",
+      "body_html": "<article class=\"wrap lp-sec prose\" style=\"max-width:860px\"><nav aria-label=\"Breadcrumb\"><a href=\"/resources\">Resources</a> / <a href=\"/thoughts\">Thoughts</a></nav><h1 class=\"h-l\">Sample thought: write the total once</h1><p>Published <time datetime=\"2026-01-07T08:00:00Z\">7 January 2026</time> · Sample</p><section><h2>The short version</h2><p>A total that is written twice will disagree with itself by Friday. Mira keeps one total at the bottom of the page and points to it.</p></section></article>"
+    },
+    {
+      "path": "/thoughts/sample-thought-scheduled-far-ahead",
+      "title": "Sample thought: scheduled far ahead",
+      "description": "A placeholder short note with a publication date far in the future.",
+      "publish_at": "2099-01-07T08:00:00Z",
+      "kind": "thought",
+      "cluster": "sample-garden",
+      "body_html": "<article class=\"wrap lp-sec prose\" style=\"max-width:860px\"><nav aria-label=\"Breadcrumb\"><a href=\"/resources\">Resources</a> / <a href=\"/thoughts\">Thoughts</a></nav><h1 class=\"h-l\">Sample thought: scheduled far ahead</h1><p>Published <time datetime=\"2099-01-07T08:00:00Z\">7 January 2099</time> · Sample</p><section><h2>Not yet</h2><p>This note stays hidden until its publication time.</p></section></article>"
+    }
+  ],
+  "calculator_js": "(function () {\n  \"use strict\";\n  var rules = {\n    share: function (input) {\n      return input.whole === 0 ? \"A whole of zero has no share.\" : \"Share: \" + round(input.part / input.whole * 100) + \"%\";\n    },\n    average: function (input) {\n      return input.days === 0 ? \"Zero days leave nothing to divide by.\" : \"Average for one day: \" + round(input.total / input.days);\n    }\n  };\n  function round(value) {\n    return Math.round(value * 100) / 100;\n  }\n  document.querySelectorAll(\"form[data-sample-calculator]\").forEach(function (form) {\n    form.addEventListener(\"submit\", function (event) {\n      event.preventDefault();\n      var input = {};\n      form.querySelectorAll(\"input[name]\").forEach(function (field) {\n        input[field.name] = Number(field.value);\n      });\n      var valid = Object.keys(input).every(function (name) { return Number.isFinite(input[name]) && input[name] >= 0; });\n      form.querySelector(\"output\").textContent = valid ? rules[form.dataset.sampleCalculator](input) : \"Enter numbers of zero or more.\";\n    });\n  });\n}());\n"
+}

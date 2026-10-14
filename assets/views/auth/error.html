@@ -1,0 +1,14 @@
+{% extends "app/base.html" %}
+{% block title %}{{ t(key="auth_error_title") }}{% endblock title %}
+{% block nav %}{% endblock nav %}
+{% block content %}
+<h1 class="heading-xl">{{ t(key="auth_error_title") }}</h1>
+
+<div class="card">
+  <p class="lead">{{ message }}</p>
+  <div class="actions">
+    <a class="button" href="/sign-in">{{ t(key="auth_start_again") }}</a>
+    <a href="/">{{ t(key="auth_back_home") }}</a>
+  </div>
+</div>
+{% endblock content %}

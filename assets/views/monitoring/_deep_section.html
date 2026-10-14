@@ -1,0 +1,39 @@
+<section class="card deep" aria-labelledby="{{ section.id }}">
+  <{{ heading | default(value="h2") }} class="heading-m" id="{{ section.id }}">{{ section.title }}</{{ heading | default(value="h2") }}>
+  <p class="chart-say">{{ section.sentence }}</p>
+  {% if section.rows %}
+  {% if section.note %}<p class="chart-say">{{ section.note }}</p>{% endif %}
+  <ul class="plain-list facts facts--{{ section.columns | length }}">
+    <li class="facts__head" aria-hidden="true"><span>{{ section.name }}</span><div>{% for column in section.columns %}<span>{{ column }}</span>{% endfor %}</div></li>
+    {% for row in section.rows %}
+    <li>
+      <div class="facts__name{% if section.url %} facts__name--url{% endif %}">{{ row.name }}{% for tag in row.tags %} <span class="tag">{{ tag }}</span>{% endfor %}{% if row.badge %} <span class="level level--{{ row.badge.kind }}">{{ row.badge.text }}</span>{% endif %}</div>
+      <dl>
+        {% for fact in row.facts %}<div{% if fact.wide %} class="fact--wide"{% elif fact.bar %} class="fact--bar"{% endif %}><dt>{{ fact.label }}</dt><dd>{% if fact.value %}<b>{{ fact.value }}</b>{% endif %}{% if fact.bar %}{{ fact.bar.svg | safe }}{% endif %}{% if fact.detail %}<span class="fact__detail">{{ fact.detail }}</span>{% endif %}{% if fact.badge %}<span class="level level--{{ fact.badge.kind }}">{{ fact.badge.text }}</span>{% endif %}</dd></div>
+        {% endfor %}
+      </dl>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if section.key %}<p class="facts__key"><i class="key key--mark"></i>{{ section.key }}</p>{% endif %}
+  <details class="explain">
+    <summary>{{ t(key="explain_what_this_shows") }}</summary>
+    {% for text in section.about %}<p>{{ text }}</p>
+    {% endfor %}
+    {% if section.terms %}
+    <dl>
+      {% for term in section.terms %}<div><dt>{{ term[0] }}</dt><dd>{{ term[1] }}</dd></div>
+      {% endfor %}
+    </dl>
+    {% endif %}
+  </details>
+  <details class="explain">
+    <summary>{{ t(key="explain_what_you_can_do") }}</summary>
+    <ul class="list">
+      {% for action in section.actions %}<li>{{ action }}</li>
+      {% endfor %}
+    </ul>
+  </details>
+  <p class="chart-note"><b>{{ t(key="explain_data_limitation") }}</b> {{ section.limitation }}</p>
+  {% endif %}
+</section>

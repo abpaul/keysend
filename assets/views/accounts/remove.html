@@ -1,0 +1,27 @@
+{% extends "app/base.html" %}
+{% block title %}{% if kind == "workspaces" %}{{ t(key="delete_workspace_title") }}{% else %}{{ t(key="remove_title", name=label) }}{% endif %}{% endblock title %}
+{% block nav_accounts %} aria-current="page"{% endblock nav_accounts %}
+{% block content %}
+<a class="back-link" href="/settings">{{ t(key="back_to_workspace") }}</a>
+
+<h1 class="heading-xl">{% if kind == "workspaces" %}{{ t(key="delete_workspace_title") }}{% else %}{{ t(key="remove_title", name=label) }}{% endif %}</h1>
+
+<div class="card">
+  {% if kind == "workspaces" %}
+  <p class="lead">{{ t(key="remove_workspace_lead") }}</p>
+  <p>{{ t(key="remove_workspace_detail") }}</p>
+  {% else %}
+  <p class="lead">{{ t(key="remove_connection_lead") }}</p>
+  <p>{{ t(key="remove_connection_detail") }}</p>
+  {% endif %}
+  <form class="form" method="post" action="/remove/{{ kind }}/{{ id }}">
+    <div class="field">
+      <label class="choice"><input type="checkbox" name="confirm" value="remove" required><span>{{ t(key="remove_confirm") }}</span></label>
+    </div>
+    <div class="actions">
+      <button class="button button--warning" type="submit">{% if kind == "workspaces" %}{{ t(key="delete_workspace") }}{% else %}{{ t(key="remove_named", name=label) }}{% endif %}</button>
+      <a href="/settings">{{ t(key="cancel") }}</a>
+    </div>
+  </form>
+</div>
+{% endblock content %}

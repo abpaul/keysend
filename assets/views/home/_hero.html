@@ -1,0 +1,18 @@
+    <section class="field field--plum hero{% if not hero_update %} hero--plain{% endif %}">
+      <div class="wrap">
+        <h1>{{ hero_title }}</h1>
+        <div class="hero-in">
+          <div class="hero-copy">
+            {% if hero_for %}<p class="hero-for">{{ hero_for }}</p>{% endif %}
+            <p class="lede">{{ hero_lede }}</p>
+            <div class="cta">
+              <a class="btn btn-citron btn-lg" href="/sign-in?from={{ from }}">{{ t(key="home_see_update") }}</a>
+              <p>{{ t(key="home_cta_note", trial_days=trial_days) }}</p>
+            </div>
+          </div>
+          {% if hero_update %}<figure class="hero-shot demo">
+            {% include "monitoring/_update.html" %}
+          </figure>{% endif %}
+        </div>
+      </div>
+    </section>

@@ -1,0 +1,18 @@
+<details class="panel" id="recommendations"{% if panel_open %} open{% endif %}>
+  <summary><h2 class="panel__title">{% set recommendation_count %}<span class="panel__count">({{ recommendations | length }})</span>{% endset %}{% if findings %}{% set finding_count %}<span class="panel__count">({{ findings | length }})</span>{% endset %}{{ t(key="recommendations_findings_heading", recommendations=recommendation_count, findings=finding_count) }}{% else %}{{ t(key="recommendations_heading", recommendations=recommendation_count) }}{% endif %}</h2></summary>
+  <div class="panel__body">
+    {% if recommendations | length > 0 %}
+{% include "monitoring/_recommendation_list.html" %}
+    {% else %}
+    <p class="muted">{{ panel_empty }}</p>
+    {% endif %}
+    {% if findings %}
+    <h3 class="heading-s" id="findings">{{ t(key="findings_other_title") }}</h3>
+    <ul class="plain-list findings">
+      {% for finding in findings %}
+      <li>{% set parts = finding %}{% include "monitoring/_parts.html" %}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+</details>

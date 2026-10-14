@@ -1,0 +1,47 @@
+{% extends "app/base.html" %}
+{% block title %}{{ t(key="breakdowns_title", name=ad.name) }}{% endblock title %}
+{% block nav_accounts %} aria-current="page"{% endblock nav_accounts %}
+{% block page_class %} page--wide{% endblock page_class %}
+{% block content %}
+<a class="back-link" href="{{ ad.href }}">{{ t(key="back_to", name=ad.name) }}</a>
+
+<h1 class="heading-xl">{{ t(key="breakdowns_heading") }}</h1>
+
+{% include "monitoring/_notice.html" %}
+
+<div class="bento">
+  {% if action_weeks %}
+  <section class="card cell" aria-labelledby="action-weeks">
+    {% set chart = action_weeks %}{% set chart_id = "action-weeks" %}{% set chart_kind = "weeks" %}{% include "monitoring/_chart.html" %}
+  </section>
+  {% endif %}
+
+  <div class="plain cell">
+    {% if deep_check %}
+    <h2 class="heading-l" id="deep-check">{{ t(key="deep_check_heading", date=deep_check) }}</h2>
+    <p>{{ t(key="breakdowns_deep_window") }}</p>
+    {% else %}
+    <h2 class="heading-l" id="deep-check">{{ t(key="deep_check_none_title") }}</h2>
+    <p>{{ t(key="breakdowns_deep_none") }}</p>
+    {% endif %}
+  </div>
+
+  <section class="card cell" aria-labelledby="hours">
+    {% set chart = hours %}{% set chart_id = "hours" %}{% set chart_kind = "grid" %}{% include "monitoring/_chart.html" %}
+  </section>
+
+  <div class="flow flow--thirds cell">
+    <section class="card" aria-labelledby="locations">
+      {% set chart = locations %}{% set chart_id = "locations" %}{% set chart_kind = "shares" %}{% include "monitoring/_chart.html" %}
+    </section>
+
+    <section class="card" aria-labelledby="ages">
+      {% set chart = ages %}{% set chart_id = "ages" %}{% set chart_kind = "shares" %}{% include "monitoring/_chart.html" %}
+    </section>
+
+    <section class="card" aria-labelledby="genders">
+      {% set chart = genders %}{% set chart_id = "genders" %}{% set chart_kind = "shares" %}{% include "monitoring/_chart.html" %}
+    </section>
+  </div>
+</div>
+{% endblock content %}

@@ -1,0 +1,17 @@
+    <div class="field field--white">
+    <section class="wrap sec" aria-labelledby="founder">
+      <div class="founder">
+        <div class="founder-head">
+          <h2 id="founder">{{ t(key="home_founder_title") }}</h2>
+          <p class="founder-sign"><img src="{{ assets["images/paul-badarau.webp"] }}" alt="" width="56" height="56" loading="lazy" decoding="async">{{ t(key="home_founder_sign") }}</p>
+        </div>
+        <div class="founder-note">
+        <p>{{ t(key="home_founder_hello") }}</p>
+        <p>{{ t(key="home_founder_start") }}</p>
+        <p>{{ t(key="home_founder_hard") }}</p>
+        <p>{{ t(key="home_founder_looks") }}</p>
+        <p>{% set email %}<a href="mailto:{{ contact }}">{{ contact }}</a>{% endset %}{{ t(key="home_founder_try", trial_days=trial_days, email=email) }}</p>
+        </div>
+      </div>
+    </section>
+    </div>

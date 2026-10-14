@@ -1,0 +1,12 @@
+<div class="card update">
+  {% if reading_failed %}
+  <h2 class="update__date">{{ t(key="first_update") }}</h2>
+  <p class="lead">{{ t(key="first_update_failed_lead") }}</p>
+  <p>{{ t(key="first_update_failed_text") }}</p>
+  {% else %}
+  <img class="mascot mascot--aside" src="{{ assets["images/kite-delivering.webp"] }}" alt="" width="120" height="120">
+  <h2 class="update__date">{{ t(key="first_update") }}</h2>
+  <p class="lead"><span class="waiting">{{ t(key="first_update_reading") }}</span><br>{{ t(key="first_update_reading_text") }}</p>
+  {% endif %}
+  <p class="small"><a href="/ad-accounts/{{ ad.id }}" data-turbo="false">{{ t(key="first_update_check") }}</a></p>
+</div>

@@ -1,0 +1,14 @@
+{% extends "home/base.html" %}
+{% block title %}{{ title | safe }} | KeySend{% endblock title %}
+{% block description %}{{ description | safe }}{% endblock description %}
+{% block head_extra %}
+  <link rel="canonical" href="https://keysend.app{{ path }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="KeySend">
+  <meta property="og:url" content="https://keysend.app{{ path }}">
+  <meta property="og:title" content="{{ title | safe }}">
+  <meta property="og:description" content="{{ description | safe }}">
+  <script type="application/ld+json">{{ schema | safe }}</script>
+  <link rel="stylesheet" href="{{ assets["parts.css"] }}">
+{%- endblock head_extra %}
+{% block built_with %}{% endblock built_with %}

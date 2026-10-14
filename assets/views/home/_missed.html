@@ -1,0 +1,12 @@
+    <div class="field">
+    <section class="wrap sec split split--even" aria-labelledby="missed">
+      <div class="sec-head">
+        <h2 id="missed">{{ t(key="home_missed_title") }}</h2>
+        <p>{{ t(key="home_missed_intro") }}</p>
+      </div>
+      {% set heading = "h3" %}
+      <section class="card demo" aria-labelledby="search-share">
+        {% set chart = search_share %}{% set chart_id = "search-share" %}{% set chart_kind = "stack" %}{% include "monitoring/_chart.html" %}
+      </section>
+    </section>
+    </div>

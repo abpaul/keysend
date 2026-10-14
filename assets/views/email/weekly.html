@@ -1,0 +1,119 @@
+{% extends "email/base.html" %}
+{% block content %}
+                <tr>
+                  <td style="padding:0 0 24px;">
+                    <h1 style="margin:0; font-size:34px; line-height:36px; font-weight:800; letter-spacing:-0.04em; color:#292039;">{{ t(key="email_weekly_heading") }}</h1>
+                    <div style="padding:8px 0 0; font-size:15px; line-height:22px; color:#5C5470;">{{ t(key="email_weekly_intro", date=sent_on) }}</div>
+                  </td>
+                </tr>
+{% for block in blocks %}
+                <tr>
+                  <td style="padding:24px 0 4px; border-top:1px solid #E4E2EC;"><h2 style="margin:0; font-size:26px; line-height:30px; font-weight:800; letter-spacing:-0.03em; color:#292039;">{{ block.name }}</h2></td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 12px; font-size:15px; line-height:22px; color:#5C5470;">{{ block.range }}</td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 {% if block.lead.lines | length > 0 %}8{% else %}24{% endif %}px; font-size:19px; line-height:28px;">{% set stored = block.lead.summary %}{% include "email/_stored.html" %}</td>
+                </tr>
+{% if block.lead.cause %}
+                <tr>
+                  <td style="padding:0 0 {% if block.lead.lines | length > 0 %}8{% else %}24{% endif %}px; font-size:14px; line-height:20px; color:#5C5470;"><b>{{ block.lead.cause.label }}</b> {% set stored = block.lead.cause.evidence %}{% include "email/_stored.html" %}</td>
+                </tr>
+{% endif %}
+{% for line in block.lead.lines %}
+                <tr>
+                  <td style="padding:0 0 {% if loop.last %}24{% else %}8{% endif %}px;">{% set stored = line %}{% include "email/_stored.html" %}</td>
+                </tr>
+{% endfor %}
+                <tr>
+                  <td style="padding:0 0 {% if block.unjudged %}12{% else %}28{% endif %}px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">
+                      <tr>
+{% for cell in block.cells %}
+                        <td width="33%" valign="top" style="padding:0 8px 0 0;">
+                          <div style="font-size:14px; line-height:20px; color:#5C5470;">{{ cell.label }}</div>
+                          <div style="font-size:28px; line-height:34px; font-weight:700; letter-spacing:-0.03em; color:#292039;">{{ cell.value }}</div>
+                          <div style="font-size:14px; line-height:20px; color:#5C5470;">{{ cell.change }}</div>
+                        </td>
+{% endfor %}
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+{% if block.unjudged %}
+                <tr>
+                  <td style="padding:0 0 28px; font-size:15px; line-height:22px; color:#5C5470;">{{ block.unjudged }}</td>
+                </tr>
+{% endif %}
+{% if block.chart %}
+                <tr>
+                  <td style="padding:0 0 4px; font-weight:700;">{{ block.chart.title }}</td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 14px; font-size:16px; line-height:24px; color:#5C5470;">{% if block.chart.sentence.strong %}{% set name = block.chart.sentence.strong %}{% include "email/_campaign_name.html" %} {% endif %}{% set parts = block.chart.sentence.text %}{% include "email/_parts.html" %}{{ block.chart.sentence.mark }}{% set parts = block.chart.sentence.after %}{% include "email/_parts.html" %}</td>
+                </tr>
+{% for row in block.chart.rows %}
+                <tr>
+                  <td style="padding:0 0 4px; font-size:15px; line-height:20px; font-weight:700;">{% set name = row.name %}{% include "email/_campaign_name.html" %}</td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 {% if loop.last %}28{% else %}12{% endif %}px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">
+                      <tr>
+                        {% if row.spend_width > 0 %}<td width="{{ row.spend_width }}%" height="12" bgcolor="#5126A6" style="height:12px; background:#5126A6; border-radius:4px; font-size:0; line-height:0;">&nbsp;</td>{% endif %}
+                        <td style="padding:0 0 0 {% if row.spend_width > 0 %}6{% else %}0{% endif %}px; font-size:13px; line-height:16px; color:#5C5470; white-space:nowrap;">{{ t(key="email_spend_of", value=row.spend) }}</td>
+                      </tr>
+                    </table>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:3px; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">
+                      <tr>
+                        {% if row.results_width > 0 %}<td width="{{ row.results_width }}%" height="12" bgcolor="#D6ED79" style="height:12px; background:#D6ED79; border-radius:4px; font-size:0; line-height:0;">&nbsp;</td>{% endif %}
+                        <td style="padding:0 0 0 {% if row.results_width > 0 %}6{% else %}0{% endif %}px; font-size:13px; line-height:16px; color:#5C5470; white-space:nowrap;">{% if block.judged %}{{ t(key="email_results_conversions", value=row.results) }}{% else %}{{ t(key="email_results_clicks", value=row.results) }}{% endif %}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+{% endfor %}
+{% endif %}
+{% if block.earlier | length > 0 %}
+                <tr>
+                  <td style="padding:0 0 6px; font-weight:700;">{{ t(key="email_earlier_updates") }}</td>
+                </tr>
+{% for update in block.earlier %}
+                <tr>
+                  <td style="padding:0 0 {% if loop.last %}24{% else %}14{% endif %}px;"><span style="font-size:14px; line-height:20px; color:#5C5470;">{{ update.date }}</span><br>{% set stored = update.summary %}{% include "email/_stored.html" %}{% for line in update.lines %}<br>{% set stored = line %}{% include "email/_stored.html" %}{% endfor %}</td>
+                </tr>
+{% endfor %}
+{% else %}
+                <tr>
+                  <td style="padding:0 0 20px; color:#5C5470;">{% if block.recommendation %}{{ t(key="email_no_other_updates") }}{% else %}{{ t(key="email_no_other_updates_no_recommendation") }}{% endif %}</td>
+                </tr>
+{% endif %}
+{% if block.recommendation %}
+                <tr>
+                  <td style="padding:0 0 6px; font-weight:700;">{{ t(key="email_recommendation") }}</td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 4px;">{% set stored = block.recommendation.action %}{% include "email/_stored.html" %}</td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 4px; font-size:16px; line-height:24px; color:#5C5470;">{% set stored = block.recommendation.reason %}{% include "email/_stored.html" %}</td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 24px; font-size:16px; line-height:24px; color:#5C5470;">{% set evidence %}{% set stored = block.recommendation.evidence %}{% include "email/_stored.html" %}{% endset %}{{ t(key="email_finding", evidence=evidence) }}</td>
+                </tr>
+{% endif %}
+                <tr>
+{% if block.quiet %}
+                  <td style="padding:0 0 {% if loop.last %}0{% else %}32{% endif %}px;"><a href="{{ block.link }}" style="color:#5126A6; font-weight:700; text-decoration:underline;">{{ t(key="email_open", name=block.name) }}</a></td>
+{% else %}
+                  <td style="padding:0 0 {% if loop.last %}0{% else %}32{% endif %}px;"><a href="{{ block.link }}" style="display:inline-block; padding:12px 24px; border-radius:12px; background:#5126A6; color:#FFFFFF; font-size:17px; line-height:24px; font-weight:700; text-decoration:none;">{{ t(key="email_open", name=block.name) }}</a></td>
+{% endif %}
+                </tr>
+{% endfor %}
+{% if left_out %}
+                <tr>
+                  <td style="padding:32px 0 0; font-size:15px; line-height:22px; color:#5C5470;">{{ left_out }}</td>
+                </tr>
+{% endif %}
+{% endblock content %}

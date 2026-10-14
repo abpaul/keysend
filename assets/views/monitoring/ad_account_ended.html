@@ -1,0 +1,32 @@
+{% extends "app/base.html" %}
+{% block title %}{{ ad.name }}{% endblock title %}
+{% block nav_accounts %} aria-current="page"{% endblock nav_accounts %}
+{% block content %}
+<h1 class="heading-xl">{{ ad.name }}</h1>
+
+<div class="card card--hero">
+  <img class="mascot mascot--aside" src="{{ assets["images/kite-delivering.webp"] }}" alt="" width="120" height="120">
+  <p class="lead">{% if subscribed %}{{ t(key="ended_lead_subscribed") }}{% else %}{{ t(key="ended_lead_trial", date=trial_end) }}{% endif %}</p>
+  <p>{{ t(key="ended_price", price=price, count=limit) }}</p>
+  <div class="actions">
+    <a class="button" href="/subscription">{{ t(key="subscription_start") }}</a>
+    <a href="{{ settings_href }}">{{ t(key="settings") }}</a>
+  </div>
+</div>
+
+<section class="card" aria-labelledby="earlier">
+  <h2 class="heading-m" id="earlier">{% if subscribed %}{{ t(key="earlier_updates") }}{% else %}{{ t(key="ended_trial_updates") }}{% endif %}</h2>
+  {% if updates | length > 0 %}
+  <ol class="plain-list updates">
+    {% for item in updates %}
+    <li>
+      <h3>{{ item.date }}</h3>
+      <p>{% set parts = item.summary %}{% include "monitoring/_parts.html" %}</p>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="muted">{{ t(key="ended_no_updates") }}</p>
+  {% endif %}
+</section>
+{% endblock content %}

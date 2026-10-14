@@ -1,0 +1,3 @@
+{%- if stored.english -%}<span lang="en">{%- endif -%}
+{%- set parts = stored.parts -%}{%- include "email/_parts.html" -%}
+{%- if stored.english -%}</span>{%- endif -%}

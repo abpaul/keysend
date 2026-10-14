@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="{{ lang() }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{{ t(key="sign_in_with_google") }} | KeySend</title>
+  <link rel="icon" type="image/svg+xml" href="{{ assets["images/logo.svg"] }}">
+  <link rel="stylesheet" href="{{ assets["styles.css"] }}">
+{% include "home/_visits.html" %}
+</head>
+<body class="door">
+  <a class="skip" href="#main">{{ t(key="skip_to_main") }}</a>
+  <header class="door-side field--plum">
+    <a class="brand" href="/"><img src="{{ assets["images/logo-on-plum.svg"] }}" alt="" width="30" height="23">KeySend</a>
+    <h1><span class="caption">{{ t(key="step_of", step=1, total=4) }}</span>{{ t(key="sign_in_with_google") }}</h1>
+    <p class="door-read">{{ t(key="footer_read_only") }}</p>
+  </header>
+  <main class="door-main" id="main">
+    <img src="{{ assets["images/kite-welcome.webp"] }}" alt="" width="200" height="200">
+    <p class="lede">{{ t(key="sign_in_lead") }}</p>
+    <p>{{ t(key="sign_in_trial") }}</p>
+    <p><a class="btn btn-primary btn-lg" href="/auth/google/start{% if from %}?from={{ from }}{% endif %}">{{ t(key="sign_in_with_google") }}</a></p>
+    <p class="fine">{{ t(key="sign_in_consent") }}</p>
+    <p class="door-links"><a href="/privacy">{{ t(key="footer_privacy") }}</a> <a href="/terms">{{ t(key="footer_terms") }}</a></p>
+  </main>
+</body>
+</html>

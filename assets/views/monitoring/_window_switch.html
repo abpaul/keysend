@@ -1,0 +1,3 @@
+<nav class="switch" aria-label="{{ t(key="window_label") }}">
+  {% for choice in window.choices %}<a href="{{ choice.href }}" data-swap aria-label="{{ t(key="window_show_days", count=choice.days) }}"{% if choice.current %} aria-current="true"{% endif %}>{{ t(key="days_count", count=choice.days) }}</a>{% endfor %}
+</nav>

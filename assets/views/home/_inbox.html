@@ -1,0 +1,28 @@
+    <div class="field field--lilac">
+    <section class="wrap sec" aria-labelledby="email">
+      <div class="sec-head">
+        <h2 id="email">{{ title }}</h2>
+        <p>{{ intro }}</p>
+      </div>
+      <div class="tiles">
+        {% if "alert" in tiles %}<div class="mail{% if "weekly" in tiles %} c6{% endif %}">
+          <h3>{{ t(key="home_alert_title") }}</h3>
+          <p>{{ t(key="home_alert_text") }}</p>
+          <p class="msg"><span>{{ t(key="home_alert_from") }}</span><b>{% set campaign %}<span class="campaign-name">{{ t(key="home_campaign_emergency") }}</span>{% endset %}{{ t(key="home_alert_subject", campaign=campaign) }}</b></p>
+        </div>{% endif %}
+        {% if "weekly" in tiles %}<div class="mail{% if "alert" in tiles %} c6{% endif %}">
+          <h3>{{ t(key="home_weekly_title") }}</h3>
+          <p>{{ t(key="home_weekly_text") }}</p>
+          <p class="msg"><span>{{ t(key="home_weekly_from") }}</span><b>{{ t(key="home_weekly_subject") }}</b></p>
+        </div>{% endif %}
+        {% if "export" in tiles %}<div class="export">
+          <div>
+            <h3>{{ t(key="home_export_title") }}</h3>
+            <p>{{ t(key="home_export_text") }}</p>
+            <p class="fine">{{ t(key="home_export_note") }}</p>
+          </div>
+          <img class="paper" src="{{ assets["images/home/export.webp"] }}" alt="{{ t(key="home_shot_export_alt") }}" width="420" height="594" loading="lazy" decoding="async">
+        </div>{% endif %}
+      </div>
+    </section>
+    </div>

@@ -1,0 +1,14 @@
+/target/
+*.sqlite
+*.sqlite-*
+.env
+.DS_Store
+/.impeccable/
+/spikes/render/target/
+
+/assets/.cache/
+/.cloudflare/
+
+__pycache__/
+
+/dist/

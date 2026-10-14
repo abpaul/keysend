@@ -1,0 +1,71 @@
+# KeySend architecture
+
+The code is the record. This page shows where things are and states the rules that the code cannot state. `CONTEXT.md` defines the terms. `docs/adr/` gives the reasons for the decisions that are hard to change.
+
+## System
+
+One Rust application (Loco, Axum, SeaORM) in one container. It serves the pages and runs the queue workers. One SQLite file in WAL mode holds the tables and the job queue (ADR 0001).
+
+The README has the system diagram.
+
+## Modules
+
+`cargo loco routes` prints every route. `python3 scripts/module-graph.py` prints the imports between these modules as a Mermaid diagram. It reads `crate::` paths as text, so it does not see a path that a macro writes. `docs/database.md` shows the tables.
+
+| Module | Responsibility |
+|---|---|
+| `src/app.rs` | Routes, middleware, workers, the hourly scheduler |
+| `src/controllers/` | One file for each group of routes. A handler reads the request, calls the store and the builders, and renders a template |
+| `src/auth.rs`, `src/identity/` | The session cookie, the `Authenticated` extractor, Users, sessions, OAuth states |
+| `src/workspace/` | `WorkspaceStore`: every read and write of a row that a Workspace owns |
+| `src/google.rs` | Google OAuth: token exchange, refresh, revoke, and the list of Ad Accounts of a Google Connection |
+| `src/google_ads.rs`, `src/google_ads/` | The Google Ads client (`googleAds:search` only) and the collection of the Account history and the Deep check data |
+| `src/monitoring/` | The daily run: Metrics, movement detection, Findings, Updates, Recommendations, Alerts, the emails, the charts, the Export |
+| `src/ai.rs` | The one OpenAI request function and the checks on its answer |
+| `src/translation.rs`, `src/translation/` | Translation of stored text, with names and numbers masked |
+| `src/language.rs`, `src/language/` | Every text of the interface, one `Text` value for each language |
+| `src/billing.rs`, `src/billing/` | Stripe requests, webhook verification, and the task that prepares a Stripe account |
+| `src/security.rs` | Response headers, the cache policy, the same-origin check for POST |
+| `src/content.rs`, `content/seo/` | The public articles, guides and tools, with their publication dates |
+| `src/assets.rs` | Static files with a content hash in the name |
+| `src/crypto.rs` | Encryption of Google refresh tokens with the master key |
+| `src/settings.rs` | Settings and secrets from the configuration and the environment, and the clock |
+| `migration/` | The schema. One file for each change |
+
+## Rules
+
+- SQL is only in `src/workspace/` and `src/identity/`. Other modules call `WorkspaceStore`, which always has a Workspace. A test (`tests/requests/boundaries.rs`) fails when another module names a database type or call.
+- A handler takes the signed-in User from the `Authenticated` extractor. A handler of a route with an Ad Account takes `OwnedAdAccount`, which answers not-found for an Ad Account of another Workspace.
+- A text for the interface goes in `language::Text`; a missing text does not compile. `src/language.rs` explains how to add one.
+- Product dates (days, Windows, the Trial, Updates, Alerts) read `Settings::now()`, which a test can set. Machine time (the expiry of a session, a request timestamp) reads `settings::wall_clock()`. Clippy refuses `Utc::now()`.
+- Stored text is English. Pages, emails and Exports read the translation and fall back to English.
+- AI never creates a Metric, a Finding or a Cause. A Recommendation is kept only when it cites a detected Finding and its numbers (`src/monitoring/recommendation.rs`). Code builds the Cause candidates with their level and evidence (`src/monitoring/causes.rs`); AI only chooses one for a text and words it, and the check lets a text use causal words only in a sentence that also holds an anchor of the chosen Confirmed or Likely cause (for example the date of the Account change), and a Likely cause also needs "most likely" or "probably" in that sentence. A Contribution unlocks no causal word.
+- Only a verified Stripe webhook grants Access.
+- Every page works without scripts.
+
+## The daily run
+
+Read from `src/monitoring/worker.rs`.
+
+```mermaid
+sequenceDiagram
+  participant S as schedule::hourly
+  participant W as MonitoringWorker
+  participant St as WorkspaceStore
+  participant G as Google Ads API
+  participant AI as OpenAI
+  participant E as EmailWorker
+  S->>W: MonitoringJob for each Ad Account
+  W->>St: Is the Ad Account in the Workspace? Is it 04:00 or later there?
+  W->>St: claim_monitoring_run(day)
+  W->>G: collect_history
+  W->>St: Does the Workspace have Access?
+  W->>St: evaluate_alerts for the last 3 days
+  W->>AI: update::generate from the detection
+  W->>St: save_update
+  W->>G: Deep check when the last one is 7 days old
+  W->>AI: Recommendations for the Findings
+  W->>St: finish_monitoring_run
+  W->>E: EmailJob
+  W->>AI: Translation when the language of the User is not English
+```

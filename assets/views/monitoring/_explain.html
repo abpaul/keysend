@@ -1,0 +1,11 @@
+<details class="explain">
+  <summary>{{ t(key="explain_title") }}</summary>
+  {% for text in help.about %}<p>{{ text }}</p>
+  {% endfor %}
+  <p><b>{{ t(key="explain_what_you_can_do") }}</b></p>
+  <ul class="list">
+    {% for action in help.actions %}<li>{{ action }}</li>
+    {% endfor %}
+  </ul>
+  {% if help.limitation %}<p class="chart-note"><b>{{ t(key="explain_data_limitation") }}</b> {{ help.limitation }}</p>{% endif %}
+</details>

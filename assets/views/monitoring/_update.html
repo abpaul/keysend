@@ -1,0 +1,23 @@
+<article class="card update" aria-labelledby="update-today">
+  {% if update.quiet %}<img class="mascot mascot--aside" src="{{ assets["images/kite-welcome.webp"] }}" alt="" width="120" height="120">{% endif %}
+  <h2 class="update__date" id="update-today">{% if update.today %}{{ t(key="update_today") }}{% else %}{{ t(key="update_latest") }}{% endif %} <span>{{ update.date }}</span></h2>
+  <p class="lead">{% set parts = update.summary %}{% include "monitoring/_parts.html" %}</p>
+  {% if update.cause %}<p class="cause"><b>{{ update.cause.label }}</b> {% set parts = update.cause.evidence %}{% include "monitoring/_parts.html" %}</p>{% endif %}
+  <p class="small muted">{{ t(key="update_comparison") }}</p>
+  {% if update.lines | length > 0 or update.more_campaigns > 0 %}
+  <ul class="list">
+    {% for line in update.lines %}
+    <li>{% set campaign_link %}{% if line.href %}<a class="campaign-name" href="{{ line.href }}">{{ line.name }}</a>{% else %}<b class="campaign-name">{{ line.name }}</b>{% endif %}{% endset %}{% if line.english %}{% set line_text %}<span lang="en">{{ line.text }}</span>{% endset %}{{ t(key="update_campaign_line", campaign=campaign_link, text=line_text) }}{% else %}{{ t(key="update_campaign_line", campaign=campaign_link, text=line.text) }}{% endif %}{% if line.cause %}<p class="cause"><b>{{ line.cause.label }}</b> {% set parts = line.cause.evidence %}{% include "monitoring/_parts.html" %}</p>{% endif %}</li>
+    {% endfor %}
+    {% if update.more_campaigns > 0 %}<li>{{ t(key="update_more_campaigns", count=update.more_campaigns) }}</li>{% endif %}
+  </ul>
+  {% endif %}
+  {% if update.not_useful %}
+  <p class="small muted">{{ t(key="update_marked_not_useful") }}</p>
+  {% elif not example %}
+  <form class="actions small" method="post" action="/ad-accounts/{{ ad.id }}/updates/{{ update.day }}/not-useful">
+    <input type="hidden" name="window" value="{{ return_to.window }}">
+    <button class="link-button" type="submit">{{ t(key="not_useful") }}<span class="visually-hidden">{{ t(key="update_not_useful_for", date=update.date) }}</span></button>
+  </form>
+  {% endif %}
+</article>

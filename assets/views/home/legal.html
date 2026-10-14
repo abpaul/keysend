@@ -1,0 +1,35 @@
+{% extends "home/base.html" %}
+{% block built_with %}{% endblock built_with %}
+{% block main %}
+    <article class="legal">
+      <header class="legal-head">
+        <div class="wrap">
+          <p class="kicker">{% block legal_kicker %}{% endblock legal_kicker %}</p>
+          <h1 class="h-l">{% block legal_title %}{% endblock legal_title %}</h1>
+          <p class="lede">{% block legal_lede %}{% endblock legal_lede %}</p>
+          <p class="legal-date">{% block legal_updated %}{% endblock legal_updated %}</p>
+        </div>
+      </header>
+
+      <div class="wrap legal-grid">
+        <section class="legal-short" id="short" aria-labelledby="short-h">
+          <h2 id="short-h">The short version</h2>
+          <ul>
+{% block legal_short %}{% endblock legal_short %}
+          </ul>
+        </section>
+
+        <nav class="legal-toc" aria-labelledby="toc-h">
+          <h2 id="toc-h">On this page</h2>
+          <ol>
+            <li><a href="#short">The short version</a></li>
+{% block legal_toc %}{% endblock legal_toc %}
+          </ol>
+        </nav>
+
+        <div class="legal-body">
+{% block legal_body %}{% endblock legal_body %}
+        </div>
+      </div>
+    </article>
+{% endblock main %}

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="{{ lang() }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ t(key="not_found_title") }} | KeySend</title>
+  <link rel="icon" href="{{ assets["images/logo.svg"] }}">
+  <link rel="stylesheet" href="{{ assets["styles.css"] }}">
+</head>
+<body class="lost field--ink">
+  <header class="wrap"><a class="brand" href="/"><img src="{{ assets["images/logo-on-plum.svg"] }}" alt="" width="30" height="23">KeySend</a></header>
+  <main class="wrap not-found">
+    <p class="lost-code" aria-hidden="true">404</p>
+    <h1>{{ t(key="not_found_heading") }}</h1>
+    <p>{{ t(key="not_found_text") }}</p>
+    <p><a class="btn btn-citron btn-lg" href="/">{{ t(key="not_found_back") }}</a></p>
+  </main>
+</body>
+</html>

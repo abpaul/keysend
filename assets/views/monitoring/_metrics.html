@@ -1,0 +1,13 @@
+<div class="plain cell">
+  <div class="window-head">
+    <{{ heading | default(value="h2") }} class="heading-m" id="window">{{ t(key="window_last_days", count=window.days) }}</{{ heading | default(value="h2") }}>
+    {% if not example %}{% include "monitoring/_window_switch.html" %}{% endif %}
+  </div>
+  <p class="muted">{% if example %}{{ t(key="window_compared", span=window.span, count=window.days) }}{% else %}{{ t(key="window_comparison", span=window.span, count=window.days) }}{% endif %}</p>
+  {% if explain %}{% set help = explain.metrics %}{% include "monitoring/_explain.html" %}{% endif %}
+</div>
+<dl class="metrics cell" aria-labelledby="window">
+  {% for metric in metrics %}
+  <div class="metric"><dt>{{ metric.label }}</dt><dd class="metric__value{% if metric.value | length > 8 %} metric__value--long{% endif %}">{{ metric.value }}</dd><dd class="metric__change">{% if metric.change %}<b>{{ metric.change }}</b> {% endif %}{{ metric.was }}</dd>{% set spark = metric_sparklines[loop.index0] %}{% if spark %}<dd class="metric__spark">{{ spark | safe }}</dd>{% endif %}{% set link = metric_links[loop.index0] %}{% if link %}<dd class="metric__link"><a href="{{ link.href }}" data-swap{% if link.current %} aria-current="true"{% endif %}>{{ link.label }}</a></dd>{% endif %}</div>
+  {% endfor %}
+</dl>

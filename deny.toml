@@ -1,0 +1,41 @@
+[advisories]
+yanked = "deny"
+ignore = [
+  { id = "RUSTSEC-2026-0194", reason = "quick-xml 0.38 comes from Typst's bibliography reader (citationberg); the Export has no bibliography and reads no XML from a user" },
+  { id = "RUSTSEC-2026-0195", reason = "quick-xml 0.38 comes from Typst's bibliography reader (citationberg); the Export has no bibliography and reads no XML from a user" },
+  { id = "RUSTSEC-2023-0071", reason = "rsa comes from Loco's JWT support (jsonwebtoken); KeySend signs in with session cookies and uses no JWT" },
+  { id = "RUSTSEC-2025-0141", reason = "bincode comes from Typst's syntax highlighter (syntect); no replacement is available in Typst 0.15" },
+  { id = "RUSTSEC-2024-0320", reason = "yaml-rust comes from Typst's syntax highlighter (syntect); no replacement is available in Typst 0.15" },
+  { id = "RUSTSEC-2024-0436", reason = "paste is a build-time macro of Typst's bibliography reader (biblatex)" },
+  { id = "RUSTSEC-2024-0449", reason = "unsafe-libyaml comes from Typst's bibliography reader (hayagriva); the Export has no bibliography" },
+  { id = "RUSTSEC-2026-0206", reason = "rustybuzz shapes the text of the Export in Typst's PDF writer (krilla); no replacement is available in Typst 0.15" },
+  { id = "RUSTSEC-2026-0192", reason = "ttf-parser reads the embedded fonts of the Export in Typst; no replacement is available in Typst 0.15" },
+]
+
+[licenses]
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Zlib",
+  "0BSD",
+  "CC0-1.0",
+  "Unicode-3.0",
+  "CDLA-Permissive-2.0",
+  "MPL-2.0",
+]
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

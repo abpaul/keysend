@@ -1,0 +1,12 @@
+    <div class="field field--ink{% if hero_update %} field--under{% endif %}">
+    <section class="wrap sec" aria-labelledby="problem">
+      <div class="problem-top">
+        <div class="sec-head">
+          <h2 id="problem">{{ title }}</h2>
+          <p>{{ intro }}</p>
+        </div>
+{% if month %}{% include "home/_month.html" %}{% endif %}
+      </div>
+      <p class="definition">{{ definition }}</p>
+    </section>
+    </div>

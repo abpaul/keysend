@@ -1,0 +1,5 @@
+{%- for part in parts -%}
+{%- if part.kind == "campaign" -%}{%- set name = part.text -%}{%- include "email/_campaign_name.html" -%}
+{%- else -%}{{ part.text }}
+{%- endif -%}
+{%- endfor -%}

@@ -1,0 +1,119 @@
+{% extends "app/base.html" %}
+{% block title %}{{ t(key="settings_title", name=ad.name) }}{% endblock title %}
+{% block nav_accounts %} aria-current="page"{% endblock nav_accounts %}
+{% block content %}
+<a class="back-link" href="{{ ad.href }}">{{ t(key="back_to", name=ad.name) }}</a>
+
+<h1 class="heading-xl">{{ t(key="settings_title", name=ad.name) }}</h1>
+
+{% if errors | length > 0 %}
+<div class="error-summary" role="alert" aria-labelledby="error-title">
+  <h2 class="heading-s" id="error-title">{{ t(key="error_summary_title") }}</h2>
+  <ul class="plain-list">
+    {% for error in errors %}
+    <li><a href="#{{ error.field }}">{{ error.message }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
+{% elif saved %}
+<div class="notice" role="status">
+  <p class="notice__title">{{ t(key="saved_title") }}</p>
+</div>
+{% endif %}
+
+<form class="form" method="post" action="/ad-accounts/{{ ad.id }}/settings" enctype="multipart/form-data">
+  <fieldset class="fieldset card">
+    <legend><h2 class="heading-m">{{ t(key="settings_profile_title") }}</h2></legend>
+    <p class="hint">{{ t(key="settings_profile_hint") }}</p>
+    <div class="field">
+      <label class="label" for="goal">{{ t(key="settings_goal_label") }}</label>
+      <select class="input" id="goal" name="goal">
+        <option value=""{% if values.goal == "" %} selected{% endif %}>{{ t(key="settings_goal_none") }}</option>
+        <option value="leads"{% if values.goal == "leads" %} selected{% endif %}>{{ t(key="settings_goal_leads") }}</option>
+        <option value="sales"{% if values.goal == "sales" %} selected{% endif %}>{{ t(key="settings_goal_sales") }}</option>
+        <option value="calls"{% if values.goal == "calls" %} selected{% endif %}>{{ t(key="settings_goal_calls") }}</option>
+        <option value="visits"{% if values.goal == "visits" %} selected{% endif %}>{{ t(key="settings_goal_visits") }}</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="label" for="target">{{ t(key="target_label") }}</label>
+      {% if field_errors.target %}<p class="error-message" id="target-error"><span class="visually-hidden">{{ t(key="error_message", message=field_errors.target) }}</span><span aria-hidden="true">{{ field_errors.target }}</span></p>{% endif %}
+      {% if currency_mark %}
+      <div class="input-prefix">
+        <span aria-hidden="true">{{ currency_mark }}</span>
+        <input class="input input--short num{% if field_errors.target %} input--error{% endif %}" type="text" inputmode="decimal" id="target" name="target_cost" value="{{ values.target_cost }}"{% if field_errors.target %} aria-describedby="target-error" aria-invalid="true"{% endif %}>
+      </div>
+      {% else %}
+      <input class="input input--short num{% if field_errors.target %} input--error{% endif %}" type="text" inputmode="decimal" id="target" name="target_cost" value="{{ values.target_cost }}"{% if field_errors.target %} aria-describedby="target-error" aria-invalid="true"{% endif %}>
+      {% endif %}
+    </div>
+    <div class="field">
+      <label class="label" for="note">{{ t(key="note_label") }}</label>
+      <span class="hint" id="note-hint">{{ t(key="settings_note_hint") }}</span>
+      {% if field_errors.note %}<p class="error-message" id="note-error"><span class="visually-hidden">{{ t(key="error_message", message=field_errors.note) }}</span><span aria-hidden="true">{{ field_errors.note }}</span></p>{% endif %}
+      <textarea class="input{% if field_errors.note %} input--error{% endif %}" id="note" name="note" rows="3" maxlength="500" aria-describedby="note-hint{% if field_errors.note %} note-error{% endif %}"{% if field_errors.note %} aria-invalid="true"{% endif %}>{{ values.note }}</textarea>
+    </div>
+  </fieldset>
+
+  <fieldset class="fieldset card">
+    <legend><h2 class="heading-m">{{ t(key="tracking_title") }}</h2></legend>
+    {% if tracking == "working" %}
+    <p class="hint">{{ t(key="settings_tracking_working") }}</p>
+    {% elif tracking == "too_few_results" %}
+    <p class="hint">{{ t(key="settings_tracking_few") }}</p>
+    {% else %}
+    <p class="hint">{{ t(key="tracking_none") }}</p>
+    {% endif %}
+    <fieldset class="field">
+      <legend class="label">{{ t(key="settings_judge_label") }}</legend>
+      <div class="choices">
+        <label class="choice"><input type="radio" name="judge_by_conversions" value="yes"{% if values.judge %} checked{% endif %}><span>{{ t(key="choice_yes") }}</span></label>
+        <label class="choice"><input type="radio" name="judge_by_conversions" value="no"{% if not values.judge %} checked{% endif %}><span>{{ t(key="choice_no") }} <small>{{ t(key="settings_judge_no_note") }}</small></span></label>
+      </div>
+    </fieldset>
+  </fieldset>
+
+  <fieldset class="fieldset card">
+    <legend><h2 class="heading-m">{{ t(key="settings_branding_title") }}</h2></legend>
+    <p class="hint">{{ t(key="settings_branding_hint") }}</p>
+    <div class="field">
+      <label class="label" for="brand-name">{{ t(key="settings_brand_name") }}</label>
+      {% if field_errors.name %}<p class="error-message" id="brand-name-error"><span class="visually-hidden">{{ t(key="error_message", message=field_errors.name) }}</span><span aria-hidden="true">{{ field_errors.name }}</span></p>{% endif %}
+      <input class="input{% if field_errors.name %} input--error{% endif %}" type="text" id="brand-name" name="name" maxlength="100" value="{{ values.name }}"{% if field_errors.name %} aria-describedby="brand-name-error" aria-invalid="true"{% endif %}>
+    </div>
+    <div class="field">
+      <label class="label" for="brand-logo">{{ t(key="settings_brand_logo") }}</label>
+      <span class="hint" id="logo-hint">{{ t(key="settings_brand_logo_hint") }}{% if has_logo %} {{ t(key="settings_brand_logo_saved") }}{% endif %}</span>
+      {% if field_errors.logo %}<p class="error-message" id="brand-logo-error"><span class="visually-hidden">{{ t(key="error_message", message=field_errors.logo) }}</span><span aria-hidden="true">{{ field_errors.logo }}</span></p>{% endif %}
+      <input class="input-file" type="file" id="brand-logo" name="logo" accept="image/png,image/jpeg" aria-describedby="logo-hint{% if field_errors.logo %} brand-logo-error{% endif %}"{% if field_errors.logo %} aria-invalid="true"{% endif %}>
+    </div>
+    <div class="field">
+      <label class="label" for="brand-colour">{{ t(key="settings_brand_colour") }}</label>
+      <input class="input-colour" type="color" id="brand-colour" name="accent_colour" value="{{ values.accent_colour }}">
+    </div>
+  </fieldset>
+
+  <fieldset class="fieldset card">
+    <legend><h2 class="heading-m">{{ t(key="settings_weekly_title") }}</h2></legend>
+    <p class="hint">{{ t(key="settings_weekly_hint", email=email) }}</p>
+    <fieldset class="field">
+      <legend class="label">{{ t(key="settings_weekly_label") }}</legend>
+      <div class="choices">
+        <label class="choice"><input type="radio" name="weekly_email" value="on"{% if values.weekly_email %} checked{% endif %}><span>{{ t(key="choice_on") }}</span></label>
+        <label class="choice"><input type="radio" name="weekly_email" value="off"{% if not values.weekly_email %} checked{% endif %}><span>{{ t(key="choice_off") }}</span></label>
+      </div>
+    </fieldset>
+  </fieldset>
+
+  <div class="actions">
+    <button class="button" type="submit">{{ t(key="save") }}</button>
+    <a href="/ad-accounts/{{ ad.id }}/remove">{{ t(key="settings_remove_link") }}</a>
+  </div>
+</form>
+
+<section class="card" aria-labelledby="ad-accounts-h">
+  <h2 class="heading-m" id="ad-accounts-h">{{ t(key="settings_your_ad_accounts") }}</h2>
+  {% include "monitoring/_add_ad_account.html" %}
+  <p class="small"><a href="/settings">{{ t(key="connections_and_workspace_link") }}</a></p>
+</section>
+{% endblock content %}

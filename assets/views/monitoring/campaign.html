@@ -1,0 +1,105 @@
+{% extends "app/base.html" %}
+{% block title %}{{ campaign.name }}, {{ ad.name }}{% endblock title %}
+{% block nav_accounts %} aria-current="page"{% endblock nav_accounts %}
+{% block head %}<script defer src="{{ assets["window-switch.js"] }}"></script>{% endblock head %}
+{% block page_class %} page--wide{% endblock page_class %}
+{% block content %}
+<a class="back-link" href="{{ ad.href }}">{{ t(key="back_to", name=ad.name) }}</a>
+
+<div class="page-head">
+  <h1 class="heading-xl">{{ campaign.name }}</h1>
+  <div class="actions">
+    <a class="button" href="{{ export_href }}">{{ t(key="export_pdf") }}</a>
+    <a href="{{ settings_href }}">{{ t(key="settings") }}</a>
+  </div>
+</div>
+
+{% set panel_empty = t(key="campaign_panel_empty") %}
+{% include "monitoring/_recommendations.html" %}
+
+{% if alerts_off %}
+<p class="muted">{{ t(key="campaign_alerts_off") }} {{ t(key="campaign_alerts_off_effect") }} {% set settings_link %}<a href="{{ settings_href }}">{{ t(key="settings") }}</a>{% endset %}{{ t(key="campaign_alerts_change", settings=settings_link) }}</p>
+{% endif %}
+
+{% if campaign_not_judged %}
+<div class="notice">
+  <h2 class="notice__title">{{ t(key="campaign_not_judged_title") }}</h2>
+  <p>{{ t(key="campaign_not_judged_text") }}</p>
+</div>
+{% else %}
+{% include "monitoring/_notice.html" %}
+{% endif %}
+
+<div class="bento">
+  {% include "monitoring/_metrics.html" %}
+
+  <section class="card cell cell--8" aria-labelledby="trend">
+    {% set chart = trend %}{% set chart_id = "trend" %}{% set chart_kind = "trend" %}{% include "monitoring/_chart.html" %}
+    <h3 class="heading-s">{{ t(key="campaign_changes_title") }}</h3>
+    {% if changes | length > 0 %}
+    <ul class="list">
+      {% for change in changes %}
+      <li>{% if change.english %}{% set change_text %}<span lang="en">{{ change.text }}</span>{% endset %}{{ t(key="campaign_change_line", date=change.date, text=change_text) }}{% else %}{{ t(key="campaign_change_line", date=change.date, text=change.text) }}{% endif %}{% if change.follow_up %} <span class="follow-up">{{ change.follow_up }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">{{ t(key="campaign_changes_none") }}</p>
+    {% endif %}
+  </section>
+
+  <section class="card cell cell--4" aria-labelledby="updates">
+    <h2 class="heading-m" id="updates">{{ t(key="campaign_updates_title") }}</h2>
+    {% if lines | length > 0 %}
+    <ol class="plain-list updates">
+      {% for line in lines %}{% if loop.index0 < 3 %}
+      <li>
+        <h3>{{ line.date }}</h3>
+        <p>{% set parts = line.text %}{% include "monitoring/_parts.html" %}</p>
+        {% if line.cause %}<p class="cause"><b>{{ line.cause.label }}</b> {% set parts = line.cause.evidence %}{% include "monitoring/_parts.html" %}</p>{% endif %}
+      </li>
+      {% endif %}{% endfor %}
+    </ol>
+    {% if lines | length > 3 %}
+    <details class="more">
+      <summary>{{ t(key="show_more_updates", count=lines | length - 3) }}</summary>
+      <ol class="plain-list updates" start="4">
+        {% for line in lines %}{% if loop.index0 >= 3 %}
+        <li>
+          <h3>{{ line.date }}</h3>
+          <p>{% set parts = line.text %}{% include "monitoring/_parts.html" %}</p>
+          {% if line.cause %}<p class="cause"><b>{{ line.cause.label }}</b> {% set parts = line.cause.evidence %}{% include "monitoring/_parts.html" %}</p>{% endif %}
+        </li>
+        {% endif %}{% endfor %}
+      </ol>
+    </details>
+    {% endif %}
+    {% else %}
+    <p class="muted">{{ t(key="campaign_updates_none") }}</p>
+    {% endif %}
+  </section>
+
+  <div class="flow cell">
+    {% if cost_weeks %}
+    <section class="card" aria-labelledby="cost-weeks">
+      {% set chart = cost_weeks %}{% set chart_id = "cost-weeks" %}{% set chart_kind = "weeks" %}{% include "monitoring/_chart.html" %}
+    </section>
+    {% endif %}
+
+    {% if search_share %}
+    <section class="card" aria-labelledby="search-share">
+      {% set chart = search_share %}{% set chart_id = "search-share" %}{% set chart_kind = "stack" %}{% include "monitoring/_chart.html" %}
+    </section>
+    {% endif %}
+
+    <section class="card" aria-labelledby="device-shares">
+      {% set chart = device_shares %}{% set chart_id = "device-shares" %}{% set chart_kind = "shares" %}{% include "monitoring/_chart.html" %}
+    </section>
+
+    <section class="card" aria-labelledby="network-shares">
+      {% set chart = network_shares %}{% set chart_id = "network-shares" %}{% set chart_kind = "shares" %}{% include "monitoring/_chart.html" %}
+    </section>
+  </div>
+</div>
+
+{% include "monitoring/_deep_check.html" %}
+{% endblock content %}

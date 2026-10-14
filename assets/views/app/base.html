@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="{{ lang() }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% block robots %}<meta name="robots" content="noindex">{% endblock robots %}
+  <title>{% block title %}{% endblock title %} | KeySend</title>
+  <link rel="icon" type="image/svg+xml" href="{{ assets["images/logo.svg"] }}">
+  <link rel="stylesheet" href="{{ assets["parts.css"] }}">
+  <link rel="stylesheet" href="{{ assets["app.css"] }}">
+  {% block head %}{% endblock head %}
+</head>
+<body{% block body_attrs %}{% endblock body_attrs %}>
+  <a class="skip-link" href="#main">{{ t(key="skip_to_main") }}</a>
+  <header class="site-header">
+    <div class="wrap site-header__in">
+      <a class="brand" href="/"><img src="{{ assets["images/logo-on-plum.svg"] }}" alt="" width="30" height="23">KeySend</a>
+      {% block nav %}
+      <nav class="site-nav" aria-label="{{ t(key="nav_main_label") }}">
+        <a href="/ad-accounts"{% block nav_accounts %}{% endblock nav_accounts %}>{{ t(key="ad_accounts") }}</a>
+        <a href="/subscription"{% block nav_subscription %}{% endblock nav_subscription %}>{{ t(key="subscription") }}</a>
+        <form method="post" action="/sign-out"><button class="link-button" type="submit">{{ t(key="sign_out") }}</button></form>
+      </nav>
+      {% endblock nav %}
+    </div>
+  </header>
+  <main class="wrap page{% block page_class %}{% endblock page_class %}" id="main">
+    <div class="column">
+      {% block content %}{% endblock content %}
+    </div>
+  </main>
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>{{ t(key="footer_read_only") }}</p>
+      {% block footer %}{% endblock footer %}
+    </div>
+  </footer>
+</body>
+</html>

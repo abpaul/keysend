@@ -1,0 +1,11 @@
+    <div class="field field--ink field--tight">
+    <nav class="wrap sec others" aria-labelledby="others">
+      <h2 id="others">{{ t(key="for_other_title") }}</h2>
+      <ul>
+        {% if path != "/for/business-owners" %}<li><a href="/for/business-owners">{{ t(key="for_owners_link") }}</a></li>{% endif %}
+        {% if path != "/for/agency-clients" %}<li><a href="/for/agency-clients">{{ t(key="for_agency_link") }}</a></li>{% endif %}
+        {% if path != "/for/marketing-managers" %}<li><a href="/for/marketing-managers">{{ t(key="for_managers_link") }}</a></li>{% endif %}
+        <li><a href="/">{{ t(key="for_home_link") }}</a></li>
+      </ul>
+    </nav>
+    </div>

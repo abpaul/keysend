@@ -1,0 +1,27 @@
+{% set names_campaigns = chart_id == "campaign-shares" or chart_id == "search-share" %}
+<{{ heading | default(value="h2") }} class="heading-m" id="{{ chart_id }}">{{ chart.title }}</{{ heading | default(value="h2") }}>
+<p class="chart-say">{% if chart.sentence.strong %}<b{% if names_campaigns %} class="campaign-name"{% endif %}>{{ chart.sentence.strong }}</b> {% endif %}{{ chart.sentence.text }}{% if chart.sentence.mark %}<mark class="chart-say__point">{{ chart.sentence.mark }}</mark>{% endif %}{{ chart.sentence.after }}</p>
+{% if chart.table %}
+<a class="chart-skip" href="#{{ chart_id }}-end">{{ t(key="chart_skip") }}</a>
+<figure class="chart chart--{{ chart_kind }}" aria-labelledby="{{ chart_id }}">
+  {% if chart.svg %}{{ chart.svg | safe }}{% endif %}
+  {% for row in chart.rows %}
+  <div class="chart__row">{% if row.href %}<a{% if names_campaigns %} class="campaign-name"{% endif %} href="{{ row.href }}">{{ row.name }}</a>{% elif names_campaigns %}<span><b class="campaign-name">{{ row.name }}</b></span>{% else %}<span>{{ row.name }}</span>{% endif %}{{ row.svg | safe }}</div>
+  {% endfor %}
+  <ul class="plain-list chart__keys">
+    {% for key in chart.keys %}<li><i class="key key--{{ key.kind }}"></i>{{ key.label }}</li>{% endfor %}
+  </ul>
+  <div class="visually-hidden">
+  <table>
+    <caption>{{ chart.table.caption }}</caption>
+    <thead><tr>{% for header in chart.table.headers %}<th scope="col">{{ header }}</th>{% endfor %}</tr></thead>
+    <tbody>
+      {% for row in chart.table.rows %}{% set row_index = loop.index0 %}<tr>{% for cell in row %}{% if loop.first %}<th scope="row">{{ cell }}</th>{% elif loop.last and chart.table.english_last | length > 0 and chart.table.english_last[row_index] %}<td lang="en">{{ cell }}</td>{% else %}<td>{{ cell }}</td>{% endif %}{% endfor %}</tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</figure>
+<span id="{{ chart_id }}-end" tabindex="-1"></span>
+{% endif %}
+{% if explain and chart.table %}{% set help = explain | get(key=chart_id, default=false) %}{% if help %}{% include "monitoring/_explain.html" %}{% endif %}{% endif %}

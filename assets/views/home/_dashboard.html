@@ -1,0 +1,20 @@
+    <div class="field field--plum">
+    <section class="wrap sec" aria-labelledby="dashboard">
+      <div class="sec-head">
+        <h2 id="dashboard">{{ title }}</h2>
+        <p>{{ t(key="home_dashboard_intro") }}</p>
+      </div>
+      {% set heading = "h3" %}
+      <figure class="demo stage">
+        <div class="bento">
+          {% include "monitoring/_metrics.html" %}
+          <section class="card cell cell--8" aria-labelledby="trend">
+            {% set chart = trend %}{% set chart_id = "trend" %}{% set chart_kind = "trend" %}{% include "monitoring/_chart.html" %}
+          </section>
+          <section class="card cell cell--4" aria-labelledby="campaign-shares">
+            {% set chart = campaign_shares %}{% set chart_id = "campaign-shares" %}{% set chart_kind = "shares" %}{% include "monitoring/_chart.html" %}
+          </section>
+        </div>
+      </figure>
+    </section>
+    </div>

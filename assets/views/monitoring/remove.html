@@ -1,0 +1,17 @@
+{% extends "app/base.html" %}
+{% block title %}{{ t(key="remove_title", name=ad.name) }}{% endblock title %}
+{% block nav_accounts %} aria-current="page"{% endblock nav_accounts %}
+{% block content %}
+<a class="back-link" href="{{ ad.settings_href }}">{{ t(key="back_to_settings") }}</a>
+
+<h1 class="heading-xl">{{ t(key="remove_title", name=ad.name) }}</h1>
+
+<div class="card">
+  <p class="lead">{{ t(key="remove_ad_account_lead") }}</p>
+  <p>{{ t(key="remove_ad_account_detail") }}</p>
+  <form class="actions" method="post" action="/ad-accounts/{{ ad.id }}/remove">
+    <button class="button button--warning" type="submit">{{ t(key="remove_named", name=ad.name) }}</button>
+    <a href="{{ ad.settings_href }}">{{ t(key="cancel") }}</a>
+  </form>
+</div>
+{% endblock content %}

@@ -1,0 +1,18 @@
+    <div class="field field--citron">
+    <section class="wrap sec" aria-labelledby="price">
+      <div class="sec-head">
+        <h2 id="price">{{ t(key="home_price_title") }}</h2>
+        <p>{{ t(key="home_price_intro") }}</p>
+      </div>
+      <div class="price">
+        <dl>
+          <div><dt>{{ t(key="home_price_trial") }}</dt><dd class="kpi">{{ t(key="home_price_trial_days", trial_days=trial_days) }}</dd><dd>{{ t(key="home_price_trial_note") }}</dd></div>
+          <div><dt>{{ t(key="subscription") }}</dt><dd class="kpi">{{ price_text }}</dd><dd>{{ t(key="home_price_per_month", count=limit) }}</dd></div>
+        </dl>
+        <div class="cta">
+          <a class="btn btn-primary btn-lg" href="/sign-in?from={{ from }}">{{ t(key="home_start_trial", trial_days=trial_days) }}</a>
+          <p>{% set link %}<a href="/terms">{{ t(key="home_price_terms_link") }}</a>{% endset %}{{ t(key="home_price_after", link=link) }}</p>
+        </div>
+      </div>
+    </section>
+    </div>

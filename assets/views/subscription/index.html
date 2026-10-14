@@ -1,0 +1,64 @@
+{% extends "app/base.html" %}
+{% block title %}{{ t(key="subscription") }}{% endblock title %}
+{% block nav_subscription %} aria-current="page"{% endblock nav_subscription %}
+{% block content %}
+      <h1 class="heading-xl">{{ t(key="subscription") }}</h1>
+
+      {% if returned %}
+      <div class="notice" role="status">
+        <p class="notice__title">{{ t(key="subscription_waiting_title") }}</p>
+        <p>{{ t(key="subscription_waiting_hint") }}</p>
+      </div>
+      {% elif over_limit and state != "active" %}
+      <div class="notice" role="status">
+        <p class="notice__title">{{ t(key="subscription_over_limit", count=ad_account_limit, ad_accounts=ad_accounts) }}</p>
+        <p>{{ t(key="subscription_over_limit_action", count=excess) }}</p>
+      </div>
+      {% elif not ready and state != "active" %}
+      <div class="notice" role="status">
+        <p class="notice__title">{{ t(key="subscription_unavailable") }}</p>
+      </div>
+      {% endif %}
+
+      <div class="card">
+        {% if state == "trial" %}
+        <p class="lead">{{ t(key="subscription_trial_left", count=days_left, date=trial_ends_on) }}</p>
+        <p>{{ t(key="subscription_trial_note") }}</p>
+        {% elif state == "payment_due" %}
+        <p class="lead">{{ t(key="subscription_payment_failed") }}</p>
+        <p>{{ t(key="subscription_payment_failed_action") }}</p>
+        {% elif state == "ended" %}
+        {% if had_subscription %}
+        <p class="lead">{{ t(key="subscription_inactive") }}</p>
+        {% else %}
+        <p class="lead">{{ t(key="subscription_trial_ended", date=trial_ends_on) }}</p>
+        {% endif %}
+        <p>{{ t(key="subscription_restart") }}</p>
+        {% else %}
+        <p class="lead">{{ t(key="subscription_active", price=price, date=next_payment_on) }}</p>
+        {% endif %}
+
+        <dl class="summary">
+          <div><dt>{{ t(key="subscription_price_label") }}</dt><dd class="num">{{ t(key="subscription_price_value", price=price) }}</dd></div>
+          <div><dt>{{ t(key="ad_accounts") }}</dt><dd>{{ t(key="subscription_limit_value", limit=ad_account_limit, used=ad_accounts) }}</dd></div>
+          {% if state == "trial" %}
+          <div><dt>{{ t(key="subscription_first_payment") }}</dt><dd>{{ t(key="subscription_first_payment_start") }}</dd></div>
+          {% elif state == "ended" %}
+          <div><dt>{{ t(key="subscription_first_payment") }}</dt><dd>{{ t(key="subscription_first_payment_today") }}</dd></div>
+          {% else %}
+          <div><dt>{{ t(key="subscription_started") }}</dt><dd>{{ started_on }}</dd></div>
+          {% endif %}
+        </dl>
+
+        {% if state == "active" or state == "payment_due" %}
+        <div class="actions">
+          <form method="post" action="/subscription/portal"><button class="button" type="submit">{{ t(key="subscription_change_card") }}</button></form>
+          <form method="post" action="/subscription/portal"><button class="link-button" type="submit">{{ t(key="subscription_cancel") }}</button></form>
+        </div>
+        {% else %}
+        <form class="actions" method="post" action="/subscription">
+          <button class="button" type="submit"{% if not ready or over_limit %} disabled{% endif %}>{{ t(key="subscription_start") }}</button>
+        </form>
+        {% endif %}
+      </div>
+{% endblock content %}

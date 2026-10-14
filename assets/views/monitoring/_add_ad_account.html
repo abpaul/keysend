@@ -1,0 +1,11 @@
+<p>{{ t(key="add_usage", count=add.limit, used=add.used) }}</p>
+{% if add.can_add %}
+<div class="actions">
+  {% for connection in add.google_connections %}
+  <form method="post" action="/connections/{{ connection.id }}/ad-accounts"><button class="button" type="submit">{% if add.google_connections | length > 1 %}{{ t(key="add_ad_account_from", email=connection.email) }}{% else %}{{ t(key="add_ad_account") }}{% endif %}</button></form>
+  {% endfor %}
+  {% if add.google_connections | length == 0 %}<a class="button" href="/connect">{{ t(key="add_ad_account") }}</a>{% endif %}
+</div>
+{% elif add.used >= add.limit %}
+<p class="small muted">{{ t(key="add_remove_first") }}</p>
+{% endif %}

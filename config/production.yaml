@@ -1,0 +1,47 @@
+logger:
+  enable: true
+  pretty_backtrace: false
+  level: <%= get_env(name="LOG_LEVEL", default="info") %>
+  format: json
+
+server:
+  port: <%= get_env(name="PORT", default="5150") %>
+  binding: 0.0.0.0
+  host: <%= get_env(name="HOST") %>
+  ident: ""
+  middlewares:
+    static:
+      enable: false
+    fallback:
+      enable: false
+
+workers:
+  mode: BackgroundQueue
+
+queue:
+  kind: Sqlite
+  uri: <%= get_env(name="DATABASE_URL") %>
+  dangerously_flush: false
+  num_workers: 4
+  reaper:
+    age_minutes: 6
+    interval_seconds: 60
+
+database:
+  uri: <%= get_env(name="DATABASE_URL") %>
+  enable_logging: false
+  connect_timeout: 10000
+  idle_timeout: 600000
+  min_connections: 1
+  max_connections: 10
+  auto_migrate: true
+  dangerously_truncate: false
+  dangerously_recreate: false
+
+settings:
+  google:
+    authorization_url: https://accounts.google.com/o/oauth2/v2/auth
+    token_url: https://oauth2.googleapis.com/token
+    userinfo_url: https://openidconnect.googleapis.com/v1/userinfo
+    ads_api_base: https://googleads.googleapis.com/v25
+    daily_limit: 2880

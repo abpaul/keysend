@@ -1,0 +1,90 @@
+{% extends "app/base.html" %}
+{% block title %}{{ t(key="campaign_settings_title", campaign=campaign.name, ad_account=ad.name) }}{% endblock title %}
+{% block nav_accounts %} aria-current="page"{% endblock nav_accounts %}
+{% block content %}
+<a class="back-link" href="{{ campaign.href }}">{{ t(key="back_to", name=campaign.name) }}</a>
+
+<h1 class="heading-xl">{{ t(key="campaign_settings_heading", campaign=campaign.name) }}</h1>
+
+{% if errors | length > 0 %}
+<div class="error-summary" role="alert" aria-labelledby="error-title">
+  <h2 class="heading-s" id="error-title">{{ t(key="error_summary_title") }}</h2>
+  <ul class="plain-list">
+    {% for error in errors %}
+    <li><a href="#{{ error.field }}">{{ error.message }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
+{% elif saved %}
+<div class="notice" role="status">
+  <p class="notice__title">{{ t(key="saved_title") }}</p>
+</div>
+{% endif %}
+
+<form class="form" method="post" action="{{ action }}">
+  <fieldset class="fieldset card">
+    <legend><h2 class="heading-m">{{ t(key="campaign_profile_title") }}</h2></legend>
+    <p class="hint">{{ t(key="campaign_profile_hint", ad_account=ad.name) }}</p>
+    <div class="field">
+      <label class="label" for="target">{{ t(key="target_label") }}</label>
+      <span class="hint" id="target-hint">{% if account.target %}{{ t(key="campaign_target_hint_set", target=account.target) }}{% else %}{{ t(key="campaign_target_hint_none") }}{% endif %}</span>
+      {% if field_errors.target %}<p class="error-message" id="target-error"><span class="visually-hidden">{{ t(key="error_message", message=field_errors.target) }}</span><span aria-hidden="true">{{ field_errors.target }}</span></p>{% endif %}
+      {% if currency_mark %}
+      <div class="input-prefix">
+        <span aria-hidden="true">{{ currency_mark }}</span>
+        <input class="input input--short num{% if field_errors.target %} input--error{% endif %}" type="text" inputmode="decimal" id="target" name="target_cost" value="{{ values.target_cost }}" aria-describedby="target-hint{% if field_errors.target %} target-error{% endif %}"{% if field_errors.target %} aria-invalid="true"{% endif %}>
+      </div>
+      {% else %}
+      <input class="input input--short num{% if field_errors.target %} input--error{% endif %}" type="text" inputmode="decimal" id="target" name="target_cost" value="{{ values.target_cost }}" aria-describedby="target-hint{% if field_errors.target %} target-error{% endif %}"{% if field_errors.target %} aria-invalid="true"{% endif %}>
+      {% endif %}
+    </div>
+    <div class="field">
+      <label class="label" for="note">{{ t(key="note_label") }}</label>
+      <span class="hint" id="note-hint">{{ t(key="campaign_note_hint") }}</span>
+      {% if field_errors.note %}<p class="error-message" id="note-error"><span class="visually-hidden">{{ t(key="error_message", message=field_errors.note) }}</span><span aria-hidden="true">{{ field_errors.note }}</span></p>{% endif %}
+      <textarea class="input{% if field_errors.note %} input--error{% endif %}" id="note" name="note" rows="3" maxlength="{{ note_length }}" aria-describedby="note-hint{% if field_errors.note %} note-error{% endif %}"{% if field_errors.note %} aria-invalid="true"{% endif %}>{{ values.note }}</textarea>
+    </div>
+  </fieldset>
+
+  <fieldset class="fieldset card">
+    <legend><h2 class="heading-m">{{ t(key="tracking_title") }}</h2></legend>
+    {% if tracking == "working" %}
+    <p class="hint">{{ t(key="campaign_tracking_working") }}</p>
+    {% elif tracking == "too_few_results" %}
+    <p class="hint">{{ t(key="campaign_tracking_few") }}</p>
+    {% else %}
+    <p class="hint">{{ t(key="tracking_none") }}</p>
+    {% endif %}
+    {% if yes_has_no_effect %}
+    <p class="hint">{{ t(key="campaign_yes_no_effect") }}</p>
+    {% endif %}
+    <fieldset class="field">
+      <legend class="label">{{ t(key="campaign_judge_label") }}</legend>
+      <div class="choices">
+        <label class="choice"><input type="radio" name="judge_by_conversions" value="inherit"{% if values.judge == "inherit" %} checked{% endif %}><span>{{ t(key="use_account_setting") }} <small>{% if account.judged %}{{ t(key="campaign_now_yes") }}{% else %}{{ t(key="campaign_now_no") }}{% endif %}</small></span></label>
+        <label class="choice"><input type="radio" name="judge_by_conversions" value="yes"{% if values.judge == "yes" %} checked{% endif %}><span>{{ t(key="choice_yes") }}</span></label>
+        <label class="choice"><input type="radio" name="judge_by_conversions" value="no"{% if values.judge == "no" %} checked{% endif %}><span>{{ t(key="choice_no") }} <small>{{ t(key="campaign_judge_no_note") }}</small></span></label>
+      </div>
+    </fieldset>
+  </fieldset>
+
+  <fieldset class="fieldset card">
+    <legend><h2 class="heading-m">{{ t(key="alerts_title") }}</h2></legend>
+    <p class="hint">{{ t(key="campaign_alerts_hint") }}</p>
+    {% if alerts_off %}<p class="hint"><b>{{ t(key="campaign_alerts_off") }}</b> {{ t(key="campaign_alerts_off_effect") }}</p>{% endif %}
+    <fieldset class="field">
+      <legend class="label">{{ t(key="campaign_alerts_label") }}</legend>
+      <div class="choices">
+        <label class="choice"><input type="radio" name="alerts" value="inherit"{% if values.alerts == "inherit" %} checked{% endif %}><span>{{ t(key="use_account_setting") }} <small>{% if account.alerts %}{{ t(key="campaign_now_on") }}{% else %}{{ t(key="campaign_now_off") }}{% endif %}</small></span></label>
+        <label class="choice"><input type="radio" name="alerts" value="on"{% if values.alerts == "on" %} checked{% endif %}><span>{{ t(key="choice_on") }}</span></label>
+        <label class="choice"><input type="radio" name="alerts" value="off"{% if values.alerts == "off" %} checked{% endif %}><span>{{ t(key="choice_off") }}</span></label>
+      </div>
+    </fieldset>
+  </fieldset>
+
+  <div class="actions">
+    <button class="button" type="submit">{{ t(key="save") }}</button>
+    <a href="{{ campaign.href }}">{{ t(key="back_to", name=campaign.name) }}</a>
+  </div>
+</form>
+{% endblock content %}

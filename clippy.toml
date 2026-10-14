@@ -1,0 +1,3 @@
+disallowed-methods = [
+  { path = "chrono::Utc::now", reason = "read product dates from Settings::now() and machine time from settings::wall_clock()" },
+]

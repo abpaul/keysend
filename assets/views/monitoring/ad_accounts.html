@@ -1,0 +1,31 @@
+{% extends "app/base.html" %}
+{% block title %}{{ t(key="ad_accounts") }}{% endblock title %}
+{% block nav_accounts %} aria-current="page"{% endblock nav_accounts %}
+{% block content %}
+<h1 class="heading-xl">{{ t(key="ad_accounts") }}</h1>
+
+{% if accounts | length > 0 %}
+<ul class="plain-list accounts">
+  {% for account in accounts %}
+  <li class="card">
+    <h2 class="heading-m"><a href="{{ account.href }}">{{ account.name }}</a></h2>
+    {% if account.update %}
+    <p{% if account.update.english %} lang="en"{% endif %}>{{ account.update.sentence }}</p>
+    <p class="small muted">{{ t(key="ad_accounts_update_of", date=account.update.date) }}</p>
+    {% else %}
+    <p class="muted">{{ t(key="ad_accounts_no_update") }}</p>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="card">
+  <p class="muted">{{ t(key="ad_accounts_empty") }}</p>
+</div>
+{% endif %}
+
+<div class="plain">
+  {% include "monitoring/_add_ad_account.html" %}
+  <p class="small"><a href="/settings">{{ t(key="connections_and_workspace_link") }}</a></p>
+</div>
+{% endblock content %}

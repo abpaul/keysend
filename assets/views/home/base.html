@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="{{ lang() }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock title %}</title>
+  <meta name="description" content="{% block description %}{% endblock description %}">
+{%- block head_extra %}{% endblock head_extra %}
+  <link rel="icon" type="image/svg+xml" href="{{ assets["images/logo.svg"] }}">
+  <link rel="stylesheet" href="{{ assets["styles.css"] }}">
+{% include "home/_visits.html" %}
+</head>
+<body class="lp">
+  <a class="skip" href="#main">{{ t(key="skip_to_main") }}</a>
+  <div class="lp-top field--plum">
+    <header class="wrap lp-nav">
+      <a class="brand" href="/"><img src="{{ assets["images/logo-on-plum.svg"] }}" alt="" width="30" height="23">KeySend</a>
+      <nav class="links" aria-label="{{ t(key="nav_main_label") }}">
+        <a href="/#price">{{ t(key="home_nav_price") }}</a>
+        <a href="/sign-in">{{ t(key="home_nav_sign_in") }}</a>
+        <a class="btn btn-citron btn-sm" href="/sign-in?from={{ nav_from | default(value="nav") }}">{{ t(key="home_nav_start_trial") }}</a>
+      </nav>
+    </header>
+  </div>
+
+  <main id="main">
+{% block main %}{% endblock main %}
+  </main>
+
+{% block built_with %}
+  <section class="built-with" aria-labelledby="built-with-h">
+    <div class="wrap">
+      <h2 id="built-with-h">{{ t(key="home_built_with") }}</h2>
+      <ul>
+        <li><a href="https://www.rust-lang.org/"><img src="{{ assets["images/built-with/rust.svg"] }}" alt="" width="32" height="32"><span>Rust</span></a></li>
+        <li><a href="https://loco.rs/"><img src="{{ assets["images/built-with/loco.svg"] }}" alt="" width="32" height="32"><span>Loco</span></a></li>
+        <li><a href="https://postdeploy.dev/"><img src="{{ assets["images/built-with/postdeploy.svg"] }}" alt="" width="32" height="32"><span>postdeploy.</span></a></li>
+        <li><a href="https://www.ovhcloud.com/"><img src="{{ assets["images/built-with/ovhcloud.svg"] }}" alt="OVHcloud" width="152" height="24"></a></li>
+      </ul>
+    </div>
+  </section>
+{% endblock built_with %}
+
+  <footer class="lp-foot field--ink">
+    <div class="wrap">
+      <a class="brand" href="/"><img src="{{ assets["images/logo-on-plum.svg"] }}" alt="" width="30" height="23">KeySend</a>
+      <span>{{ t(key="footer_read_only") }}</span>
+      <nav aria-label="{{ t(key="home_footer_label") }}">
+        <a href="/for/business-owners">{{ t(key="for_owners_link") }}</a>
+        <a href="/for/agency-clients">{{ t(key="for_agency_link") }}</a>
+        <a href="/for/marketing-managers">{{ t(key="for_managers_link") }}</a>
+        <a href="/resources">{{ t(key="content_resources_label") }}</a>
+        <a href="/privacy">{{ t(key="footer_privacy") }}</a>
+        <a href="/terms">{{ t(key="footer_terms") }}</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,16 @@
+target
+.git
+.github
+.env
+.impeccable
+*.sqlite
+*.sqlite-*
+assets/*.png
+docs
+prototype
+spikes
+tests
+README.md
+CONTEXT.md
+
+assets/.cache

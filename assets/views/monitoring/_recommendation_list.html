@@ -1,0 +1,21 @@
+    <ol class="plain-list recommendations">
+      {% for recommendation in recommendations %}
+      <li>
+        <dl class="parts">
+          {% if recommendation.finding %}<div><dt>{{ t(key="recommendation_finding") }}</dt><dd>{% set parts = recommendation.finding %}{% include "monitoring/_parts.html" %}</dd></div>{% endif %}
+          <div><dt>{{ t(key="recommendation_impact") }}</dt><dd>{% set parts = recommendation.impact %}{% include "monitoring/_parts.html" %}</dd></div>
+          <div class="parts__action"><dt>{{ t(key="recommendation_action") }}</dt><dd>{% set parts = recommendation.action_parts %}{% include "monitoring/_parts.html" %}</dd></div>
+          <div><dt>{{ t(key="recommendation_evidence") }}</dt><dd>{% set parts = recommendation.evidence %}{% include "monitoring/_parts.html" %}</dd></div>
+        </dl>
+        {% if not example %}
+        <form class="actions small" method="post" action="/ad-accounts/{{ ad.id }}/recommendations">
+          <input type="hidden" name="finding_key" value="{{ recommendation.finding_key }}">
+          <input type="hidden" name="window" value="{{ return_to.window }}">
+          {% if return_to.campaign %}<input type="hidden" name="campaign" value="{{ return_to.campaign }}">{% endif %}
+          <button class="link-button" type="submit" name="state" value="done">{{ t(key="recommendation_done") }}<span class="visually-hidden">{% if recommendation.action_english %}{% set detail %}<span lang="en">{{ recommendation.action }}</span>{% endset %}{{ t(key="hidden_detail", detail=detail) }}{% else %}{{ t(key="hidden_detail", detail=recommendation.action) }}{% endif %}</span></button>
+          <button class="link-button" type="submit" name="state" value="not_useful">{{ t(key="not_useful") }}<span class="visually-hidden">{% if recommendation.action_english %}{% set detail %}<span lang="en">{{ recommendation.action }}</span>{% endset %}{{ t(key="hidden_detail", detail=detail) }}{% else %}{{ t(key="hidden_detail", detail=recommendation.action) }}{% endif %}</span></button>
+        </form>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ol>

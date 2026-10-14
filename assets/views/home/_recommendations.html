@@ -1,0 +1,15 @@
+    <div class="field field--citron">
+    <section class="wrap sec" aria-labelledby="recommendations">
+      <div class="sec-head">
+        <h2 id="recommendations">{{ title }}</h2>
+        <p>{{ t(key="home_rec_intro") }}</p>
+        <p>{{ outro }}</p>
+      </div>
+      {% set heading = "h3" %}
+      <figure class="demo lifted">
+        <div class="card">
+{% include "monitoring/_recommendation_list.html" %}
+        </div>
+      </figure>
+    </section>
+    </div>

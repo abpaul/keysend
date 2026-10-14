@@ -1,0 +1,49 @@
+{% extends "app/base.html" %}
+{% block title %}{{ t(key="workspace_heading") }}{% endblock title %}
+{% block nav_accounts %} aria-current="page"{% endblock nav_accounts %}
+{% block content %}
+<a class="back-link" href="/ad-accounts">{{ t(key="back_to_ad_accounts") }}</a>
+
+<h1 class="heading-xl">{{ t(key="workspace_heading") }}</h1>
+
+<section class="card" aria-labelledby="connections-h">
+  <h2 class="heading-m" id="connections-h">{{ t(key="google_connections_heading") }}</h2>
+  {% if google_connections | length > 0 %}
+  <p class="small muted">{{ t(key="google_connections_count", count=google_connections | length) }}</p>
+  <ul class="plain-list">
+    {% for connection in google_connections %}
+    <li>{{ connection.email }} <a href="/remove/connections/{{ connection.id }}">{{ t(key="remove") }}<span class="visually-hidden"> {{ connection.email }}</span></a></li>
+    {% endfor %}
+  </ul>
+  <p class="small muted">{{ t(key="removing_connection_note") }}</p>
+  {% else %}
+  <p class="muted">{{ t(key="no_google_connection") }}</p>
+  {% endif %}
+</section>
+
+{% if languages | length > 1 %}
+<section class="card" aria-labelledby="language-h">
+  <h2 class="heading-m" id="language-h">{{ t(key="language_heading") }}</h2>
+  <form class="form" method="post" action="/settings/language">
+    <div class="field">
+      <label class="label" for="language">{{ t(key="language_label") }}</label>
+      <span class="hint" id="language-hint">{{ t(key="language_hint") }}</span>
+      <select class="input" id="language" name="language" aria-describedby="language-hint">
+        {% for language in languages %}
+        <option value="{{ language.code }}"{% if language.selected %} selected{% endif %}>{{ language.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="actions">
+      <button class="button" type="submit">{{ t(key="save") }}</button>
+    </div>
+  </form>
+</section>
+{% endif %}
+
+<section class="card" aria-labelledby="delete-h">
+  <h2 class="heading-m" id="delete-h">{{ t(key="delete_workspace") }}</h2>
+  <p>{{ t(key="delete_workspace_summary", email=email) }}</p>
+  <p><a href="/remove/workspaces/{{ workspace_id }}">{{ t(key="delete_workspace") }}</a></p>
+</section>
+{% endblock content %}

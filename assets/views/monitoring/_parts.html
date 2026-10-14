@@ -1,0 +1,9 @@
+{%- for part in parts -%}
+{%- if part.english -%}<span lang="en">{%- endif -%}
+{%- if part.kind == "campaign" and part.href -%}<a class="campaign-name" href="{{ part.href }}">{{ part.text }}</a>
+{%- elif part.kind == "campaign" -%}<b class="campaign-name">{{ part.text }}</b>
+{%- elif part.kind == "mark" -%}<mark>{{ part.text }}</mark>
+{%- else -%}{{ part.text }}
+{%- endif -%}
+{%- if part.english -%}</span>{%- endif -%}
+{%- endfor -%}

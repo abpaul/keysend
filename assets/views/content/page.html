@@ -1,0 +1,20 @@
+{% extends "home/base.html" %}
+{% block title %}{{ entry.title }} | KeySend{% endblock title %}
+{% block description %}{{ entry.description }}{% endblock description %}
+{% block head_extra %}
+  <link rel="canonical" href="https://keysend.app{{ entry.path }}">
+  <meta property="og:type" content="{% if entry.kind == "tool" %}website{% else %}article{% endif %}">
+  <meta property="og:site_name" content="KeySend">
+  <meta property="og:url" content="https://keysend.app{{ entry.path }}">
+  <meta property="og:title" content="{{ entry.title }}">
+  <meta property="og:description" content="{{ entry.description }}">
+{% if entry.kind != "tool" %}  <meta property="article:published_time" content="{{ entry.publish_at }}">
+{% endif %}  <link rel="alternate" type="application/rss+xml" title="KeySend" href="/feed.xml">
+  <script type="application/ld+json">{{ schema | safe }}</script>
+{% endblock head_extra %}
+{% block main %}
+{{ entry.body_html | safe }}
+<aside class="wrap lp-sec prose try" aria-labelledby="try-keysend"><div class="box"><h2 class="h-m" id="try-keysend">{{ t(key="content_cta_title") }}</h2><p>{{ t(key="content_cta_text") }}</p><div class="cta"><a class="btn btn-primary btn-lg" href="/sign-in?from=resource">{{ t(key="home_see_update") }}</a><p>{{ t(key="home_cta_note", trial_days=trial_days) }}</p></div></div></aside>
+{% if related %}<nav class="wrap lp-sec prose" aria-label="{{ t(key="content_related") }}"><h2 class="h-m">{{ t(key="content_related") }}</h2><ul>{% for item in related %}<li><a href="{{ item.path }}">{{ item.title }}</a></li>{% endfor %}</ul></nav>{% endif %}
+{% if calculator_js %}<script>{{ calculator_js | safe }}</script>{% endif %}
+{% endblock main %}

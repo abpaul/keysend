@@ -1,0 +1,68 @@
+[workspace]
+
+[package]
+name = "keysend"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.99"
+license = "AGPL-3.0-only"
+publish = false
+default-run = "keysend-cli"
+
+[workspace.dependencies]
+loco-rs = { version = "1.2" }
+
+[dependencies]
+loco-rs = { workspace = true, features = ["worker", "db-sqlite"] }
+serde_json = { version = "1" }
+tokio = { version = "1.45", default-features = false, features = [
+  "rt-multi-thread",
+] }
+async-trait = { version = "0.1" }
+axum = { version = "0.8", features = ["multipart"] }
+tower-http = { version = "0.6", features = ["fs"] }
+migration = { path = "migration" }
+sea-orm = { version = "2.0", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+aes-gcm = "0.10"
+base64 = "0.22"
+sha2 = "0.10"
+hmac = "0.12"
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+chrono = "0.4"
+chrono-tz = "0.10"
+axum-extra = { version = "0.10", features = ["cookie", "form"] }
+tracing = "0.1"
+typst-as-lib = "0.17"
+typst-pdf = "0.15"
+typst-layout = "0.15"
+tera = "2.1"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+
+[features]
+marker-language = []
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[[bin]]
+name = "keysend-cli"
+path = "src/bin/main.rs"
+required-features = []
+
+[dev-dependencies]
+keysend = { path = ".", features = ["marker-language"] }
+axum-test = "17.3"
+tracing-subscriber = { version = "0.3", features = ["fmt"] }
+loco-rs = { workspace = true, features = ["testing"] }
+serial_test = { version = "3.1.1" }
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.release]
+strip = "symbols"
