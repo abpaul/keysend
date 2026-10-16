@@ -21,7 +21,7 @@
     {% for item in updates %}
     <li>
       <h3>{{ item.date }}</h3>
-      <p>{% set parts = item.summary %}{% include "monitoring/_parts.html" %}</p>
+      <p>{% if item.quiet %}{{ t(key="earlier_quiet") }}{% else %}{% set parts = item.summary %}{% include "monitoring/_parts.html" %}{% endif %}</p>
     </li>
     {% endfor %}
   </ol>

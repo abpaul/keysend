@@ -305,7 +305,10 @@ fn words(html: &str) -> String {
             _ => {}
         }
     }
-    text.split_whitespace().collect::<Vec<_>>().join(" ")
+    text.replace("&#39;", "'")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 #[tokio::test]
@@ -348,22 +351,18 @@ async fn the_home_page_shows_the_parts_that_the_pages_of_harbour_dental_show() {
         .collect::<Vec<_>>();
     assert_eq!(home_metrics, metrics(&account));
     let window = |page: &str| words(part(page, "<p class=\"muted\">", "</details>"));
-    let choice = " The numbers and charts below follow this choice.";
-    assert!(window(&account).contains(choice));
     assert!(window(&home).starts_with("5 to 11 October, compared with the 7 days before. What"));
-    assert_eq!(window(&home), window(&account).replacen(choice, "", 1));
+    assert_eq!(window(&home), window(&account));
 
     let trend =
         |page: &str| part(page, "<figure class=\"chart chart--trend\"", "</figure>").to_owned();
-    assert!(
-        trend(&home).contains("<title>Wed 23 Sep: $975. Usual: $582 to $602. Unusual day.</title>")
-    );
+    assert!(trend(&home).contains(r#"aria-label="Sun 11 Oct: $366. Usual: $371 to $384."#));
     assert_eq!(trend(&home), trend(&account));
 
     for (id, first) in [
         (
             "trend",
-            "Spend per day, against its usual range Spend was unusual on 1 of the last 56 days, the last time on 23 Sep.",
+            "Spend per day, against its usual range Spend had no unusual day in the last 7 days.",
         ),
         (
             "campaign-shares",
@@ -371,7 +370,7 @@ async fn the_home_page_shows_the_parts_that_the_pages_of_harbour_dental_show() {
         ),
         (
             "search-share",
-            "Searches that the ads did not appear on, last 7 days Search - Emergency did not appear on 31% of eligible searches.",
+            "Search impression share, last 7 days",
         ),
     ] {
         let chart = |page: &str| {
@@ -395,7 +394,7 @@ async fn the_home_page_shows_the_parts_that_the_pages_of_harbour_dental_show() {
     };
     assert_eq!(
         recommendations(&home)[0],
-        "Finding Search - Emergency is limited by its budget Impact The ads miss searches when the daily budget is used up, and this Campaign has the lowest cost per conversion of the Search Campaigns that are not for your own name. Suggested action Increase the daily budget of Search - Emergency . Evidence Search - Emergency lost 31% of its search impressions to budget. Its cost per conversion is $42.62, below the Ad Account value of $52.01, with 214 conversions."
+        "Finding Search - Emergency is limited by its budget Impact Google estimates that the budget limits this Campaign's eligible Search impressions. Review its cost per conversion before testing a higher daily budget. Suggested action Increase the daily budget of Search - Emergency . Evidence Search - Emergency lost an estimated 31% of its eligible Search impressions to budget. Its cost per conversion is $42.62, with 214 conversions."
     );
     assert_eq!(recommendations(&home).len(), 3);
     assert_eq!(recommendations(&home), recommendations(&account));
@@ -431,4 +430,120 @@ async fn serve_harbour_dental_to_a_browser() {
     while !directory.join("stop").exists() {
         tokio::time::sleep(Duration::from_millis(200)).await;
     }
+}
+
+#[test]
+#[ignore = "writes the localized PDF used by the home page preview"]
+fn the_home_page_can_show_a_romanian_export() {
+    use keysend::{
+        language::Language,
+        monitoring::{
+            export::{
+                self, CampaignRow, DeepCharts, Export, RecommendationText, Subject, UpdateLine,
+                UpdateText,
+            },
+            format,
+            metrics::{self, Window},
+            view,
+        },
+    };
+    let directory = std::path::PathBuf::from(std::env::var("KEYSEND_EXPORT_PREVIEW_DIR").unwrap());
+    std::fs::create_dir_all(&directory).unwrap();
+    let text = Language::Ro.text().unwrap();
+    let days = example::days();
+    let end = day_number(example::END);
+    let window = Window::SevenDays;
+    let campaigns = example::localized_campaigns(text);
+    let update = example::localized_update(text, &days).unwrap();
+    let recommendations = example::localized_recommendations(text).unwrap();
+    let document = Export {
+        name: example::NAME.into(),
+        accent: "#5126A6".into(),
+        logo: None,
+        window_days: window.days(),
+        campaign_names: campaigns
+            .iter()
+            .map(|campaign| campaign.name.clone())
+            .collect(),
+        range: format::date_range(
+            text,
+            example::END - chrono::Days::new(6),
+            example::END,
+            true,
+        ),
+        compared: format::date_range(
+            text,
+            example::END - chrono::Days::new(13),
+            example::END - chrono::Days::new(7),
+            true,
+        ),
+        prepared: text
+            .written
+            .format
+            .date_with_year(example::END.succ_opt().unwrap()),
+        notice: None,
+        cells: format::cells(
+            text,
+            &metrics::window_metrics(&days, end, window, None, true),
+            example::CURRENCY,
+        )
+        .unwrap(),
+        sparklines: Vec::new(),
+        charts: Vec::new(),
+        recommendations: recommendations
+            .into_iter()
+            .map(|found| RecommendationText {
+                finding: found.finding.map(|finding| finding.title),
+                action: found.recommendation.action,
+                reason: found.recommendation.reason,
+                evidence: found.recommendation.evidence,
+            })
+            .collect(),
+        subject: Subject::AdAccount {
+            update: Some(UpdateText {
+                date: view::long_date(text, update.day).unwrap(),
+                summary: update.summary,
+                cause: None,
+                lines: update
+                    .lines
+                    .into_iter()
+                    .map(|line| UpdateLine {
+                        campaign: campaigns
+                            .iter()
+                            .find(|campaign| campaign.id == line.campaign_id)
+                            .unwrap()
+                            .name
+                            .clone(),
+                        text: line.text,
+                        cause: None,
+                    })
+                    .collect(),
+                more_campaigns: 0,
+            }),
+            earlier: Vec::new(),
+            campaign_headers: view::all_campaign_headers(text, true),
+            campaigns: campaigns
+                .iter()
+                .map(|campaign| CampaignRow {
+                    name: campaign.name.clone(),
+                    sparkline: None,
+                    cells: view::all_campaign_cells(
+                        text,
+                        &metrics::window_metrics(&days, end, window, Some(campaign.id), true),
+                        example::CURRENCY,
+                        true,
+                    )
+                    .unwrap(),
+                })
+                .collect(),
+            deep_charts: DeepCharts {
+                date: None,
+                charts: Vec::new(),
+            },
+        },
+    };
+    let source = export::source(&document, text).unwrap();
+    assert!(source.contains("Recomandări"));
+    let pdf = export::pdf(&document, text).unwrap();
+    std::fs::write(directory.join("home-ro.pdf"), pdf).unwrap();
 }

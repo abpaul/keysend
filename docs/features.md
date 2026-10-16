@@ -6,7 +6,7 @@ A test (`tests/requests/feature_map.rs`) fails when a route or a queue worker of
 
 | Feature | Routes and workers | Code | Tests |
 |---|---|---|---|
-| Public pages | `/`, `/for/*`, `/privacy`, `/terms` | `src/controllers/page.rs`, `assets/views/home/` | `tests/requests/page.rs`, `tests/requests/app/demo.rs` |
+| Public pages | `/`, `/ro`, `/for/*`, `/privacy`, `/terms`, `/security` | `src/controllers/page.rs`, `assets/views/home/` | `tests/requests/page.rs`, `tests/requests/app/demo.rs` |
 | Public content | `/resources`, `/blog/*`, `/guides/*`, `/thoughts/*`, `/tools/*`, `/sitemap.xml`, `/feed.xml`, `/robots.txt`, `/llms.txt`, `/pricing.md` | `src/controllers/content.rs`, `src/content.rs`, `content/seo/catalog.json` | `tests/requests/page.rs`, `tests/requests/discovery.rs` |
 | Sign in with Google | `/sign-in`, `/auth/google/*`, `/sign-out` | `src/controllers/auth.rs`, `src/identity/mod.rs`, `src/google.rs` | `tests/requests/google.rs` |
 | Connect Google Ads and choose Ad Accounts | `/connect`, `/connections/google/start`, `/connections/{id}/ad-accounts`, `/ad-accounts/choose/{id}`, `/accounts` | `src/controllers/accounts.rs`, `src/google.rs`, `src/workspace/mod.rs` | `tests/requests/connection.rs`, `tests/requests/discovery.rs`, `tests/requests/app/monitoring/onboarding.rs` |
@@ -19,8 +19,14 @@ A test (`tests/requests/feature_map.rs`) fails when a route or a queue worker of
 | Export | `/ad-accounts/{id}/export.pdf`, `/ad-accounts/{id}/campaigns/{campaign}/export.pdf` | `src/controllers/export.rs`, `src/monitoring/export.rs` | `tests/requests/app/public.rs` |
 | Ad Account settings and Campaign settings | `/ad-accounts/{id}/settings`, `/ad-accounts/{id}/campaigns/{campaign}/settings` | `src/controllers/monitoring.rs`, `src/controllers/monitoring/campaign_settings.rs`, `src/monitoring/campaign_settings.rs` | `tests/requests/app/monitoring/campaign_settings.rs` |
 | Trial and Subscription | `/subscription`, `/subscription/portal`, `/stripe/webhook`, `/billing` | `src/controllers/billing.rs`, `src/billing.rs`, `src/billing/setup.rs`, `src/monitoring/access.rs`, `src/workspace/billing.rs` | `tests/requests/app/billing.rs`, `tests/requests/app/public.rs` |
-| Workspace settings and removal | `/settings`, `/remove/{kind}/{id}`, `/ad-accounts/{id}/remove` | `src/controllers/control.rs`, `src/workspace/control.rs` | `tests/requests/app/control.rs` |
+| Workspace settings and removal | `/settings`, `/remove/{kind}/{id}`, `/ad-accounts/{id}/remove` | `src/controllers/control.rs`, `src/removal.rs`, `src/workspace/control.rs` | `tests/requests/app/control.rs` |
+| Data retention | `RetentionWorker` | `src/monitoring/retention.rs`, `src/monitoring/schedule.rs`, `src/removal.rs`, `src/workspace/retention.rs`, `src/identity/mod.rs` | `tests/requests/app/retention.rs` |
 | Health checks | `/_health`, `/_ping`, `/_readiness` | Loco | `tests/requests/page.rs` |
+| Application credentials | Startup, tasks, workers and scoped operator commands | `src/settings.rs`, `src/settings/credentials.rs`, `src/bin/credentials.rs`, `src/app.rs` | `tests/requests/credentials.rs`, `tests/requests/sealed_commands.rs` |
+
+The operator edits environment-specific encrypted files with the standalone
+`credseal` CLI. [Encrypted credentials](credentials.md) describes key handling,
+startup validation and the context-owned credentials snapshot.
 
 ## Pages and Onboarding
 
@@ -34,7 +40,7 @@ Every page works without scripts. Settings of an Ad Account validate every value
 
 ## Account history
 
-KeySend stores the Account history in SQLite: `campaign_days` (one row for each day, campaign, and device, for 24 months), `campaigns` (name, status, type, bid strategy, budget), and `account_changes` (each change that Google reports, with its old and new value, kept permanently because Google keeps change history for 30 days only). `account_history` records the collected range and the last error; `google_failures` records the last failed Google request of an Ad Account for diagnosis.
+KeySend stores the Account history in SQLite: `campaign_days` (one row for each day, campaign, and device, for 24 months), `campaigns` (name, status, type, bid strategy, budget), and `account_changes` (each change that Google reports, with its old and new value, kept for 24 months because Google keeps change history for 30 days only). `account_history` records the collected range and the last error; `google_failures` records the last failed Google request of an Ad Account for diagnosis.
 
 The first collection stores the last 60 completed days, then older ranges of 92 days up to 24 months, newest first. Later runs read the last 30 days again, so late conversions replace the stored days. A gap longer than 30 days restarts collection without deleting stored days.
 
@@ -46,11 +52,11 @@ Basic access has a project limit of 15,000 operations per day. Set `settings.goo
 
 ## Monitoring
 
-`monitoring::schedule::hourly` queues a `MonitoringJob` for each Ad Account of each Workspace at the start of every hour. It also removes the old jobs from the queue: a completed job after 7 days, a failed job after 30 days. A run collects history, runs a Deep check if due, writes one Update per Ad Account and day, stores Alerts, and queues `EmailWorker`.
+`monitoring::schedule::hourly` queues a `MonitoringJob` for each Ad Account of each Workspace at the start of every hour. It also removes the old jobs from the queue: a completed job after 7 days, a failed job after 30 days, and queues the retention job once a day (see Data retention). A run collects history, runs a Deep check if due, writes one Update per Ad Account and day, stores Alerts, and queues `EmailWorker`.
 
-Window Metrics support exactly 7 or 30 completed days against the same number of days before. A change reads whole percent from 10% upward and one decimal below 10%. Movement detection uses each Campaign's eight prior complete weeks: mean absolute weekly change plus two standard deviations, with floors of one currency unit, ten clicks, and one conversion.
+Window Metrics support exactly 7 or 30 completed days against the same number of days before. Daily trend charts and their PDF equivalents show that Window. Each day’s usual range uses up to eight earlier matching weekdays and requires at least four finite observations. The range does not depend on the displayed Window. The separate weekly charts, 30-day sparklines, Deep checks and last-eight-week Account change list keep their stated periods. A change reads whole percent from 10% upward and one decimal below 10%. Movement detection uses each Campaign's eight prior complete weeks: mean absolute weekly change plus two standard deviations, with floors of one currency unit, ten clicks, and one conversion.
 
-When an Ad Account is not judged by conversions, the Update says nothing about results. The Ad Account page states the reason once, in the tracking notice (`view::tracking_notice`); the Weekly email and the Export state "Results cannot be judged." once, below the Metrics.
+When an Ad Account is not judged by conversions, the Update says nothing about results. The Ad Account page states the reason once, in the tracking notice (`view::tracking_notice`); the Weekly email states "Results cannot be judged." once, below the Metrics. The Export states the reason once in its tracking notice.
 
 An Update states a Cause for its summary and for each Campaign line, with its level and its evidence. `src/monitoring/causes.rs` builds the candidates from the stored data after detection; AI never invents one. A candidate has a stable id, a kind, a level (Confirmed, Likely or Contribution), an evidence sentence that code writes with the formatted numbers and its anchors: the date of the Account change, "tracking", "stopped", "started", "budget" or "rank", and none for a Contribution. The kinds are checked in this order:
 
@@ -66,11 +72,13 @@ A Follow-up (`src/monitoring/follow_up.rs`) checks how an Account change turned 
 
 Deep checks collect conversion actions, Campaign budgets, search terms, keywords, landing pages, and ads. `src/monitoring/findings.rs` detects Findings with fixed rules and each rule needs a minimum of evidence. AI never creates a Finding. One OpenAI request (`settings.services.ai_model`) proposes Recommendations; KeySend accepts one only when it gives the key of a detected Finding, names a subject of that Finding, uses numbers from that Finding or the Ad Account, asks for more spend only for a budget-limit Finding, and does not reverse a recorded budget change (`src/monitoring/recommendation.rs`). Recommendation identity is the rule and Campaign ID; closed Recommendations stay closed for 90 days.
 
-Stored text (Updates, Findings, Recommendations, Account changes) stays English in the database. For a user whose language is not English, the queue worker translates it with the AI after a run and after the user changes the language (`TranslationWorker`). The AI sees each text with its names, numbers, amounts, percents and dates replaced by placeholders (`src/translation/mask.rs`); KeySend writes them back with the formats of the language and stores only an answer that keeps every placeholder and adds no digit or markup. The `translations` table keys a translation by Workspace, language and the hash of the English text. Pages, Exports and emails read it in one statement and show the English original, marked `lang="en"`, until a translation exists. English users read the stored text and no translation runs.
+Stored text (Updates, Findings, Recommendations, Account changes) stays English in the database. For a user whose language is not English, the queue worker translates it with the AI after a run and after the user changes the language (`TranslationWorker`). The AI sees each text with its names, numbers, amounts, percents and dates replaced by placeholders (`src/translation/mask.rs`); KeySend writes them back with the formats of the language and stores only an answer that keeps every placeholder and adds no digit or markup. The `translations` table keys a translation by Workspace, language and the hash of the English text. Pages and emails read it in one statement and show the English original, marked `lang="en"`, until a translation exists. A Romanian Export waits until its required stored text has a translation. English users read the stored text and no translation runs. The navbar saves the User language across requests. Exports use Romanian for a Romanian User and English for every other language; there is no separate Export language control.
 
 `WorkspaceStore::monitoring_access` checks a fourteen-day Trial or an active Subscription. The first sign-in creates the Workspace and starts its Trial. Up to three Ad Accounts are allowed. The Subscription costs 4,900 USD cents a month.
 
 The Export (`/ad-accounts/{id}/export.pdf`) is a PDF written with the Typst library. Liberation Sans Regular and Bold are embedded in the application. The font license is in `assets/static/fonts/Liberation-LICENSE`. Two renders can run at once. The Export draws a logo only when the Ad Account has one.
+
+The Export of an Ad Account prints what its page and its breakdowns page show for the Window, in this order: any required data-quality explanation, the Update with each Campaign line and its Cause, the Metrics with a sparkline each, the Recommendations with their Finding, the Campaigns with every Metric and its value in the days before, the charts (a trend for each Metric that the page offers, with the Account changes of the 8 weeks and their Follow-ups below the spend trend), the charts of the Deep check, and the earlier Updates of the Window. The Export of a Campaign prints what the Campaign page shows: its Updates, Metrics, Recommendations and other Findings, its charts with the Account changes and their Follow-ups, and its Deep check. `controllers::export::ad_account_export` and `campaign_export` build the Export from the view builders of the pages; `monitoring::export::source` writes it in Typst.
 
 Settings keys: `services.ai_url`, `services.ai_model`, `services.email_url`, and `services.test_now` (tests only).
 
@@ -90,4 +98,12 @@ Payment routes are `/subscription`, `/subscription/portal`, `/billing` (a redire
 
 ## Account controls
 
-`/settings` links to confirmation pages for removing a Google Connection and for deleting the User and Workspace; each POST verifies ownership and requires `confirm=remove`. An Ad Account is removed at `/ad-accounts/{id}/remove`. Google Connection removal revokes its Google refresh token. User deletion also deletes its scoped Stripe customer, which cancels active subscriptions. Failed external calls retain local data for retry. Removing an Ad Account does not revoke the Google Connection.
+`/settings` links to confirmation pages for removing a Google Connection and for deleting the User and Workspace; each POST verifies ownership and requires `confirm=remove`. An Ad Account is removed at `/ad-accounts/{id}/remove`. Google Connection removal revokes its Google refresh token. User deletion revokes every Google refresh token, deletes its scoped Stripe customer, which cancels active subscriptions, records the Trial hash, and deletes the rows (`removal::delete_workspace`; the retention job uses the same function). Failed external calls retain local data for retry. Removing an Ad Account does not revoke the Google Connection.
+
+## Data retention
+
+`monitoring::schedule::hourly` queues a `RetentionJob` in the 03:00 UTC hour. `RetentionWorker` (`src/monitoring/retention.rs`) applies three rules with `Settings::now()` and calendar months (`chrono::Months`):
+
+1. Inactive Workspace: when the Access of a Workspace ended before 12 months ago, the job deletes the Workspace with `removal::delete_workspace`, the function behind User deletion in `/settings`. The Access ended at the later of the end of the Trial and the end of the paid period of the Subscription (`access::access_ended_at`). A Workspace whose User has a session that has not expired stays (`identity::signed_in`), so a returning User whose remembered Trial ended long ago keeps the new Workspace while signed in. When Google or Stripe does not confirm, no row is deleted and the next run tries again.
+2. Trial hash: the job deletes the `trial_history` rows whose `started_at` is before 24 months ago. A User who signs up again after that gets a new Trial.
+3. Account history: for each Ad Account, the job deletes the rows whose day is before the date 24 months before today in the time zone of the Ad Account (the same date that limits the first collection). The tables are `campaign_days`, `campaign_network_days`, `campaign_search_share_days`, `conversion_action_days`, `conversion_lag_totals`, `demographic_totals`, `hour_totals`, `keyword_quality`, `location_totals`, `updates`, `alerts`, `alert_evaluations`, `monitoring_runs`, `account_changes` (by `changed_at`), `monitoring_recommendations` (state `done` or `not_useful`, by `closed_day`) and `monitoring_findings` (inactive, by `last_day`; their Recommendations go with them). An active Finding and an open Recommendation stay. `weekly_emails`, `deep_checks`, `campaigns` and the settings of an Ad Account stay.

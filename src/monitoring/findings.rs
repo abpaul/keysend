@@ -66,6 +66,17 @@ fn costly(counts: &Counts, account: f64) -> bool {
             || (counts.conversions <= 1.0 && counts.cost >= account * VERY_FAR))
 }
 
+fn counted(count: usize, one: &str, many: &str) -> String {
+    format!("{count} {}", if count == 1 { one } else { many })
+}
+
+fn scope(campaign: Option<&str>) -> String {
+    match campaign {
+        Some(campaign) => format!("In the 30 days before the Deep check, {campaign} had"),
+        None => "In the 30 days before the Deep check, the Campaign had".into(),
+    }
+}
+
 fn count(value: f64) -> String {
     english_number(value, if value.fract() == 0.0 { 0 } else { 2 })
 }
@@ -74,7 +85,12 @@ fn ratio(numerator: f64, denominator: f64) -> Option<f64> {
     (denominator > 0.0).then(|| numerator / denominator)
 }
 
-pub fn detect(data: &Data, judge_by_conversions: bool, account_label: &str) -> Vec<Finding> {
+pub fn detect(
+    data: &Data,
+    judge_by_conversions: bool,
+    account_label: &str,
+    campaign: Option<&str>,
+) -> Vec<Finding> {
     let money = Money(&data.currency);
     let total = &data.reporting;
     let audit: &Audit = &data.audit;
@@ -117,13 +133,19 @@ pub fn detect(data: &Data, judge_by_conversions: bool, account_label: &str) -> V
             return findings;
         };
         let rate = ratio(total.conversions, total.clicks).unwrap_or_default();
-        for (key, noun, rows) in [
+        for (key, one, many, rows) in [
             (
                 "search-terms-no-conversions",
+                "search term",
                 "search terms",
                 &audit.search_terms,
             ),
-            ("keywords-no-conversions", "keywords", &audit.keywords),
+            (
+                "keywords-no-conversions",
+                "keyword",
+                "keywords",
+                &audit.keywords,
+            ),
         ] {
             let mut rows = rows
                 .iter()
@@ -134,11 +156,15 @@ pub fn detect(data: &Data, judge_by_conversions: bool, account_label: &str) -> V
             if spend >= account * FAR && material(spend) {
                 findings.push(Finding {
                     key: key.into(),
-                    title: format!("{} {noun} had spend and no conversions", rows.len()),
+                    title: format!(
+                        "{} had spend and no conversions",
+                        counted(rows.len(), one, many)
+                    ),
                     detail: format!(
-                        "{} spend and 0 conversions on {} {noun}, each with spend above the {account_label} cost per conversion of {}: {}.",
+                        "{} {} spend and 0 conversions on {}, each with spend at or above the {account_label} cost per conversion of {}: {}.",
+                        scope(campaign),
                         money.of(spend),
-                        rows.len(),
+                        counted(rows.len(), one, many),
                         money.of(account),
                         names(&rows)
                     ),
@@ -155,7 +181,7 @@ pub fn detect(data: &Data, judge_by_conversions: bool, account_label: &str) -> V
                         key: format!("budget-limited:{}", row.name),
                         title: format!("{} is limited by its budget", row.name),
                         detail: format!(
-                            "{} lost {}% of its search impressions to budget. Its cost per conversion is {}, at or below the {account_label} value of {}, with {} conversions.",
+                            "{} lost {}% of its estimated eligible Search impressions to budget. Its cost per conversion is {}, at or below the {account_label} value of {}, with {} conversions.",
                             row.name,
                             english_number(lost * 100.0, 0),
                             money.of(cost_per.unwrap_or_default()),
@@ -241,7 +267,7 @@ pub fn detect(data: &Data, judge_by_conversions: bool, account_label: &str) -> V
                         key: format!("budget-limited:{}", row.name),
                         title: format!("{} is limited by its budget", row.name),
                         detail: format!(
-                            "{} lost {}% of its search impressions to budget. Its CTR is {}%, at or above the {account_label} CTR of {}%, and its CPC is not above the {account_label} CPC.",
+                            "{} lost {}% of its estimated eligible Search impressions to budget. Its CTR is {}%, at or above the {account_label} CTR of {}%, and its CPC is not above the {account_label} CPC.",
                             row.name,
                             english_number(lost * 100.0, 0),
                             english_number(share * 100.0, 2),
@@ -263,10 +289,14 @@ pub fn detect(data: &Data, judge_by_conversions: bool, account_label: &str) -> V
         let spend = poor.iter().map(|row| row.counts.cost).sum::<f64>();
         findings.push(Finding {
             key: "ads-poor-strength".into(),
-            title: format!("{} active ads have poor ad strength", poor.len()),
+            title: format!(
+                "{} poor ad strength",
+                counted(poor.len(), "active ad has", "active ads have")
+            ),
             detail: format!(
-                "{} ads with {} spend have the ad strength Poor: {}.",
-                poor.len(),
+                "In the 30 days before the Deep check, {}{} with {} spend had the ad strength Poor: {}.",
+                counted(poor.len(), "ad", "ads"),
+                campaign.map_or_else(String::new, |campaign| format!(" in {campaign}")),
                 money.of(spend),
                 names(&poor)
             ),
@@ -333,6 +363,7 @@ mod tests {
             ),
             true,
             "account",
+            Some("Search - Emergency"),
         );
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].key, "search-terms-no-conversions");
@@ -340,7 +371,7 @@ mod tests {
             found[0].title,
             "2 search terms had spend and no conversions"
         );
-        assert_eq!(found[0].detail, "$160 spend and 0 conversions on 2 search terms, each with spend above the account cost per conversion of $40.00: free dentist, dentist jobs.");
+        assert_eq!(found[0].detail, "In the 30 days before the Deep check, Search - Emergency had $160 spend and 0 conversions on 2 search terms, each with spend at or above the account cost per conversion of $40.00: free dentist, dentist jobs.");
         assert_eq!(found[0].subjects, ["free dentist", "dentist jobs"]);
         let none = detect(
             &data(
@@ -353,8 +384,45 @@ mod tests {
             ),
             true,
             "account",
+            None,
         );
         assert_eq!(none, vec![]);
+    }
+
+    #[test]
+    fn one_wasted_keyword_and_one_poor_ad_are_named_in_the_singular() {
+        let mut poor = row("Emergency dentist | Open today", 30.0, 1.0, 40.0);
+        poor.strength = "POOR".into();
+        let found = detect(
+            &data(
+                100.0,
+                Audit {
+                    conversion_actions: Some(2),
+                    keywords: vec![row("dentist near me", 90.0, 0.0, 120.0)],
+                    ads: vec![poor],
+                    ..Default::default()
+                },
+            ),
+            true,
+            "account",
+            Some("Search - Emergency"),
+        );
+        assert_eq!(
+            found
+                .iter()
+                .map(|finding| (finding.title.as_str(), finding.detail.as_str()))
+                .collect::<Vec<_>>(),
+            [
+                (
+                    "1 keyword had spend and no conversions",
+                    "In the 30 days before the Deep check, Search - Emergency had $120 spend and 0 conversions on 1 keyword, each with spend at or above the account cost per conversion of $40.00: dentist near me."
+                ),
+                (
+                    "1 active ad has poor ad strength",
+                    "In the 30 days before the Deep check, 1 ad in Search - Emergency with $40.00 spend had the ad strength Poor: Emergency dentist | Open today."
+                ),
+            ]
+        );
     }
 
     #[test]
@@ -378,6 +446,7 @@ mod tests {
             ),
             true,
             "account",
+            None,
         );
         let keys = found
             .iter()
@@ -392,7 +461,7 @@ mod tests {
             ]
         );
         assert_eq!(found[2].detail, "Video spent $170 for 0 conversions (no cost per conversion). The account cost per conversion is $40.00.");
-        assert_eq!(found[0].detail, "Search - Brand lost 22% of its search impressions to budget. Its cost per conversion is $20.00, at or below the account value of $40.00, with 40 conversions.");
+        assert_eq!(found[0].detail, "Search - Brand lost 22% of its estimated eligible Search impressions to budget. Its cost per conversion is $20.00, at or below the account value of $40.00, with 40 conversions.");
         assert_eq!(found[1].detail, "Display - Remarketing spent $500 for 5 conversions ($100 per conversion). The account cost per conversion is $40.00.");
     }
 
@@ -410,7 +479,7 @@ mod tests {
             },
         );
         assert_eq!(tracking(&untracked), "not set up");
-        let found = detect(&untracked, false, "account");
+        let found = detect(&untracked, false, "account", None);
         assert_eq!(found[0].key, "tracking-not-set-up");
         assert_eq!(found[0].detail, "The Ad Account has no active conversion action. $4,000 spend and 2,000 clicks cannot be judged by results.");
         assert_eq!(found[1].key, "campaign-click-cost-high:Porta");
@@ -427,7 +496,7 @@ mod tests {
         );
         assert_eq!(tracking(&silent), "no results");
         assert_eq!(
-            detect(&silent, false, "account")[0].key,
+            detect(&silent, false, "account", None)[0].key,
             "tracking-no-results"
         );
         assert_eq!(tracking(&data(9.0, Audit::default())), "few results");

@@ -38,6 +38,7 @@ mod google_stub;
 mod monitoring;
 mod perf;
 mod public;
+mod retention;
 mod stripe_stub;
 
 async fn boot(mode: StartMode, config: Config, statements: Arc<Mutex<Vec<String>>>) -> BootResult {
@@ -184,7 +185,8 @@ impl Fixture {
         test_now: Option<&str>,
     ) -> Self {
         let real_ai_key = env::var(REAL_AI_KEY).ok();
-        let mut environment = Vec::new();
+        let mut environment = vec![("CREDSEAL_MASTER_KEY", env::var("CREDSEAL_MASTER_KEY").ok())];
+        env::remove_var("CREDSEAL_MASTER_KEY");
         for (name, value) in [
             ("POSTDEPLOY_INGEST_KEY", "stub-postdeploy-secret"),
             (
@@ -445,4 +447,77 @@ impl std::io::Write for LogCapture {
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
     }
+}
+
+/// The strings of an Export source, one on each line, with the pieces of a sentence joined.
+fn typst_text(source: &str) -> String {
+    let source = source.replace("\")#campaign(\"", "").replace("\")#(\"", "");
+    let mut out = String::new();
+    let mut rest = source.as_str();
+    while let Some(start) = rest.find('"') {
+        let tail = &rest[start + 1..];
+        let mut end = None;
+        let mut escaped = false;
+        for (index, character) in tail.char_indices() {
+            match character {
+                '\\' if !escaped => escaped = true,
+                '"' if !escaped => {
+                    end = Some(index);
+                    break;
+                }
+                _ => escaped = false,
+            }
+        }
+        let Some(end) = end else { break };
+        let literal = format!("\"{}\"", &tail[..end]);
+        let string = serde_json::from_str::<String>(&literal).unwrap_or_default();
+        if !string.ends_with(".svg") && !string.ends_with(".png") {
+            out.push_str(&string);
+            out.push('\n');
+        }
+        rest = &tail[end + 1..];
+    }
+    out
+}
+
+/// Gets an Export from its route and gives the words that its PDF prints: the route must serve
+/// the PDF of the Export that the controller builds.
+async fn export_words(
+    f: &Fixture,
+    signed: &identity::SignedIn,
+    ad: &str,
+    campaign: Option<i64>,
+    window: &str,
+) -> String {
+    use keysend::{
+        controllers::export::{ad_account_export, campaign_export, Params},
+        monitoring::export,
+    };
+    let path = match campaign {
+        Some(campaign) => {
+            format!("/ad-accounts/{ad}/campaigns/{campaign}/export.pdf?window={window}")
+        }
+        None => format!("/ad-accounts/{ad}/export.pdf?window={window}"),
+    };
+    let response = f.request.get(&path).add_cookie(f.a.clone()).await;
+    assert_eq!(response.status_code(), 200, "{path}");
+    let store = WorkspaceStore::new(&f.ctx.db, &signed.workspace);
+    let settings = keysend::settings::Settings::load(&f.ctx).unwrap();
+    let params = Params {
+        window: Some(window.into()),
+    };
+    let language = signed.user.language;
+    let built = match campaign {
+        Some(campaign) => campaign_export(&store, &settings, ad, campaign, &params, language).await,
+        None => ad_account_export(&store, &settings, ad, &params, language).await,
+    }
+    .unwrap();
+    let Ok((export, text)) = built else {
+        panic!("{path} is refused");
+    };
+    assert!(
+        response.as_bytes() == export::pdf(&export, text).unwrap().as_slice(),
+        "{path} serves another PDF"
+    );
+    typst_text(&export::source(&export, text).unwrap())
 }

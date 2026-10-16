@@ -2,12 +2,13 @@ use std::collections::BTreeMap;
 
 use super::*;
 use keysend::{
+    language::Language,
     monitoring::audit::AuditRow,
     monitoring::{
         detection::{CampaignMovement, Detection},
         update::{CampaignLine, Update},
     },
-    workspace::history::AccountChange,
+    workspace::{history::AccountChange, WorkspaceStore},
 };
 
 const BRAND: i64 = 1;
@@ -413,12 +414,12 @@ async fn the_ad_account_page_shows_the_update_the_metrics_the_campaigns_and_the_
         r#"<li><a class="campaign-name" href="/ad-accounts/4829153307/campaigns/2">Search - Emergency</a>: 58 conversions, up from 41, at $40.50 each.</li>"#
     ));
     assert!(page.contains(
-        r#"<a class="button" href="/ad-accounts/4829153307/export.pdf?window=7">Export PDF</a>"#
+        r#"<form class="export-form" method="get" action="/ad-accounts/4829153307/export.pdf">"#
     ));
     assert!(page.contains(r#"<a href="/ad-accounts/4829153307/settings">Settings</a>"#));
     assert!(page.contains(r#"<h2 class="heading-m" id="window">Last 7 days</h2>"#));
     assert!(
-        page.contains(r#"<p class="muted">5 to 11 October, compared with the 7 days before. The numbers and charts below follow this choice.</p>"#)
+        page.contains(r#"<p class="muted">5 to 11 October, compared with the 7 days before.</p>"#)
     );
     assert!(page.contains(
         r#"<nav class="switch" aria-label="Window">
@@ -482,21 +483,25 @@ async fn the_ad_account_page_shows_the_update_the_metrics_the_campaigns_and_the_
     let open = f.page(&format!("{PAGE}?recommendations=open")).await;
     assert!(open.contains(r#"<details class="panel" id="recommendations" open>"#));
     assert!(page.contains("<h3>Sunday 11 October</h3>"));
-    assert!(page.contains(&format!("<p>{}</p>", update::QUIET)));
+    assert!(page.contains("<h3>Sunday 11 October</h3>\n        <p>Nothing notable changed.</p>"));
     assert!(page.contains("<h3>Monday 5 October</h3>"));
     assert!(!page.contains(r#"<details class="more">"#));
     assert!(!page.contains("kite-"));
-    assert_eq!(count(&page, "<script"), 1);
+    assert_eq!(count(&page, "<script"), 2);
     assert!(page.contains(r#"<script defer src="/static/"#) && page.contains("/window-switch.js"));
+    assert!(page.contains("/popover.js"));
 
     let month = f.page(&format!("{PAGE}?window=30")).await;
     assert!(month.contains(r#"<h2 class="heading-m" id="window">Last 30 days</h2>"#));
     assert!(month.contains(
-        r#"<p class="muted">12 September to 11 October, compared with the 30 days before. The numbers and charts below follow this choice.</p>"#
+        r#"<p class="muted">12 September to 11 October, compared with the 30 days before.</p>"#
     ));
     assert!(month.contains(r#"<a href="/ad-accounts/4829153307?window=30" data-swap aria-label="Show the last 30 days" aria-current="true">30 days</a>"#));
     assert!(month.contains(r##"<a href="/ad-accounts/4829153307?window=30&amp;recommendations=open#recommendations">Open all Recommendations (2)</a>"##));
-    assert!(month.contains("/ad-accounts/4829153307/export.pdf?window=30"));
+    assert!(month.contains(
+        r#"action="/ad-accounts/4829153307/export.pdf">
+  <input type="hidden" name="window" value="30">"#
+    ));
     assert!(month.contains(
         r#"<a class="campaign-name" href="/ad-accounts/4829153307/campaigns/2?window=30">Search - Emergency</a>"#
     ));
@@ -571,6 +576,76 @@ async fn the_pages_show_the_latest_three_updates_and_keep_the_rest_in_a_closed_l
 
 #[tokio::test]
 #[serial]
+async fn the_export_button_keeps_the_window_and_uses_the_saved_language() {
+    let f = harbour(true).await;
+    store_update(&f, day_number(today()), "Update number 0.", None, &[]).await;
+    let page = f.page(&format!("{PAGE}?window=30")).await;
+    assert!(page.contains(&format!(
+        r#"<form class="export-form" method="get" action="{PAGE}/export.pdf">
+  <input type="hidden" name="window" value="30">"#
+    )));
+    let export_form = page
+        .split(r#"class="export-form""#)
+        .nth(1)
+        .unwrap()
+        .split("</form>")
+        .next()
+        .unwrap();
+    assert!(!export_form.contains("select"));
+    assert!(!export_form.contains(r#"name="language""#));
+    let campaign = f.page(&format!("{PAGE}/campaigns/2")).await;
+    assert!(campaign.contains(&format!(
+        r#"action="{PAGE}/campaigns/2/export.pdf">
+  <input type="hidden" name="window" value="7">"#
+    )));
+    let signed = signed(&f).await;
+    WorkspaceStore::new(&f.ctx.db, &signed.workspace)
+        .set_user_language(Language::Ro)
+        .await
+        .unwrap();
+    let romanian = f.page(PAGE).await;
+    assert!(romanian.contains(r#"<html lang="ro">"#));
+    assert!(romanian.contains(r#"value="ro" lang="ro" aria-current="true""#));
+    let export_form = romanian
+        .split(r#"class="export-form""#)
+        .nth(1)
+        .unwrap()
+        .split("</form>")
+        .next()
+        .unwrap();
+    assert!(!export_form.contains("select"));
+}
+
+#[tokio::test]
+#[serial]
+async fn earlier_quiet_days_in_a_row_show_as_one_nothing_notable_changed() {
+    let f = harbour(true).await;
+    let today = day_number(today());
+    store_update(&f, today, "Update number 0.", None, &[]).await;
+    store_update(&f, today - 1, update::QUIET, None, &[]).await;
+    store_update(&f, today - 2, update::QUIET, None, &[]).await;
+    let line = [(EMERGENCY, "Search - Emergency", "Line number 3.")];
+    store_update(&f, today - 3, "Update number 3.", None, &line).await;
+    store_update(&f, today - 4, update::QUIET, None, &[]).await;
+    let page = f.page(PAGE).await;
+    let earlier = &page[page.find(r#"id="earlier""#).unwrap()..];
+    let places = [
+        "<h3>10 to 11 October</h3>\n        <p>Nothing notable changed.</p>",
+        "<h3>Friday 9 October</h3>\n        <p>Update number 3.</p>",
+        "<h3>Thursday 8 October</h3>\n        <p>Nothing notable changed.</p>",
+    ]
+    .map(|text| {
+        earlier
+            .find(text)
+            .unwrap_or_else(|| panic!("{text}\n{earlier}"))
+    });
+    assert!(places.is_sorted());
+    assert_eq!(count(earlier, "<li>"), 3);
+    assert!(!earlier.contains("in the last 7 days"));
+}
+
+#[tokio::test]
+#[serial]
 async fn a_quiet_day_shows_one_sentence_with_the_kite_and_no_highlight() {
     let f = harbour(true).await;
     store_update(&f, day_number(today()), update::QUIET, None, &[]).await;
@@ -639,7 +714,7 @@ async fn an_ad_account_that_is_not_judged_by_conversions_shows_one_notice_and_no
     assert_eq!(count(&page, r#"class="notice""#), 1);
     assert!(page.contains(r#"<h2 class="notice__title">Conversion tracking is not set up</h2>"#));
     assert!(page.contains(
-        "Google Ads does not record conversions for this Ad Account, so we cannot judge results."
+        "Google Ads has no active conversion action for this Ad Account, so results cannot be judged."
     ));
     for metric in [
         r#"<dt>Spend</dt><dd class="metric__value">$4,120</dd>"#,
@@ -736,7 +811,7 @@ async fn the_campaign_page_shows_its_updates_its_chart_its_findings_and_the_deep
     assert!(page.contains(
         r#"<h1 class="heading-xl">Search - Emergency</h1>
   <div class="actions">
-    <a class="button" href="/ad-accounts/4829153307/campaigns/2/export.pdf?window=7">Export PDF</a>"#
+    <form class="export-form" method="get" action="/ad-accounts/4829153307/campaigns/2/export.pdf">"#
     ), "{page}");
     assert!(page.contains(
         r#"<h2 class="heading-m" id="window">Last 7 days</h2>
@@ -843,7 +918,10 @@ async fn the_campaign_page_shows_its_updates_its_chart_its_findings_and_the_deep
     assert!(!page[page.find(r#"id="deep-check""#).unwrap()..].contains("Not available"));
 
     let other = f.page(&format!("{PAGE}/campaigns/1?window=30")).await;
-    assert!(other.contains(r#"<a class="button" href="/ad-accounts/4829153307/campaigns/1/export.pdf?window=30">Export PDF</a>"#));
+    assert!(other.contains(
+        r#"action="/ad-accounts/4829153307/campaigns/1/export.pdf">
+  <input type="hidden" name="window" value="30">"#
+    ));
     assert!(other.contains("No Update was about this Campaign in the last month."));
     assert!(
         other.contains("Google Ads shows no Account change for this Campaign in these 8 weeks.")

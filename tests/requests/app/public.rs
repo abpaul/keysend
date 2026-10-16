@@ -231,9 +231,9 @@ impl Harbour {
         note.lines = vec![CampaignLine {
             campaign_id: 702,
             text: if judged {
-                "Search - Emergency: 42 conversions, up from 28.".into()
+                "42 conversions, up from 28.".into()
             } else {
-                "Search - Emergency: 210 clicks, the same as the week before.".into()
+                "210 clicks, the same as the week before.".into()
             },
             cause: None,
         }];
@@ -519,31 +519,107 @@ async fn the_export_is_a_pdf_of_one_ad_account_for_one_window() {
 
 #[tokio::test]
 #[serial]
-async fn both_exports_take_an_offered_language_and_refuse_any_other() {
+async fn an_export_is_in_romanian_for_a_romanian_user_and_in_english_for_any_other_language() {
     let h = Harbour::new(true).await;
     let campaign = h.store().campaigns(AD).await.unwrap().remove(0).id;
-    for path in [
-        format!("/ad-accounts/{AD}/export.pdf"),
-        format!("/ad-accounts/{AD}/campaigns/{campaign}/export.pdf"),
-    ] {
-        for language in keysend::language::Language::ALL {
-            let code = language.code();
-            let offered =
-                h.f.request
-                    .get(&format!("{path}?language={code}"))
-                    .add_cookie(h.f.a.clone())
-                    .await;
-            assert_eq!(offered.status_code(), 200, "{path} {code}");
-            assert!(offered.as_bytes().starts_with(b"%PDF-"), "{path} {code}");
+    h.store()
+        .save_branding(AD, "Harbour Dental Group", "#5126A6")
+        .await
+        .unwrap();
+    h.translate_into_romanian().await;
+    for language in keysend::language::Language::ALL {
+        let code = language.code();
+        h.sql(
+            "UPDATE users SET language=? WHERE email='a@example.com'",
+            vec![code.into()],
+        )
+        .await;
+        let signed = identity::authenticate(&h.f.ctx.db, h.f.a.value())
+            .await
+            .unwrap()
+            .unwrap();
+        let (metrics, file) = if code == "ro" {
+            ("Indicatori\n", "harbour-dental-group-ultimele-7-zile.pdf")
+        } else {
+            ("Metrics\n", "harbour-dental-group-last-7-days.pdf")
+        };
+        for campaign in [None, Some(campaign)] {
+            let words = export_words(&h.f, &signed, AD, campaign, "7").await;
+            assert!(words.contains(metrics), "{code} {campaign:?}\n{words}");
         }
-        for refused in ["xx", "EN", "pt-BR", ""] {
-            let response =
+        let path = format!("/ad-accounts/{AD}/export.pdf?window=7");
+        let plain = h.f.request.get(&path).add_cookie(h.f.a.clone()).await;
+        assert_eq!(
+            plain.header("content-disposition"),
+            format!("attachment; filename=\"{file}\"").as_str(),
+            "{code}"
+        );
+        for other in ["en", "de", "ro", "xx"] {
+            let asked =
                 h.f.request
-                    .get(&format!("{path}?language={refused}"))
+                    .get(&format!("{path}&language={other}"))
                     .add_cookie(h.f.a.clone())
                     .await;
-            assert_eq!(response.status_code(), 422, "{path} {refused}");
-            assert_eq!(response.text(), "Choose one of the languages of KeySend.");
+            assert_eq!(asked.status_code(), 200, "{code} {other}");
+            assert!(
+                asked.as_bytes() == plain.as_bytes(),
+                "{code}: ?language={other} changed the PDF"
+            );
+        }
+    }
+}
+
+#[tokio::test]
+#[serial]
+async fn a_romanian_export_is_refused_until_its_stored_text_is_translated_and_then_is_romanian() {
+    let h = Harbour::new(true).await;
+    h.sql(
+        "UPDATE users SET language='ro' WHERE email='a@example.com'",
+        vec![],
+    )
+    .await;
+    let refusal = "Raportul conține text pe care KeySend nu l-a tradus încă în română. KeySend traduce textul nou după ce citește datele din Google Ads. Încercați din nou mai târziu sau alegeți engleza în Setări pentru a descărca acum un PDF în engleză.";
+    let paths = [
+        format!("/ad-accounts/{AD}/export.pdf?window=7"),
+        format!("/ad-accounts/{AD}/campaigns/703/export.pdf?window=7"),
+        format!("/ad-accounts/{AD}/export.pdf?window=7&language=en"),
+    ];
+    for path in &paths {
+        let refused = h.f.request.get(path).add_cookie(h.f.a.clone()).await;
+        assert_eq!(refused.status_code(), 409, "{path}");
+        assert_eq!(refused.text(), refusal, "{path}");
+        assert!(!refused.as_bytes().starts_with(b"%PDF"), "{path}");
+    }
+
+    h.translate_into_romanian().await;
+    let signed = identity::authenticate(&h.f.ctx.db, h.f.a.value())
+        .await
+        .unwrap()
+        .unwrap();
+    let words = export_words(&h.f, &signed, AD, None, "7").await;
+    for expected in [
+        "Indicatori\n",
+        "RO Add dental implants jobs as a negative keyword in Search - Implants.\n",
+        "RO Display - Remarketing spent $45 a day, as usual.\n",
+    ] {
+        assert!(words.contains(expected), "{expected}\n{words}");
+    }
+    assert!(!words.contains("\nAdd dental implants jobs"), "{words}");
+    let campaign = export_words(&h.f, &signed, AD, Some(703), "7").await;
+    assert!(
+        campaign
+            .contains("RO Add dental implants jobs as a negative keyword in Search - Implants.\n"),
+        "{campaign}"
+    );
+    for (path, name) in paths
+        .iter()
+        .zip(["export-ro.pdf", "campaign-export-ro.pdf", ""])
+    {
+        let response = h.f.request.get(path).add_cookie(h.f.a.clone()).await;
+        assert_eq!(response.status_code(), 200, "{path}");
+        assert!(response.as_bytes().starts_with(b"%PDF-"), "{path}");
+        if !name.is_empty() {
+            keep(name, response.as_bytes());
         }
     }
 }
@@ -926,131 +1002,140 @@ async fn the_old_billing_address_leads_to_the_subscription_and_each_workspace_se
     assert_eq!(plan.f.request.get("/subscription").await.status_code(), 303);
 }
 
-async fn expected_ad_account_export(h: &Harbour, last_day: i64, cause: Option<String>) -> Vec<u8> {
-    use keysend::monitoring::{
-        export::{self, CampaignRow, Export, RecommendationText, Subject, UpdateText},
-        format, metrics,
-    };
-    let store = h.store();
-    let date = |day| keysend::workspace::history::date_of(day).unwrap();
-    let total = store
-        .window_metrics(AD, last_day, metrics::Window::SevenDays, None)
-        .await
-        .unwrap();
-    let mut rows = Vec::new();
-    for campaign in store.campaigns(AD).await.unwrap() {
-        let movement = store
-            .window_metrics(AD, last_day, metrics::Window::SevenDays, Some(campaign.id))
+impl Harbour {
+    async fn translate_into_romanian(&self) {
+        let now = Settings::load(&self.f.ctx).unwrap().now();
+        let translated = keysend::translation::collect::shown(&self.store(), AD, now)
+            .await
+            .unwrap()
+            .iter()
+            .map(|item| {
+                (
+                    keysend::translation::hash(&item.text),
+                    format!("RO {}", item.text),
+                )
+            })
+            .collect::<Vec<_>>();
+        self.store()
+            .save_translations(
+                AD,
+                keysend::language::Language::Ro,
+                &translated,
+                now.timestamp(),
+            )
             .await
             .unwrap();
-        rows.push((campaign.name, movement.current));
     }
-    rows.sort_by(|a, b| b.1.spend.total_cmp(&a.1.spend).then_with(|| a.0.cmp(&b.0)));
-    let note = store
-        .updates(AD, day_number(today()), day_number(today()))
-        .await
-        .unwrap()
-        .remove(0);
-    let recommendation = store
-        .monitoring_recommendations(AD)
-        .await
-        .unwrap()
-        .remove(0);
-    let first_read = keysend::controllers::monitoring::first_read_day(last_day);
-    let campaigns = store.campaigns(AD).await.unwrap();
-    let collected = keysend::controllers::monitoring::Collected {
-        text: keysend::language::english(),
-        id: AD,
-        days: &store
-            .monitoring_days(AD, first_read, last_day)
-            .await
-            .unwrap(),
-        campaigns: &campaigns,
-        first_day: day_number(
-            store
-                .history_state(AD)
-                .await
-                .unwrap()
-                .unwrap()
-                .first_day
-                .unwrap(),
-        ),
-        end: last_day,
-        currency: "USD",
-        judged: true,
-        window: metrics::Window::SevenDays,
-        translations: &keysend::translation::Translations::english(),
-    };
-    let changes = keysend::controllers::monitoring::export_changes(&store, &collected, None)
-        .await
-        .unwrap();
-    let (charts, deep_charts) =
-        keysend::controllers::monitoring::export_charts(&store, &collected, &changes)
-            .await
-            .unwrap();
-    assert!(!charts.is_empty());
-    export::pdf(
-        &Export {
-            name: "Harbour Dental".into(),
-            accent: "#0F766E".into(),
-            logo: None,
-            window_days: 7,
-            range: format::date_range(
-                keysend::language::english(),
-                date(last_day - 6),
-                date(last_day),
-                true,
-            ),
-            compared: format::date_range(
-                keysend::language::english(),
-                date(last_day - 13),
-                date(last_day - 7),
-                true,
-            ),
-            campaign_names: campaigns
-                .iter()
-                .map(|campaign| campaign.name.clone())
-                .collect(),
-            prepared: "12 October 2026".into(),
-            cells: format::cells(keysend::language::english(), &total, "USD").unwrap(),
-            judged: true,
-            recommendations: vec![RecommendationText {
-                action: recommendation.action,
-                reason: recommendation.reason,
-                evidence: recommendation.evidence,
-            }],
-            charts,
-            subject: Subject::AdAccount {
-                update: Some(UpdateText {
-                    date: format::long_date(keysend::language::english(), today()),
-                    summary: note.summary,
-                    cause: cause.clone(),
-                    lines: note.lines.into_iter().map(|line| line.text).collect(),
-                }),
-                campaigns: rows
-                    .into_iter()
-                    .map(|(name, current)| CampaignRow {
-                        name,
-                        spend: metrics::english_money(current.spend, "USD"),
-                        clicks: metrics::english_count(current.clicks),
-                        impressions: metrics::english_count(current.impressions),
-                        conversions: current.conversions.map(metrics::english_count),
-                    })
-                    .collect(),
-                deep_charts,
-            },
-        },
-        keysend::language::english(),
+
+    async fn export_words(&self, campaign: Option<i64>, window: &str) -> String {
+        export_words(&self.f, &self.workspace, AD, campaign, window).await
+    }
+}
+
+#[tokio::test]
+#[serial]
+async fn the_export_has_the_update_the_campaigns_and_the_earlier_updates_of_the_ad_account_page() {
+    let h = Harbour::new(true).await;
+    h.sql(
+        "UPDATE updates SET data=json_set(data,'$.lines[0].text','42 conversions, up from 28.') WHERE workspace_id=? AND day=?",
+        vec![
+            h.workspace.workspace.id().into(),
+            day_number(today()).into(),
+        ],
     )
-    .unwrap()
+    .await;
+    let words = h.export_words(None, "7").await;
+    for expected in [
+        "Monday 12 October\nSpend was steady at $2,765, and conversions rose from 84 to 98. Most of the gain came from Search - Emergency.\n",
+        "Search - Emergency: 42 conversions, up from 28.\n",
+        "An Update always compares the last 7 days with the 7 days before.\n",
+        "Campaign\n30 days\nSpend\nConversions\nCost per conversion\nClicks\nCost per click\nImpressions\n",
+        "Search - Brand\nstretch\n$560\nwas $560\n42\nwas 42\n$13.33\nwas $13.33\n280\nwas 280\n$2.00\nwas $2.00\n2,800\nwas 2,800\n",
+        "Earlier Updates\nbold\nFriday 9 October\nDisplay - Remarketing spent $45 a day, as usual.\n",
+    ] {
+        assert!(words.contains(expected), "{expected}\n{words}");
+    }
+    for label in ["Finding", "Impact", "Evidence"] {
+        assert!(words.contains(&format!("\n{label}\n")), "{label}\n{words}");
+    }
+    assert!(
+        words.contains("dental implants jobs wastes spend\nPeople who search for jobs are not patients.\nAdd dental implants jobs as a negative keyword in Search - Implants.\ndental implants jobs: $186 spend, 74 clicks, 0 conversions in the last 30 days.\n"),
+        "{words}"
+    );
+    for trend in [
+        "Spend per day",
+        "Conversions per day",
+        "Cost per conversion per day",
+        "Clicks per day",
+    ] {
+        assert!(words.contains(trend), "{trend}\n{words}");
+    }
+    assert!(
+        words.find("Update\n").unwrap() < words.find("Metrics\n").unwrap()
+            && words.find("Metrics\n").unwrap() < words.find("Recommendations\n").unwrap()
+            && words.find("Recommendations\n").unwrap() < words.find("Campaigns\n").unwrap()
+            && words.find("Campaigns\n").unwrap() < words.find("Charts\n").unwrap()
+            && words.find("Charts\n").unwrap() < words.find("Earlier Updates\n").unwrap(),
+        "{words}"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn the_export_shows_earlier_quiet_days_in_a_row_as_one_nothing_notable_changed() {
+    let h = Harbour::new(true).await;
+    let today = day_number(today());
+    for day in [today - 1, today - 2] {
+        h.sql(
+            "INSERT INTO updates(workspace_id,ad_account_customer_id,day,data) SELECT workspace_id,ad_account_customer_id,?2,json_set(data,'$.day',?2,'$.summary','Nothing notable changed in the last 7 days.','$.lines',json('[]'),'$.detection.movements',json('[]'),'$.detection.yesterday',json('[]'),'$.detection.campaigns',json('[]')) FROM updates WHERE workspace_id=?1 AND day=?3 ON CONFLICT(workspace_id,ad_account_customer_id,day) DO UPDATE SET data=excluded.data",
+            vec![
+                h.workspace.workspace.id().into(),
+                day.into(),
+                today.into(),
+            ],
+        )
+        .await;
+    }
+    let words = h.export_words(None, "7").await;
+    assert!(
+        words.contains("Earlier Updates\nbold\n10 to 11 October\nNothing notable changed.\n"),
+        "{words}"
+    );
+    let earlier = words.split("Earlier Updates\n").nth(1).unwrap();
+    assert!(!earlier.contains("in the last 7 days."), "{earlier}");
+}
+
+#[tokio::test]
+#[serial]
+async fn the_export_lists_each_account_change_with_its_follow_up_and_states_the_tracking_notice() {
+    let h = Harbour::new(false).await;
+    h.sql(
+        &format!("INSERT INTO account_changes(workspace_id,ad_account_customer_id,changed_at,resource_name,resource_type,operation,campaign_id,changed_fields,old_value,new_value) SELECT workspace_id,customer_id,'2026-10-08 10:00:00','customers/{AD}/changeEvents/1','CAMPAIGN_BUDGET','UPDATE',701,'','{{\"campaignBudget\":{{\"amountMicros\":\"50000000\"}}}}','{{\"campaignBudget\":{{\"amountMicros\":\"80000000\"}}}}' FROM ad_accounts WHERE workspace_id=?"),
+        vec![h.workspace.workspace.id().into()],
+    )
+    .await;
+    let words = h.export_words(None, "7").await;
+    for expected in [
+        "We do not judge this Ad Account by conversions\nThe Settings of this Ad Account turn off judging by conversions, so results cannot be judged. We show spend and clicks only.\n",
+        "Account changes in the last 8 weeks\n8 October: Search - Brand: Daily budget changed from $50.00 to $80.00.\nKeySend checks the result on 24 October.\n",
+    ] {
+        assert!(words.contains(expected), "{expected}\n{words}");
+    }
+    assert!(!words.contains("Conversions"), "{words}");
+    assert_eq!(words.matches("cannot be judged").count(), 1, "{words}");
+    assert!(!words.contains("Results cannot be judged."), "{words}");
+
+    let campaign = h.export_words(Some(701), "7").await;
+    assert!(
+        campaign.contains("8 October: Daily budget changed from $50.00 to $80.00.\nKeySend checks the result on 24 October.\n"),
+        "{campaign}"
+    );
 }
 
 #[tokio::test]
 #[serial]
 async fn the_export_states_the_cause_of_the_update_with_its_level_under_the_summary() {
     let h = Harbour::new(true).await;
-    let last_day = day_number(end());
-    let plain = expected_ad_account_export(&h, last_day, None).await;
     for (level, label, evidence) in [
         (
             "likely",
@@ -1073,19 +1158,13 @@ async fn the_export_states_the_cause_of_the_update_with_its_level_under_the_summ
             ],
         )
         .await;
-        let response =
-            h.f.request
-                .get(&format!("/ad-accounts/{AD}/export.pdf?window=7"))
-                .add_cookie(h.f.a.clone())
-                .await;
-        assert_eq!(response.status_code(), 200);
-        let expected =
-            expected_ad_account_export(&h, last_day, Some(format!("{label}: {evidence}"))).await;
+        let words = h.export_words(None, "7").await;
         assert!(
-            response.as_bytes() == expected.as_slice(),
-            "the PDF does not state `{label}: {evidence}` under the summary"
+            words.contains(&format!(
+                "Most of the gain came from Search - Emergency.\n{label}: {evidence}\n"
+            )),
+            "{words}"
         );
-        assert!(expected != plain, "the cause changes the PDF");
     }
 }
 
@@ -1107,16 +1186,9 @@ async fn the_export_ends_on_the_last_collected_day_like_the_page() {
     let page = h.f.page(&format!("/ad-accounts/{AD}")).await;
     assert!(page.contains("3 to 9 October"), "{page}");
 
-    let response =
-        h.f.request
-            .get(&format!("/ad-accounts/{AD}/export.pdf?window=7"))
-            .add_cookie(h.f.a.clone())
-            .await;
-    assert_eq!(response.status_code(), 200);
-
-    let expected = expected_ad_account_export(&h, behind, None).await;
+    let words = h.export_words(None, "7").await;
     assert!(
-        response.as_bytes() == expected.as_slice(),
-        "the PDF does not cover 3 to 9 October 2026"
+        words.contains("Last 7 days, 3 to 9 October 2026. Compared with 26 September to 2 October 2026. Prepared on 12 October 2026."),
+        "{words}"
     );
 }

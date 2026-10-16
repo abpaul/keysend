@@ -20,10 +20,18 @@ use crate::monitoring::{
     access,
     causes::Cause,
     deep_check::DeepCheck,
+    detection::Detection,
     metrics::{CampaignDay, Metrics, Window, WindowMetrics},
     tracking::{self, ConversionTracking},
     update::Update,
 };
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct EarlierUpdate {
+    pub day: i64,
+    pub summary: String,
+    pub quiet: bool,
+}
 
 fn sql(query: &str, values: Vec<Value>) -> Statement {
     Statement::from_sql_and_values(DatabaseBackend::Sqlite, query, values)
@@ -165,10 +173,13 @@ impl WorkspaceStore<'_> {
         id: &str,
         skip: u32,
         limit: u32,
-    ) -> Result<Vec<(i64, String)>> {
+    ) -> Result<Vec<EarlierUpdate>> {
         let mut values = self.monitoring_account(id);
         values.extend([limit.into(), skip.into()]);
-        self.db.query_all_raw(sql("SELECT day,json_extract(data,'$.summary') AS summary FROM updates WHERE workspace_id=? AND ad_account_customer_id=? ORDER BY day DESC LIMIT ? OFFSET ?",values)).await?.into_iter().map(|row|Ok((row.try_get("","day")?,row.try_get("","summary")?))).collect()
+        self.db.query_all_raw(sql("SELECT day,json_extract(data,'$.summary') AS summary,json_extract(data,'$.detection') AS detection FROM updates WHERE workspace_id=? AND ad_account_customer_id=? ORDER BY day DESC LIMIT ? OFFSET ?",values)).await?.into_iter().map(|row|{
+            let detection: Detection = serde_json::from_str(&row.try_get::<String>("","detection")?)?;
+            Ok(EarlierUpdate{day:row.try_get("","day")?,summary:row.try_get("","summary")?,quiet:detection.quiet()})
+        }).collect()
     }
 
     pub async fn campaign_update_lines(

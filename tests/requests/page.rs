@@ -360,6 +360,62 @@ async fn privacy_page_states_how_google_data_is_used() {
 
 #[tokio::test]
 #[serial]
+async fn every_public_page_links_to_the_security_page_and_it_names_its_page_and_contacts() {
+    request::<App, _, _>(|request, _ctx| async move {
+        for path in [
+            "/",
+            "/privacy",
+            "/terms",
+            "/for/agency-clients",
+            "/resources",
+        ] {
+            let body = request.get(path).await.text();
+            assert!(body.contains(r#"href="/security""#), "{path}");
+        }
+
+        let response = request.get("/security").await;
+        assert_eq!(response.status_code(), 200);
+        let body = response.text();
+        assert!(body.contains("<title>Security and your data | KeySend</title>"));
+        assert!(body.contains(r#"<link rel="canonical" href="https://keysend.app/security">"#));
+        for href in [
+            "/privacy#where",
+            "/settings",
+            "mailto:hello@keysend.app?subject=Privacy",
+        ] {
+            assert!(body.contains(&format!(r#"href="{href}""#)), "{href}");
+        }
+        let graph = &structured_data(&body)[0]["@graph"];
+        let node = |kind: &str| {
+            graph
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|node| node["@type"] == kind)
+                .unwrap()
+                .clone()
+        };
+        assert_eq!(
+            node("Organization")["@id"],
+            "https://keysend.app/#organization"
+        );
+        let page = node("WebPage");
+        assert_eq!(page["url"], "https://keysend.app/security");
+        assert_eq!(page["name"], "Security and your data");
+        assert_eq!(
+            page["publisher"]["@id"],
+            "https://keysend.app/#organization"
+        );
+        let crumbs = node("BreadcrumbList")["itemListElement"].clone();
+        assert_eq!(crumbs[0]["item"], "https://keysend.app/");
+        assert_eq!(crumbs[1]["name"], "Security");
+        assert_eq!(crumbs[1]["item"], "https://keysend.app/security");
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
 async fn home_and_sign_in_link_to_the_privacy_page() {
     request::<App, _, _>(|request, _ctx| async move {
         for path in ["/", "/sign-in"] {
@@ -430,7 +486,7 @@ async fn only_allowlisted_anonymous_html_is_publicly_cacheable() {
     request::<App, _, _>(|request, _ctx| async move {
         let public: Vec<String> =
             serde_json::from_slice(&std::fs::read("config/cache-policy.json").unwrap()).unwrap();
-        assert_eq!(public.len(), 14);
+        assert_eq!(public.len(), 16);
         for path in public {
             let response = request.get(&path).await;
             assert_eq!(response.status_code(), 200);
@@ -547,7 +603,7 @@ async fn privacy_page_links_to_the_terms_and_keeps_the_google_policy_statement()
 #[serial]
 async fn each_legal_page_has_one_h1_and_a_contents_link_for_every_section() {
     request::<App, _, _>(|request, _ctx| async move {
-        for path in ["/privacy", "/terms"] {
+        for path in ["/privacy", "/terms", "/security"] {
             let body = request.get(path).await.text();
             assert_eq!(body.matches("<h1").count(), 1, "{path}");
 
@@ -666,7 +722,13 @@ async fn a_calculator_page_allows_its_one_script_by_hash_and_inline_style_attrib
 #[serial]
 async fn every_response_forbids_framing_and_content_type_sniffing() {
     request::<App, _, _>(|request, _ctx| async move {
-        for path in ["/", "/sign-in", "/missing-page", "/static/styles.css"] {
+        for path in [
+            "/",
+            "/sign-in",
+            "/security",
+            "/missing-page",
+            "/static/styles.css",
+        ] {
             let response = request.get(path).await;
             assert_eq!(response.header("x-frame-options"), "DENY", "{path}");
             assert_eq!(
@@ -1087,6 +1149,98 @@ async fn sign_in_explains_the_google_permission_and_carries_a_known_source() {
                 "{unknown}"
             );
             assert!(!body.contains("?from="), "{unknown}");
+        }
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+async fn a_visitor_reads_the_romanian_home_page_directly_and_english_stays_separate() {
+    request::<App, _, _>(|request, _ctx| async move {
+        for path in ["/ro", "/", "/ro"] {
+            let response = request.get(path).await;
+            assert_eq!(response.status_code(), 200, "{path}");
+            assert_publicly_cached(response.header("cache-control").to_str().unwrap());
+            let body = response.text();
+            let (language, canonical) = if path == "/ro" {
+                ("ro", "https://keysend.app/ro")
+            } else {
+                ("en", "https://keysend.app/")
+            };
+            assert!(body.contains(&format!("<html lang=\"{language}\">")));
+            assert!(body.contains(&format!("<link rel=\"canonical\" href=\"{canonical}\">")));
+            assert!(body.contains(&format!(
+                "<meta property=\"og:url\" content=\"{canonical}\">"
+            )));
+            for (code, url) in [
+                ("en", "https://keysend.app/"),
+                ("ro", "https://keysend.app/ro"),
+                ("x-default", "https://keysend.app/"),
+            ] {
+                assert!(body.contains(&format!("hreflang=\"{code}\" href=\"{url}\"")));
+            }
+            assert!(!body.contains("noindex"));
+            for source in ["home-nav", "home-hero", "home-price", "home-closing"] {
+                assert!(body.contains(&format!("href=\"/sign-in?from={source}\"")));
+            }
+            assert!(body.contains(&format!("\"inLanguage\":\"{language}\"")));
+            if language == "ro" {
+                assert!(body.contains("14 zile"));
+                assert!(body.contains("conversiile au crescut de la 95 la 102"));
+                assert!(!body.contains("Spend was steady this week"));
+                assert!(!body.contains("Increase the daily budget"));
+                assert!(
+                    body.contains("Bugetul zilnic s-a schimbat de la 45,00\u{a0}$ la 20,00\u{a0}$")
+                );
+                assert!(!body.contains("Daily budget changed"));
+                assert!(body.contains("31% din afișările eligibile estimate"));
+                assert!(!body.contains("52,01"));
+            } else {
+                assert!(body.contains("conversions rose from 95 to 102"));
+            }
+        }
+        for path in ["/ro?language=en", "/ro?utm_source=test"] {
+            assert_eq!(request.get(path).await.header("cache-control"), "no-store");
+        }
+        assert_eq!(
+            request
+                .get("/ro")
+                .add_header("Authorization", "Bearer test")
+                .await
+                .header("cache-control"),
+            "no-store"
+        );
+        for path in ["/fr", "/ro/security", "/ro/for/business-owners"] {
+            assert_eq!(request.get(path).await.status_code(), 404);
+        }
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+async fn both_home_languages_link_to_the_public_code_in_the_founder_letter_and_footer() {
+    request::<App, _, _>(|request, _ctx| async move {
+        for (path, statement, label) in [
+            ("/", "KeySend is open source.", "Source code on GitHub"),
+            ("/ro", "KeySend este open source.", "Codul sursă pe GitHub"),
+        ] {
+            let response = request.get(path).await;
+            assert_eq!(response.status_code(), 200);
+            let body = response.text();
+            let link = format!("<a href=\"https://github.com/abpaul/keysend\">{label}</a>");
+            let founder = body
+                .split("class=\"founder-note\"")
+                .nth(1)
+                .unwrap()
+                .split("</section>")
+                .next()
+                .unwrap();
+            assert!(founder.contains(statement), "{path}");
+            assert!(founder.contains(&link), "{path}");
+            let footer = body.split("<footer").nth(1).unwrap();
+            assert!(footer.contains(&link), "{path}");
         }
     })
     .await;

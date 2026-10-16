@@ -24,7 +24,10 @@ use loco_rs::{
 use migration::Migrator;
 use tower_http::services::ServeDir;
 
-use crate::{assets, controllers, initializers, security, settings::Settings};
+use crate::{
+    assets, controllers, initializers, security,
+    settings::{Credentials, Settings},
+};
 
 pub struct App;
 
@@ -40,16 +43,24 @@ impl Hooks for App {
         env!("CARGO_PKG_VERSION").to_owned()
     }
 
+    async fn load_config(environment: &Environment) -> Result<Config> {
+        let config = environment.load()?;
+        Credentials::resolve(environment, &config)?;
+        Ok(config)
+    }
+
     async fn boot(
         mode: StartMode,
         environment: &Environment,
         config: Config,
     ) -> Result<BootResult> {
-        Settings::validate_master_key(environment)?;
+        Credentials::resolve(environment, &config)?;
         create_app::<Self, Migrator>(mode, environment, config).await
     }
 
     async fn after_context(mut ctx: AppContext) -> Result<AppContext> {
+        let credentials = Credentials::resolve(&ctx.environment, &ctx.config)?;
+        ctx.shared_store.insert(Arc::new(credentials));
         ctx.db = crate::database::connect(&ctx.config.database).await?;
         Ok(ctx)
     }
@@ -115,6 +126,9 @@ impl Hooks for App {
             .await?;
         queue
             .register(crate::monitoring::worker::TranslationWorker::build(ctx))
+            .await?;
+        queue
+            .register(crate::monitoring::retention::RetentionWorker::build(ctx))
             .await?;
         if ctx.environment == Environment::Production {
             tokio::spawn(crate::monitoring::schedule::hourly(ctx.clone()));

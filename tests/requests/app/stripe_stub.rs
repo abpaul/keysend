@@ -188,6 +188,9 @@ async fn delete_customer(
         .stripe
         .requests
         .push((format!("DELETE customers/{id}"), HashMap::new()));
+    if calls.stripe.fail {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    }
     Json(json!({"id":id,"deleted":true})).into_response()
 }
 

@@ -8,15 +8,24 @@
 {%- block head_extra %}{% endblock head_extra %}
   <link rel="icon" type="image/svg+xml" href="{{ assets["images/logo.svg"] }}">
   <link rel="stylesheet" href="{{ assets["styles.css"] }}">
+  <script defer src="{{ assets["popover.js"] }}"></script>
 {% include "home/_visits.html" %}
 </head>
 <body class="lp">
   <a class="skip" href="#main">{{ t(key="skip_to_main") }}</a>
   <div class="lp-top field--plum">
     <header class="wrap lp-nav">
-      <a class="brand" href="/"><img src="{{ assets["images/logo-on-plum.svg"] }}" alt="" width="30" height="23">KeySend</a>
+      <a class="brand" href="{{ home_path | default(value="/") }}"><img src="{{ assets["images/logo-on-plum.svg"] }}" alt="" width="30" height="23">KeySend</a>
       <nav class="links" aria-label="{{ t(key="nav_main_label") }}">
-        <a href="/#price">{{ t(key="home_nav_price") }}</a>
+{% if home_languages %}
+        <details class="lang-menu">
+          <summary>{{ t(key="language_label") }}: {% for language in home_languages %}{% if language.code == lang() %}{{ language.name }}{% endif %}{% endfor %}</summary>
+          <div class="lang-menu__list">
+            {% for language in home_languages %}<a href="{{ language.path }}" lang="{{ language.code }}" hreflang="{{ language.code }}"{% if language.code == lang() %} aria-current="page"{% endif %}>{{ language.name }}</a>{% endfor %}
+          </div>
+        </details>
+{% endif %}
+        <a href="{{ home_path | default(value="/") }}#price">{{ t(key="home_nav_price") }}</a>
         <a href="/sign-in">{{ t(key="home_nav_sign_in") }}</a>
         <a class="btn btn-citron btn-sm" href="/sign-in?from={{ nav_from | default(value="nav") }}">{{ t(key="home_nav_start_trial") }}</a>
       </nav>
@@ -43,7 +52,7 @@
 
   <footer class="lp-foot field--ink">
     <div class="wrap">
-      <a class="brand" href="/"><img src="{{ assets["images/logo-on-plum.svg"] }}" alt="" width="30" height="23">KeySend</a>
+      <a class="brand" href="{{ home_path | default(value="/") }}"><img src="{{ assets["images/logo-on-plum.svg"] }}" alt="" width="30" height="23">KeySend</a>
       <span>{{ t(key="footer_read_only") }}</span>
       <nav aria-label="{{ t(key="home_footer_label") }}">
         <a href="/for/business-owners">{{ t(key="for_owners_link") }}</a>
@@ -52,6 +61,8 @@
         <a href="/resources">{{ t(key="content_resources_label") }}</a>
         <a href="/privacy">{{ t(key="footer_privacy") }}</a>
         <a href="/terms">{{ t(key="footer_terms") }}</a>
+        <a href="/security">{{ t(key="footer_security") }}</a>
+        {% include "home/_source_link.html" %}
       </nav>
     </div>
   </footer>

@@ -552,7 +552,7 @@ async fn an_ad_account_not_judged_by_conversions_states_the_reason_once_and_not_
     worker::run(&f.ctx, &job).await.unwrap();
     let page = ad_account_page(&f).await;
     assert_eq!(
-        page.matches("You chose this in Settings, so we cannot judge results.")
+        page.matches("The Settings of this Ad Account turn off judging by conversions, so results cannot be judged. We show spend and clicks only.")
             .count(),
         1
     );
@@ -738,7 +738,7 @@ async fn weekly_deep_check_refreshes_findings_and_validated_recommendations() {
     let recommendations = store.monitoring_recommendations(AD).await.unwrap();
     assert_eq!(
         recommendations[0].action,
-        "Check Conversion tracking in Google Ads."
+        "Check that the conversion actions in Google Ads still record conversions."
     );
     assert!(f
         .calls
@@ -2370,7 +2370,7 @@ async fn deep_check_names_each_ad_and_keeps_the_campaign_id_out_of_the_names() {
         .iter()
         .find(|finding| finding.rule.key == "ads-poor-strength:701")
         .unwrap();
-    assert_eq!(poor.rule.detail, "5 ads with EUR 25.00 spend have the ad strength Poor: Autumn banner, Emergency Dentist | Open Today | Harbour Dental, Responsive display ad in ad group Emergency, Responsive display ad in ad group Emergency, Same-Day Appointments | Call Harbour Dental.");
+    assert_eq!(poor.rule.detail, "In the 30 days before the Deep check, 5 ads in Search - Real with EUR 25.00 spend had the ad strength Poor: Autumn banner, Emergency Dentist | Open Today | Harbour Dental, Responsive display ad in ad group Emergency, Responsive display ad in ad group Emergency, Same-Day Appointments | Call Harbour Dental.");
     assert!(check.findings.iter().all(|finding| {
         !finding.rule.detail.contains("(701)") && !finding.rule.title.contains("(701)")
     }));

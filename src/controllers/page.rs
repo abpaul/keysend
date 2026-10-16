@@ -6,7 +6,7 @@ use super::monitoring::example;
 use crate::{
     app::not_found,
     content,
-    language::{request_text, Entry, Text},
+    language::{request_text, set_current, Entry, Language, Text},
     monitoring::access,
 };
 
@@ -136,8 +136,23 @@ fn structured_data(data: &Value, nodes: Vec<Value>) -> String {
     content::script_json(&json!({"@context": "https://schema.org", "@graph": graph}))
 }
 
-async fn home(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
+async fn home(
+    ViewEngine(v): ViewEngine<TeraView>,
+    OriginalUri(uri): OriginalUri,
+) -> Result<Response> {
+    let language = if uri.path() == "/ro" {
+        Language::Ro
+    } else {
+        Language::En
+    };
+    set_current(language)?;
     let mut data = landing(request_text()?, &HOME_QUESTIONS)?;
+    data["home_path"] = uri.path().into();
+    data["canonical"] = format!("{}{}", content::ORIGIN, uri.path()).into();
+    data["home_languages"] = json!([
+        {"code": Language::En.code(), "name": Language::En.name(), "path": "/"},
+        {"code": Language::Ro.code(), "name": Language::Ro.name(), "path": "/ro"},
+    ]);
     data["nav_from"] = "home-nav".into();
     data["schema"] = structured_data(&data, Vec::new()).into();
     format::render().view(&v, "home/index.html", data)
@@ -203,11 +218,57 @@ async fn terms(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
     format::render().view(&v, "home/terms.html", data!({}))
 }
 
+pub const SECURITY_PATH: &str = "/security";
+
+async fn security(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
+    let text = request_text()?;
+    let origin = content::ORIGIN;
+    let url = format!("{origin}{SECURITY_PATH}");
+    let title = text.get("security_title", &[])?;
+    let description = text.get("security_description", &[])?;
+    let schema = content::script_json(&json!({
+        "@context": "https://schema.org",
+        "@graph": [
+            content::organization(),
+            {
+                "@type": "WebPage",
+                "@id": format!("{url}#page"),
+                "url": url,
+                "name": title,
+                "description": description,
+                "inLanguage": "en",
+                "publisher": {"@id": content::organization_id()},
+            },
+            {
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    {"@type": "ListItem", "position": 1, "name": "KeySend", "item": format!("{origin}/")},
+                    {"@type": "ListItem", "position": 2, "name": text.get("footer_security", &[])?, "item": url},
+                ],
+            },
+        ],
+    }));
+    format::render().view(
+        &v,
+        "home/security.html",
+        data!({
+            "path": SECURITY_PATH,
+            "title": title,
+            "description": description,
+            "schema": schema,
+            "contact": content::CONTACT,
+            "contact_href": format!("mailto:{}?subject=Privacy", content::CONTACT),
+        }),
+    )
+}
+
 pub fn routes() -> Routes {
     let mut routes = Routes::new()
         .add("/", get(home))
+        .add("/ro", get(home))
         .add("/privacy", get(privacy))
-        .add("/terms", get(terms));
+        .add("/terms", get(terms))
+        .add(SECURITY_PATH, get(security));
     for page in &AUDIENCES {
         routes = routes.add(page.path, get(audience));
     }

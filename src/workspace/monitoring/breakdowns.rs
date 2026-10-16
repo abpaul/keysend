@@ -329,7 +329,7 @@ impl WorkspaceStore<'_> {
         values.extend([start.into(), end.into()]);
         self.db
             .query_all_raw(sql(
-                "SELECT campaign_id,COUNT(*) AS days,SUM(shown_under=1 OR lost_budget_over=1 OR lost_rank_over=1) AS limit_days,SUM(exact) AS exact_days,SUM(CASE WHEN exact THEN impressions END) AS impressions,SUM(CASE WHEN exact THEN impressions/shown END) AS eligible,SUM(CASE WHEN exact THEN lost_budget*impressions/shown END) AS lost_budget,SUM(CASE WHEN exact THEN lost_rank*impressions/shown END) AS lost_rank FROM (SELECT *,shown>0 AND lost_budget IS NOT NULL AND lost_rank IS NOT NULL AS exact FROM campaign_search_share_days WHERE workspace_id=? AND ad_account_customer_id=? AND day BETWEEN ? AND ?) GROUP BY campaign_id ORDER BY campaign_id",
+                "SELECT campaign_id,COUNT(*) AS days,SUM(shown_under=1 OR lost_budget_over=1 OR lost_rank_over=1) AS limit_days,SUM(CASE WHEN exact THEN 1 ELSE 0 END) AS exact_days,SUM(CASE WHEN exact THEN impressions END) AS impressions,SUM(CASE WHEN exact THEN impressions/shown END) AS eligible,SUM(CASE WHEN exact THEN lost_budget*impressions/shown END) AS lost_budget,SUM(CASE WHEN exact THEN lost_rank*impressions/shown END) AS lost_rank FROM (SELECT *,shown>0 AND lost_budget IS NOT NULL AND lost_rank IS NOT NULL AS exact FROM campaign_search_share_days WHERE workspace_id=? AND ad_account_customer_id=? AND day BETWEEN ? AND ?) GROUP BY campaign_id ORDER BY campaign_id",
                 values,
             ))
             .await?

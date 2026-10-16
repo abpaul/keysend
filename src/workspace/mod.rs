@@ -7,6 +7,7 @@ mod google_ads;
 pub mod history;
 pub mod monitoring;
 pub mod profile;
+mod retention;
 pub mod settings;
 
 pub use google_ads::Operation;

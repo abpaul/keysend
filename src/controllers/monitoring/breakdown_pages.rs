@@ -188,8 +188,9 @@ impl Source<'_> {
                     shares: total
                         .shares
                         .map(|shares| (shares.shown, shares.lost_budget, shares.lost_rank)),
+                    exact_days: total.exact_days,
                     limit_days: total.limit_days,
-                    days: total.days,
+                    days: self.window.days(),
                 })
             })
             .collect::<Vec<_>>();

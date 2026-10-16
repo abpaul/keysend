@@ -18,9 +18,10 @@ The README has the system diagram.
 | `src/controllers/` | One file for each group of routes. A handler reads the request, calls the store and the builders, and renders a template |
 | `src/auth.rs`, `src/identity/` | The session cookie, the `Authenticated` extractor, Users, sessions, OAuth states |
 | `src/workspace/` | `WorkspaceStore`: every read and write of a row that a Workspace owns |
+| `src/removal.rs` | Deletion of a Workspace: revoke the Google tokens, delete the Stripe customer, then delete the rows. User deletion and the retention job call it |
 | `src/google.rs` | Google OAuth: token exchange, refresh, revoke, and the list of Ad Accounts of a Google Connection |
 | `src/google_ads.rs`, `src/google_ads/` | The Google Ads client (`googleAds:search` only) and the collection of the Account history and the Deep check data |
-| `src/monitoring/` | The daily run: Metrics, movement detection, Findings, Updates, Recommendations, Alerts, the emails, the charts, the Export |
+| `src/monitoring/` | The daily run: Metrics, movement detection, Findings, Updates, Recommendations, Alerts, the emails, the charts, the Export, and the daily retention job |
 | `src/ai.rs` | The one OpenAI request function and the checks on its answer |
 | `src/translation.rs`, `src/translation/` | Translation of stored text, with names and numbers masked |
 | `src/language.rs`, `src/language/` | Every text of the interface, one `Text` value for each language |
@@ -29,7 +30,7 @@ The README has the system diagram.
 | `src/content.rs`, `content/seo/` | The public articles, guides and tools, with their publication dates |
 | `src/assets.rs` | Static files with a content hash in the name |
 | `src/crypto.rs` | Encryption of Google refresh tokens with the master key |
-| `src/settings.rs` | Settings and secrets from the configuration and the environment, and the clock |
+| `src/settings.rs`, `src/settings/credentials.rs`, `src/bin/credentials.rs` | Settings, the clock, a context-owned snapshot of ENV or encrypted credentials, and scoped operator commands using the same credential schema |
 | `migration/` | The schema. One file for each change |
 
 ## Rules
@@ -38,7 +39,7 @@ The README has the system diagram.
 - A handler takes the signed-in User from the `Authenticated` extractor. A handler of a route with an Ad Account takes `OwnedAdAccount`, which answers not-found for an Ad Account of another Workspace.
 - A text for the interface goes in `language::Text`; a missing text does not compile. `src/language.rs` explains how to add one.
 - Product dates (days, Windows, the Trial, Updates, Alerts) read `Settings::now()`, which a test can set. Machine time (the expiry of a session, a request timestamp) reads `settings::wall_clock()`. Clippy refuses `Utc::now()`.
-- Stored text is English. Pages, emails and Exports read the translation and fall back to English.
+- Stored text is English. Pages and emails read the translation and fall back to English. Romanian Exports require the translation of their stored text. Exports follow the saved User language, Romanian or otherwise English.
 - AI never creates a Metric, a Finding or a Cause. A Recommendation is kept only when it cites a detected Finding and its numbers (`src/monitoring/recommendation.rs`). Code builds the Cause candidates with their level and evidence (`src/monitoring/causes.rs`); AI only chooses one for a text and words it, and the check lets a text use causal words only in a sentence that also holds an anchor of the chosen Confirmed or Likely cause (for example the date of the Account change), and a Likely cause also needs "most likely" or "probably" in that sentence. A Contribution unlocks no causal word.
 - Only a verified Stripe webhook grants Access.
 - Every page works without scripts.

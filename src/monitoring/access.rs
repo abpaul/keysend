@@ -5,11 +5,14 @@ pub const AD_ACCOUNT_LIMIT: usize = 3;
 
 pub const HISTORY_GRACE_SECONDS: i64 = 30 * 86_400;
 
-pub fn history_open(started_at: i64, subscription: Option<&Subscription>, now: i64) -> bool {
-    let access_ended = started_at
+pub fn access_ended_at(started_at: i64, subscription: Option<&Subscription>) -> i64 {
+    started_at
         .saturating_add(TRIAL_SECONDS)
-        .max(subscription.map_or(0, |subscription| subscription.period_end));
-    now < access_ended.saturating_add(HISTORY_GRACE_SECONDS)
+        .max(subscription.map_or(0, |subscription| subscription.period_end))
+}
+
+pub fn history_open(started_at: i64, subscription: Option<&Subscription>, now: i64) -> bool {
+    now < access_ended_at(started_at, subscription).saturating_add(HISTORY_GRACE_SECONDS)
 }
 
 pub fn trial_open(started_at: i64, now: i64) -> bool {

@@ -7,9 +7,9 @@ use super::{
     campaign_settings::{Target, TargetFrom},
     detection::{
         weekday_range, weekday_values, BASELINE_WEEKS, MIN_CLICK_CHANGE, MIN_CONVERSION_CHANGE,
-        MIN_SPEND_CHANGE,
+        MIN_NORMAL_DAYS, MIN_SPEND_CHANGE,
     },
-    metrics::{sum, CampaignDay, Metrics},
+    metrics::{sum, CampaignDay, Metrics, Window},
 };
 use crate::{
     language::{english, fill, say, say_plural, Plural, Text, Written},
@@ -26,7 +26,7 @@ pub use deep::{
     MIN_GRID_COUNT, MIN_KNOWN_SHARE,
 };
 pub use search_share::{search_share, SearchShare};
-pub use standalone::{standalone, Frame};
+pub use standalone::{standalone, standalone_spark, Frame};
 
 pub const TREND_DAYS: i64 = BASELINE_WEEKS * 7;
 pub const HISTORY_DAYS: i64 = TREND_DAYS * 2;
@@ -356,7 +356,7 @@ fn share_bar(
     line: String,
 ) -> String {
     format!(
-        r#"<g class="pt" tabindex="0" role="img"><title>{}</title><rect class="pt__hit" x="0" y="{y:.0}" width="100%" height="13" rx="4"/><rect class="bar bar--{kind}" x="0" y="{y:.0}" width="{width:.2}%" height="13" rx="4"/><text x="{width:.2}%" dx="6" y="{:.0}">{}</text>{}</g>"#,
+        r#"<g class="pt" tabindex="0" role="img" aria-label="{}"><rect class="pt__hit" x="0" y="{y:.0}" width="100%" height="13" rx="4"/><rect class="bar bar--{kind}" x="0" y="{y:.0}" width="{width:.2}%" height="13" rx="4"/><text x="{width:.2}%" dx="6" y="{:.0}">{}</text>{}</g>"#,
         esc(title),
         y + 11.0,
         esc(&share_text(text, percent)),
@@ -719,8 +719,18 @@ impl TrendMetric {
         }
     }
 
-    fn axis(self, text: &Text, value: f64, currency: &str) -> String {
-        axis(text, self.format(text, value, currency))
+    fn axis(self, text: &Text, value: f64, step: f64, currency: &str) -> String {
+        let decimals = (0..=12)
+            .find(|decimals| {
+                let scaled = step * 10f64.powi(*decimals);
+                (scaled - scaled.round()).abs() < 1e-8
+            })
+            .unwrap_or(12) as usize;
+        if self.is_money() {
+            text.written.format.amount(value, decimals, currency)
+        } else {
+            text.number(value, decimals)
+        }
     }
 }
 
@@ -746,21 +756,17 @@ pub fn trend_days(
     first_day: i64,
     campaign: Option<i64>,
     metric: TrendMetric,
+    window: Window,
 ) -> Vec<TrendDay> {
-    let ranged = end - first_day + 1 >= TREND_DAYS;
-    ((end - TREND_DAYS + 1).max(first_day)..=end)
+    ((end - window.days() + 1).max(first_day)..=end)
         .map(|day| {
             let value = metric.value()(&sum(days, day, day, campaign));
             let value = value.is_finite().then_some(value);
-            let range = ranged
-                .then(|| {
-                    let usual = weekday_values(days, day, first_day, campaign, metric.value())
-                        .into_iter()
-                        .filter(|value| value.is_finite())
-                        .collect::<Vec<_>>();
-                    weekday_range(&usual, metric.floor())
-                })
-                .flatten();
+            let usual = weekday_values(days, day, first_day, campaign, metric.value())
+                .into_iter()
+                .filter(|value| value.is_finite())
+                .collect::<Vec<_>>();
+            let range = weekday_range(&usual, metric.floor());
             TrendDay {
                 day,
                 value,
@@ -830,7 +836,7 @@ fn trend_sentence(
             trend_no_range,
             days.len() as u64,
             name = name,
-            weeks = BASELINE_WEEKS
+            weeks = MIN_NORMAL_DAYS
         );
     }
     let unusual = days.iter().filter(|day| day.unusual).collect::<Vec<_>>();
@@ -1017,6 +1023,34 @@ fn change_labels(
     Ok(labels)
 }
 
+const TIP_WIDTH: usize = 44;
+
+fn wrap(line: &str, width: usize) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for word in line.split(' ') {
+        match lines.last_mut() {
+            Some(last) if last.chars().count() + 1 + word.chars().count() <= width => {
+                last.push(' ');
+                last.push_str(word);
+            }
+            _ => lines.push(word.into()),
+        }
+    }
+    lines
+}
+
+fn trend_distance(text: &Text, value: f64, (low, high): (f64, f64)) -> Result<Option<String>> {
+    if value < low && low > 0.0 {
+        let percent = share_text(text, (low - value) / low * 100.0);
+        say!(text, trend_tip_below, percent = percent).map(Some)
+    } else if value > high && high > 0.0 {
+        let percent = share_text(text, (value - high) / high * 100.0);
+        say!(text, trend_tip_above, percent = percent).map(Some)
+    } else {
+        Ok(None)
+    }
+}
+
 pub fn trend(
     text: &Text,
     metric: TrendMetric,
@@ -1162,7 +1196,7 @@ fn trend_of(
             r#"<line class="grid" x1="0" x2="100%" y1="{0:.1}" y2="{0:.1}"/><text x="-30" y="{1:.1}">{2}</text>"#,
             y(value),
             y(value) + 4.0,
-            esc(&metric.axis(text, value, currency))
+            esc(&metric.axis(text, value, step, currency))
         );
     }
 
@@ -1259,17 +1293,48 @@ fn trend_of(
                 )
             })
             .transpose()?;
-        let day_line = say!(text, trend_tip_day, date = &date, value = &value)?;
-        let mut lines = vec![day_line.clone()];
-        let mut title = format!("{day_line}.");
+        let on_day_changes = changes
+            .iter()
+            .filter(|change| change.day == day.day)
+            .collect::<Vec<_>>();
+        let mut lines = vec![say!(text, trend_tip_day, date = &date, value = &value)?];
         if let Some(usual) = &usual {
-            let usual_line = say!(text, trend_tip_usual, usual = usual)?;
-            let _ = write!(title, " {usual_line}.");
-            lines.push(usual_line);
+            lines.push(say!(text, trend_tip_usual, usual = usual)?);
         }
-        if day.unusual {
-            let _ = write!(title, " {}.", text.written.trend_unusual_day);
+        let distance = day
+            .value
+            .zip(day.range)
+            .map(|(value, range)| trend_distance(text, value, range))
+            .transpose()?
+            .flatten();
+        match (day.unusual, distance) {
+            (true, Some(detail)) => lines.push(say!(text, trend_tip_unusual, detail = detail)?),
+            (true, None) => lines.push(text.written.trend_unusual_day.into()),
+            (false, Some(detail)) => lines.push(detail),
+            (false, None) => {}
         }
+        match on_day_changes.as_slice() {
+            [] => {}
+            [change] => lines.push(say!(
+                text,
+                trend_tip_change,
+                label = match (&change.label, change.english) {
+                    (Some(label), _) => label.clone(),
+                    (None, true) => change.text.clone(),
+                    (None, false) => change_label(&change.text),
+                }
+            )?),
+            many => lines.push(say!(text, trend_tip_changes, count = many.len())?),
+        }
+        let title = lines
+            .iter()
+            .map(|line| format!("{line}."))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let lines = lines
+            .iter()
+            .flat_map(|line| wrap(line, TIP_WIDTH))
+            .collect::<Vec<_>>();
         let center = day.value.map_or(TREND_HEIGHT / 2.0, y);
         let height = lines.len() as f64 * 16.0 + 10.0;
         let top = if center - height - 10.0 < 0.0 {
@@ -1290,15 +1355,11 @@ fn trend_of(
         };
         let _ = write!(
             svg,
-            r#"<svg x="{:.2}%" width="1" height="1" overflow="visible"><g class="pt" tabindex="0" role="img"><title>{}</title><rect class="pt__hit" x="-5.5" y="0" width="11" height="{TREND_HEIGHT:.0}"/>{dot}{}</g></svg>"#,
+            r#"<svg x="{:.2}%" width="1" height="1" overflow="visible"><g class="pt" tabindex="0" role="img" aria-label="{}"><rect class="pt__hit" x="-5.5" y="0" width="11" height="{TREND_HEIGHT:.0}"/>{dot}{}</g></svg>"#,
             x(index),
             esc(&title),
             tip(if to_left { -8.0 } else { 8.0 }, top, &lines, to_left),
         );
-        let on_day_changes = changes
-            .iter()
-            .filter(|change| change.day == day.day)
-            .collect::<Vec<_>>();
         english_last.push(on_day_changes.iter().any(|change| change.english));
         let on_day = on_day_changes
             .iter()
@@ -1505,7 +1566,7 @@ pub fn cost_weeks_for(
                 svg,
                 r#"<text x="-30" y="{:.1}">{}</text>"#,
                 y(value) + 4.0,
-                esc(&label(value))
+                esc(&TrendMetric::CostPerConversion.axis(text, value, step, currency))
             );
         }
     }
@@ -1631,7 +1692,7 @@ pub fn cost_weeks_for(
         let to_left = center(index) > 50.0;
         let _ = write!(
             bars,
-            r#"<g class="pt" tabindex="0" role="img"><title>{}</title><rect class="pt__hit" x="{:.2}%" y="0" width="{SLOT:.2}%" height="{WEEKS_HEIGHT:.0}"/>{bar}<svg x="{:.2}%" width="1" height="1" overflow="visible">{}</svg></g>"#,
+            r#"<g class="pt" tabindex="0" role="img" aria-label="{}"><rect class="pt__hit" x="{:.2}%" y="0" width="{SLOT:.2}%" height="{WEEKS_HEIGHT:.0}"/>{bar}<svg x="{:.2}%" width="1" height="1" overflow="visible">{}</svg></g>"#,
             esc(&format!("{first_line}. {totals}.")),
             slot(index),
             center(index),
@@ -2025,7 +2086,9 @@ mod tests {
         assert!(first.contains(
             r#"<rect class="bar bar--results" x="0" y="16" width="100.00%" height="13" rx="4"/><text x="100.00%" dx="6" y="27">59%</text>"#
         ));
-        assert!(first.contains("<title>Search - Emergency: 44% of spend, $1,810 of $4,120</title>"));
+        assert!(
+            first.contains(r#"aria-label="Search - Emergency: 44% of spend, $1,810 of $4,120""#)
+        );
         assert!(first.contains(r#"<text x="8.0" y="-13.0">Spend: $1,810 of $4,120</text>"#));
         assert!(first.contains(r#"<text x="8.0" y="3.0">Conversions: 61 of 104</text>"#));
         assert_eq!(
@@ -2183,37 +2246,123 @@ mod tests {
     }
 
     #[test]
-    fn a_trend_day_has_the_usual_range_and_the_judgement_of_the_detection_rules() {
+    fn the_daily_trend_shows_the_selected_days_and_aggregates_each_metric_before_dividing() {
+        let mut days = steady(END - 111);
+        days.extend((END - 111..=END).map(|at| {
+            let mut row = day(at, 2, 50.0, 1.0);
+            row.metrics.clicks = 10.0;
+            row
+        }));
+        for (window, expected) in [
+            (
+                Window::SevenDays,
+                vec![20_731, 20_732, 20_733, 20_734, 20_735, 20_736, 20_737],
+            ),
+            (
+                Window::ThirtyDays,
+                vec![
+                    20_708, 20_709, 20_710, 20_711, 20_712, 20_713, 20_714, 20_715, 20_716, 20_717,
+                    20_718, 20_719, 20_720, 20_721, 20_722, 20_723, 20_724, 20_725, 20_726, 20_727,
+                    20_728, 20_729, 20_730, 20_731, 20_732, 20_733, 20_734, 20_735, 20_736, 20_737,
+                ],
+            ),
+        ] {
+            for (metric, total, own) in [
+                (TrendMetric::Spend, 150.0, 50.0),
+                (TrendMetric::Clicks, 60.0, 10.0),
+                (TrendMetric::Conversions, 5.0, 1.0),
+                (TrendMetric::CostPerConversion, 30.0, 50.0),
+                (TrendMetric::CostPerClick, 2.5, 5.0),
+                (TrendMetric::Impressions, 1500.0, 500.0),
+            ] {
+                let shown = trend_days(&days, END, END - 111, None, metric, window);
+                assert_eq!(
+                    shown.iter().map(|row| row.day).collect::<Vec<_>>(),
+                    expected
+                );
+                assert_eq!(shown.last().unwrap().value, Some(total));
+                assert_eq!(shown.last().unwrap().range, Some((total, total)));
+                let campaign = trend_days(&days, END, END - 111, Some(2), metric, window);
+                assert_eq!(campaign.last().unwrap().value, Some(own));
+                assert_eq!(campaign.last().unwrap().range, Some((own, own)));
+            }
+        }
+    }
+
+    #[test]
+    fn the_usual_range_uses_only_earlier_matching_weekdays_and_is_independent_of_the_window() {
         let mut days = steady(END - 111);
         days.last_mut().unwrap().metrics.spend = 151.0;
-        let trend = trend_days(&days, END, END - 111, None, TrendMetric::Spend);
-        assert_eq!(trend.len(), 56);
-        assert_eq!(trend[0].day, END - 55);
-        assert_eq!(trend[0].range, Some((100.0, 100.0)));
-        assert_eq!(trend[55].value, Some(151.0));
-        assert!(trend[55].unusual);
-        assert!(!trend[54].unusual);
-
+        let seven = trend_days(
+            &days,
+            END,
+            END - 111,
+            None,
+            TrendMetric::Spend,
+            Window::SevenDays,
+        );
+        let thirty = trend_days(
+            &days,
+            END,
+            END - 111,
+            None,
+            TrendMetric::Spend,
+            Window::ThirtyDays,
+        );
+        assert_eq!(seven, thirty[23..]);
+        assert_eq!(thirty[22].value, Some(100.0));
+        assert_eq!(thirty[22].range, Some((100.0, 100.0)));
+        assert_eq!(seven[0].range, Some((100.0, 100.0)));
+        assert_eq!(seven[5].value, Some(100.0));
+        assert_eq!(seven[5].range, Some((100.0, 100.0)));
+        assert!(!seven[5].unusual);
+        assert_eq!(seven[6].value, Some(151.0));
+        assert_eq!(seven[6].range, Some((100.0, 100.0)));
+        assert!(seven[6].unusual);
         days.last_mut().unwrap().metrics.spend = 150.0;
-        assert!(!trend_days(&days, END, END - 111, None, TrendMetric::Spend)[55].unusual);
+        let threshold = trend_days(
+            &days,
+            END,
+            END - 111,
+            None,
+            TrendMetric::Spend,
+            Window::SevenDays,
+        );
+        assert_eq!(threshold[6].value, Some(150.0));
+        assert!(!threshold[6].unusual);
 
         let mut varied = steady(END - 111);
         for (index, row) in varied.iter_mut().enumerate() {
             row.metrics.spend = if (index / 7) % 2 == 0 { 80.0 } else { 120.0 };
         }
-        let band = trend_days(&varied, END, END - 111, None, TrendMetric::Spend);
-        assert_eq!(band[55].range, Some((80.0, 120.0)));
-        assert!(!band[55].unusual);
+        let band = trend_days(
+            &varied,
+            END,
+            END - 111,
+            None,
+            TrendMetric::Spend,
+            Window::SevenDays,
+        );
+        assert_eq!(band[6].range, Some((80.0, 120.0)));
+        assert!(!band[6].unusual);
+    }
 
-        let short_history = steady(END - 54);
-        let thin = trend_days(&short_history, END, END - 54, None, TrendMetric::Spend);
-        assert_eq!(thin.len(), 55);
-        assert!(thin.iter().all(|day| day.range.is_none()));
-
-        let eight_weeks = trend_days(&steady(END - 55), END, END - 55, None, TrendMetric::Spend);
-        assert_eq!(eight_weeks[27].range, None);
-        assert_eq!(eight_weeks[28].range, Some((100.0, 100.0)));
-
+    #[test]
+    fn a_usual_range_needs_four_earlier_matching_weekdays_and_a_cost_needs_results() {
+        let days = steady(END - 28);
+        let shown = trend_days(
+            &days,
+            END,
+            END - 28,
+            None,
+            TrendMetric::Spend,
+            Window::ThirtyDays,
+        );
+        assert_eq!(shown.len(), 29);
+        assert_eq!(shown[0].day, 20_709);
+        assert_eq!(shown[27].value, Some(100.0));
+        assert_eq!(shown[27].range, None);
+        assert_eq!(shown[28].range, Some((100.0, 100.0)));
         let mut unconverted = steady(END - 111);
         unconverted.last_mut().unwrap().metrics.conversions = Some(0.0);
         let cost = trend_days(
@@ -2222,11 +2371,130 @@ mod tests {
             END - 111,
             None,
             TrendMetric::CostPerConversion,
+            Window::SevenDays,
         );
-        assert_eq!(cost[54].value, Some(25.0));
-        assert_eq!(cost[54].range, Some((25.0, 25.0)));
-        assert_eq!(cost[55].value, None);
-        assert!(!cost[55].unusual);
+        assert_eq!(cost[5].value, Some(25.0));
+        assert_eq!(cost[5].range, Some((25.0, 25.0)));
+        assert_eq!(cost[6].value, None);
+        assert!(!cost[6].unusual);
+        let sparse = trend_days(
+            &[],
+            END,
+            END - 6,
+            None,
+            TrendMetric::Spend,
+            Window::SevenDays,
+        );
+        assert_eq!(sparse.len(), 7);
+        assert_eq!(sparse[6].value, Some(0.0));
+        assert_eq!(sparse[6].range, None);
+        let no_clicks = trend_days(
+            &[],
+            END,
+            END - 6,
+            None,
+            TrendMetric::CostPerClick,
+            Window::SevenDays,
+        );
+        assert_eq!(no_clicks[6].value, None);
+        assert_eq!(no_clicks[6].range, None);
+        assert!(trend_days(
+            &[],
+            END,
+            END + 1,
+            None,
+            TrendMetric::Spend,
+            Window::SevenDays
+        )
+        .is_empty());
+    }
+
+    #[test]
+    fn small_fractional_conversion_axes_keep_distinct_ticks_in_both_languages() {
+        for (language, labels) in [
+            (crate::language::Language::En, ["1.00", "1.05", "1.10"]),
+            (crate::language::Language::Ro, ["1,00", "1,05", "1,10"]),
+        ] {
+            let text = language.text().unwrap();
+            for chart in [
+                super::trend(
+                    text,
+                    TrendMetric::Conversions,
+                    &flat(7, 1.0, None),
+                    &[],
+                    "USD",
+                )
+                .unwrap(),
+                super::trend_for_print(
+                    text,
+                    TrendMetric::Conversions,
+                    &flat(7, 1.0, None),
+                    &[],
+                    "USD",
+                )
+                .unwrap(),
+            ] {
+                let svg = chart.svg.unwrap();
+                for (y, label) in ["154.0", "79.0", "4.0"].into_iter().zip(labels) {
+                    assert!(
+                        svg.contains(&format!(r#"<text x="-30" y="{y}">{label}</text>"#)),
+                        "{label}: {svg}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn whole_currency_ticks_keep_the_same_precision_on_a_romanian_axis() {
+        let text = crate::language::Language::Ro.text().unwrap();
+        let chart = super::trend(
+            text,
+            TrendMetric::Spend,
+            &flat(7, 80.0, Some((80.0, 160.0))),
+            &[],
+            "USD",
+        )
+        .unwrap();
+        let svg = chart.svg.unwrap();
+        for label in ["80 $", "120 $", "160 $"] {
+            assert!(svg.contains(&format!(">{label}</text>")), "{label}: {svg}");
+        }
+    }
+
+    #[test]
+    fn screen_and_print_use_the_same_selected_daily_values_and_only_mark_visible_changes() {
+        let history = steady(END - 111);
+        for (window, count, first) in [
+            (Window::SevenDays, 7, "Mon 5 Oct"),
+            (Window::ThirtyDays, 30, "Sat 12 Sep"),
+        ] {
+            for metric in [
+                TrendMetric::Spend,
+                TrendMetric::Clicks,
+                TrendMetric::Conversions,
+                TrendMetric::CostPerConversion,
+                TrendMetric::CostPerClick,
+                TrendMetric::Impressions,
+            ] {
+                let days = trend_days(&history, END, END - 111, None, metric, window);
+                let changes = [
+                    Change::new(END - 40, "Outside the selected Window"),
+                    Change::new(END - 1, "Inside the selected Window"),
+                ];
+                let screen = trend(metric, &days, &changes, "USD").unwrap();
+                let printed = trend_for_print(metric, &days, &changes, "USD").unwrap();
+                assert_eq!(screen.table, printed.table);
+                let table = printed.table.unwrap();
+                assert_eq!(table.rows.len(), count);
+                assert_eq!(table.rows[0][0], first);
+                assert_eq!(table.rows.last().unwrap()[0], "Sun 11 Oct");
+                assert_eq!(table.rows[count - 2][3], "Inside the selected Window");
+                let svg = printed.svg.unwrap();
+                assert!(!svg.contains("Outside the selected Window"));
+                assert!(svg.contains("Inside the selected Window"));
+            }
+        }
     }
 
     fn flat(count: usize, value: f64, range: Option<(f64, f64)>) -> Vec<TrendDay> {
@@ -2289,7 +2557,7 @@ mod tests {
         assert_eq!(svg.matches(r#"class="pt" tabindex="0""#).count(), 5);
         assert_eq!(svg.matches("pt__dot--out").count(), 2);
         assert!(svg.contains(
-            r#"<svg x="75.00%" width="1" height="1" overflow="visible"><g class="pt" tabindex="0" role="img"><title>Sat 10 Oct: $100. Usual: $200 to $800. Unusual day.</title><rect class="pt__hit" x="-5.5" y="0" width="11" height="150"/><circle class="pt__dot pt__dot--out" cx="0" cy="150.0" r="4"/>"#
+            r#"<svg x="75.00%" width="1" height="1" overflow="visible"><g class="pt" tabindex="0" role="img" aria-label="Sat 10 Oct: $100. Usual: $200 to $800. Unusual day: 50% below the usual range."><rect class="pt__hit" x="-5.5" y="0" width="11" height="150"/><circle class="pt__dot pt__dot--out" cx="0" cy="150.0" r="4"/>"#
         ));
         assert!(svg.contains(r#"<text x="0.00%" y="170" text-anchor="start">7 Oct</text>"#));
         assert!(svg.contains(r#"<text x="100.00%" y="170" text-anchor="end">11 Oct</text>"#));
@@ -2309,6 +2577,48 @@ mod tests {
             chart.keys.iter().map(|key| key.kind).collect::<Vec<_>>(),
             ["line", "band", "outside", "change"]
         );
+    }
+
+    #[test]
+    fn a_trend_tooltip_says_how_far_the_day_is_from_its_usual_range_and_names_the_account_change() {
+        let mut days = flat(5, 500.0, Some((200.0, 800.0)));
+        days[1].value = Some(1_000.0);
+        days[3].value = Some(100.0);
+        days[3].unusual = true;
+        let changes = [Change::new(
+            END - 2,
+            "Daily budget changed from $45.00 to $20.00",
+        )];
+        let svg = trend(TrendMetric::Spend, &days, &changes, "USD")
+            .unwrap()
+            .svg
+            .unwrap();
+        assert!(svg.contains(
+            r#"aria-label="Sat 10 Oct: $100. Usual: $200 to $800. Unusual day: 50% below the usual range.""#
+        ));
+        assert!(svg.contains(">Unusual day: 50% below the usual range</text>"));
+        assert!(svg.contains(
+            r#"aria-label="Thu 8 Oct: $1,000. Usual: $200 to $800. 25% above the usual range.""#
+        ));
+        assert!(svg.contains(
+            r#"aria-label="Fri 9 Oct: $500. Usual: $200 to $800. Account change: Daily budget $45 → $20.""#
+        ));
+        assert!(svg.contains(r#"aria-label="Wed 7 Oct: $500. Usual: $200 to $800.""#));
+    }
+
+    #[test]
+    fn a_long_tooltip_line_wraps_at_a_word() {
+        assert_eq!(
+            wrap(
+                "Account change: Daily budget of Search - Emergency $45 → $20",
+                44
+            ),
+            [
+                "Account change: Daily budget of Search -",
+                "Emergency $45 → $20"
+            ]
+        );
+        assert_eq!(wrap("Usual: $200 to $800", 44), ["Usual: $200 to $800"]);
     }
 
     #[test]
@@ -2344,7 +2654,7 @@ mod tests {
         assert_eq!(thin.title, "Spend per day");
         assert_eq!(
             thin.sentence.words(),
-            "Spend per day for 21 days. The chart has no usual range, because the Account history has fewer than 8 weeks."
+            "Spend per day for 21 days. The usual range needs at least 4 earlier observations for the same weekday."
         );
         let svg = thin.svg.unwrap();
         assert!(!svg.contains("band") && !svg.contains("pt__dot--out"));
@@ -2366,7 +2676,7 @@ mod tests {
                 .unwrap()
                 .sentence
                 .words(),
-            "No day of the last 10 had a cost per conversion."
+            "No cost per conversion on any of the last 10 days."
         );
     }
 
@@ -2560,7 +2870,7 @@ mod tests {
         assert!(svg
             .contains(r#"<text x="100%" dx="-8" y="148" text-anchor="end">5 Oct (so far)</text>"#));
         assert!(svg.contains(
-            "<title>Week of 5 Oct (so far): $38.00. $760 spend, 20 conversions.</title>"
+            r#"aria-label="Week of 5 Oct (so far): $38.00. $760 spend, 20 conversions.""#
         ));
         assert_eq!(svg.matches(r#"class="pt" tabindex="0""#).count(), 12);
         let table = chart.table.unwrap();
@@ -2653,10 +2963,9 @@ mod tests {
             .sentence
             .words()
             .starts_with("The week of 28 Sep had no conversions. "));
-        assert!(gap
-            .svg
-            .unwrap()
-            .contains("<title>Week of 28 Sep: no conversions. $800 spend, 0 conversions.</title>"));
+        assert!(gap.svg.unwrap().contains(
+            r#"aria-label="Week of 28 Sep: no conversions. $800 spend, 0 conversions.""#
+        ));
         assert_eq!(gap.table.unwrap().rows[10][1], "Not available");
 
         for week in &mut weeks {

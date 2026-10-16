@@ -190,8 +190,8 @@ async fn a_breakdown_that_google_refuses_stores_its_reason_and_the_rest_is_colle
     );
     let page = f.page(&format!("{PAGE}/campaigns/701")).await;
     assert!(page.contains(
-        r#"id="search-share">Searches that the ads did not appear on, last 7 days</h2>
-<p class="chart-say">We could not read the search impression share from Google Ads. Google Ads does not support this request.</p>"#
+        r#"id="search-share">Search impression share, last 7 days</h2>
+<p class="chart-say">We could not read the Search impression share from Google Ads. Google Ads does not support this request.</p>"#
     ), "{page}");
 }
 
@@ -349,37 +349,75 @@ async fn harbour_breakdowns(tracked: bool) -> Fixture {
 
 #[tokio::test]
 #[serial]
+async fn the_ad_account_page_opens_when_every_search_share_day_is_below_ten_percent() {
+    let f = pages::harbour(false).await;
+    let signed = signed(&f).await;
+    let store = WorkspaceStore::new(&f.ctx.db, &signed.workspace);
+    let shares = (0..7)
+        .map(|day| SearchShareDay {
+            shown: Share::OutsideExactRange,
+            ..exact(day, EMERGENCY, 100, (0.0, 0.25, 0.70))
+        })
+        .collect();
+    store
+        .save_breakdown(
+            AD,
+            day_number(day_before(6)),
+            day_number(end()),
+            BreakdownDays::SearchShare(shares),
+        )
+        .await
+        .unwrap();
+
+    for (path, days, said) in [
+        (
+            PAGE.to_owned(),
+            7,
+            "Google Ads reports under 10% for each of these days and gives no exact share.",
+        ),
+        (
+            format!("{PAGE}?window=30"),
+            30,
+            "Google Ads reports no exact Search impression share for these days.",
+        ),
+    ] {
+        let page = f.page(&path).await;
+        assert!(page.contains(said), "{said}\n{page}");
+        assert!(page.contains(&format!("<td>0 of {days}</td>")), "{page}");
+    }
+}
+
+#[tokio::test]
+#[serial]
 async fn the_ad_account_page_shows_the_searches_that_its_top_search_campaigns_missed() {
     let f = harbour_breakdowns(true).await;
     let page = f.page(PAGE).await;
     let chart = part(&page, "search-share", "device-shares");
     assert!(chart.starts_with(
-        r##"id="search-share">Searches that the ads did not appear on, last 7 days</h2>
-<p class="chart-say"><b class="campaign-name">Search - Emergency</b> did not appear on 31% of eligible searches. Google Ads reports budget as the limit for these.</p>
+        r##"id="search-share">Search impression share, last 7 days</h2>
+<p class="chart-say"><b class="campaign-name">Search - Emergency</b> lost 31% of its estimated eligible Search impressions to budget. That is the largest loss in this chart.</p>
 
 <a class="chart-skip" href="#search-share-end">Skip the chart</a>
 <figure class="chart chart--stack" aria-labelledby="search-share">"##
     ), "{chart}");
     assert_eq!(count(chart, r#"<div class="chart__row">"#), 3);
-    assert!(chart.contains(r#"<div class="chart__row"><a class="campaign-name" href="/ad-accounts/4829153307/campaigns/2">Search - Emergency</a><svg class="chart__bars" height="28" role="group" aria-label="Search - Emergency"><g class="pt" tabindex="0" role="img"><title>Search - Emergency: shown on 52% of eligible searches</title><rect class="seg seg--shown" x="0.00%" y="0" width="52.00%" height="28" rx="4"/><text class="seg__label seg__label--shown" x="26.00%" y="18" text-anchor="middle">52%</text>"#), "{chart}");
+    assert!(chart.contains(r#"<div class="chart__row"><a class="campaign-name" href="/ad-accounts/4829153307/campaigns/2">Search - Emergency</a><svg class="chart__bars" height="28" role="group" aria-label="Search - Emergency"><g class="pt" tabindex="0" role="img" aria-label="Search - Emergency: shown for 52% of the estimated eligible Search impressions"><rect class="seg seg--shown" x="0.00%" y="0" width="52.00%" height="28" rx="4"/><text class="seg__label seg__label--shown" x="26.00%" y="18" text-anchor="middle">52%</text>"#), "{chart}");
     assert!(chart.contains(
         r#"<rect class="seg seg--budget" x="52.00%" y="0" width="31.00%" height="28" rx="4"/>"#
     ));
     for row in [
-        r#"<tr><th scope="row">Search - Emergency</th><td>52%</td><td>31%</td><td>17%</td><td>0 of 7</td></tr>"#,
-        r#"<tr><th scope="row">Search - Implants</th><td>64%</td><td>6%</td><td>30%</td><td>0 of 7</td></tr>"#,
-        r#"<tr><th scope="row">Search - Brand</th><td>91%</td><td>2%</td><td>7%</td><td>1 of 7</td></tr>"#,
+        r#"<tr><th scope="row">Search - Emergency</th><td>52%</td><td>31%</td><td>17%</td><td>7 of 7</td></tr>"#,
+        r#"<tr><th scope="row">Search - Implants</th><td>64%</td><td>6%</td><td>30%</td><td>7 of 7</td></tr>"#,
+        r#"<tr><th scope="row">Search - Brand</th><td>91%</td><td>2%</td><td>7%</td><td>6 of 7</td></tr>"#,
     ] {
         assert!(chart.contains(row), "{row}");
     }
-    assert!(chart.contains(r#"<li><i class="key key--shown"></i>Shown</li><li><i class="key key--budget"></i>Missed: budget</li><li><i class="key key--rank"></i>Missed: ad rank</li>"#));
+    assert!(chart.contains(r#"<li><i class="key key--shown"></i>Impression share</li><li><i class="key key--budget"></i>Lost to budget</li><li><i class="key key--rank"></i>Lost to ad rank</li>"#));
     assert!(chart.contains(r#"<span id="search-share-end" tabindex="-1"></span>"#));
     assert!(page.contains(r#"<p class="small"><a href="/ad-accounts/4829153307/breakdowns">More breakdowns: hours, locations, age and gender</a></p>"#));
 
     let month = f.page(&format!("{PAGE}?window=30")).await;
-    assert!(month.contains(
-        r#"id="search-share">Searches that the ads did not appear on, last 30 days</h2>"#
-    ));
+    assert!(month.contains(r#"id="search-share">Search impression share, last 30 days</h2>"#));
     assert!(month.contains(r#"<a href="/ad-accounts/4829153307/breakdowns?window=30">More breakdowns: hours, locations, age and gender</a>"#));
 }
 
@@ -390,15 +428,15 @@ async fn the_campaign_page_shows_its_missed_searches_and_its_network_split() {
     let page = f.page(&format!("{PAGE}/campaigns/1")).await;
     let chart = part(&page, "search-share", "device-shares");
     assert!(chart.starts_with(
-        r#"id="search-share">Searches that the ads did not appear on, last 7 days</h2>
-<p class="chart-say"><b class="campaign-name">Search - Brand</b> did not appear on 2% of eligible searches. Google Ads reports budget as the limit for these. 1 of its 7 days is left out: Google Ads reports under 10% and gives no exact share.</p>"#
+        r#"id="search-share">Search impression share, last 7 days</h2>
+<p class="chart-say"><b class="campaign-name">Search - Brand</b> lost 7% of its estimated eligible Search impressions to ad rank. That is the largest loss in this chart. Google Ads gives an exact share for 6 of its 7 days, and these shares use only those days. On 1 of the 7 days, Google Ads reports values outside its exact reporting range. Those days are excluded.</p>"#
     ), "{chart}");
     assert!(chart.contains(
         r#"<div class="chart__row"><span><b class="campaign-name">Search - Brand</b></span>"#
     ));
     assert_eq!(count(chart, r#"<div class="chart__row">"#), 1);
     assert!(!chart.contains(">2%</text>"));
-    assert!(chart.contains("<td>1 of 7</td>"));
+    assert!(chart.contains("<td>6 of 7</td>"));
 
     let page = f.page(&format!("{PAGE}/campaigns/2")).await;
     let networks = part(&page, "network-shares", "deep-check");
@@ -414,8 +452,8 @@ async fn the_campaign_page_shows_its_missed_searches_and_its_network_split() {
 <p class="chart-say">No network had spend in these days.</p>"#
     ));
     assert!(other.contains(
-        r#"id="search-share">Searches that the ads did not appear on, last 7 days</h2>
-<p class="chart-say">Google Ads has no search impression share for these days.</p>"#
+        r#"id="search-share">Search impression share, last 7 days</h2>
+<p class="chart-say">Google Ads has no Search impression share for these days.</p>"#
     ));
 }
 
@@ -431,9 +469,15 @@ async fn the_breakdowns_page_shows_the_conversions_of_each_week_by_conversion_ac
         r#"id="action-weeks">Conversions by conversion action, 8 weeks</h2>
 <p class="chart-say"><b>Booking form</b> has <mark class="chart-say__point">67% of the conversions of the last 8 weeks.</mark> The last week is not complete: conversions can still arrive.</p>"#
     ), "{chart}");
-    assert_eq!(count(chart, r#"<g class="pt" tabindex="0" role="img">"#), 8);
+    assert_eq!(
+        count(
+            chart,
+            r#"<g class="pt" tabindex="0" role="img" aria-label="#
+        ),
+        8
+    );
     assert!(chart.contains(
-        "<title>Week of 5 Oct (so far): 18 conversions. Booking form: 12. Phone call: 6.</title>"
+        r#"aria-label="Week of 5 Oct (so far): 18 conversions. Booking form: 12. Phone call: 6.""#
     ));
     assert!(chart.contains(r#"<tr><th scope="col">Week</th><th scope="col">Booking form</th><th scope="col">Phone call</th><th scope="col">All conversions</th></tr>"#));
     assert!(chart.contains(
@@ -456,7 +500,7 @@ async fn an_ad_account_that_is_not_judged_by_conversions_has_no_conversion_word_
         r#"id="network-shares">Spend and clicks by network, last 7 days</h2>
 <p class="chart-say"><b>Google Search</b> takes <mark class="chart-say__point">85% of spend and brings 87% of clicks.</mark></p>"#
     ), "{charts}");
-    assert!(charts.contains("did not appear on 31% of eligible searches. Google Ads reports budget as the limit for these."));
+    assert!(charts.contains("lost 31% of its estimated eligible Search impressions to budget. That is the largest loss in this chart."));
 }
 
 #[tokio::test]
@@ -508,8 +552,8 @@ async fn a_breakdown_without_rows_is_one_sentence() {
     let f = pages::harbour(true).await;
     let page = f.page(PAGE).await;
     assert!(page.contains(
-        r#"id="search-share">Searches that the ads did not appear on, last 7 days</h2>
-<p class="chart-say">We have not read the search impression share of this Ad Account yet.</p>"#
+        r#"id="search-share">Search impression share, last 7 days</h2>
+<p class="chart-say">We have not read the Search impression share of this Ad Account yet.</p>"#
     ));
     let breakdowns = f.page(&format!("{PAGE}/breakdowns")).await;
     assert!(breakdowns.contains(
@@ -1087,8 +1131,14 @@ async fn the_breakdowns_page_draws_hours_locations_age_and_gender_of_the_deep_ch
     ), "{hours}");
     assert!(hours.contains(r#"<figure class="chart chart--grid" aria-labelledby="hours">"#));
     assert_eq!(count(hours, r#"<rect class="cell "#), 168);
-    assert_eq!(count(hours, r#"<g class="pt" tabindex="0" role="img">"#), 7);
-    assert!(hours.contains("<title>Monday: 22 conversions, the most at 09:00 (16).</title>"));
+    assert_eq!(
+        count(
+            hours,
+            r#"<g class="pt" tabindex="0" role="img" aria-label="#
+        ),
+        7
+    );
+    assert!(hours.contains(r#"aria-label="Monday: 22 conversions, the most at 09:00 (16).""#));
     assert!(hours.contains(
         r#"<rect class="cell cell--4" x="37.50%" y="0" width="4.17%" height="18" rx="3"><title>Mon 09:00: 16 conversions</title></rect>"#
     ));
@@ -1102,7 +1152,7 @@ async fn the_breakdowns_page_draws_hours_locations_age_and_gender_of_the_deep_ch
     ), "{locations}");
     assert!(locations.contains(r#"<tr><th scope="row">Harbour City, New South Wales</th><td>$2,000</td><td>12%</td><td>60</td><td>16%</td></tr>"#), "{locations}");
     assert!(locations.contains(r#"<tr><th scope="row">Other locations</th><td>$14,053</td><td>82%</td><td>314</td><td>82%</td></tr>"#));
-    assert!(locations.contains("<title>Other locations: 82% of spend, $14,053 of $17,053</title>"));
+    assert!(locations.contains(r#"aria-label="Other locations: 82% of spend, $14,053 of $17,053""#));
     assert!(locations.contains(r#"<tr><th scope="row">Bayside, New South Wales</th><td>$1,000</td><td>6%</td><td>10</td><td>3%</td></tr>"#));
     assert_eq!(count(locations, r#"<div class="chart__row">"#), 3);
 
@@ -1408,7 +1458,29 @@ async fn export_of(
         translations: &keysend::translation::Translations::english(),
     };
     let changes = export_changes(&store, &collected, None).await.unwrap();
-    export_charts(&store, &collected, &changes).await.unwrap()
+    export_charts(
+        &store,
+        &collected,
+        &changes,
+        &rules_of(&store, &days, last).await,
+    )
+    .await
+    .unwrap()
+}
+
+async fn rules_of(
+    store: &WorkspaceStore<'_>,
+    days: &[keysend::monitoring::metrics::CampaignDay],
+    last: i64,
+) -> keysend::monitoring::campaign_settings::Resolved {
+    let monitoring = store.monitoring_settings(AD).await.unwrap();
+    let (state, _) = keysend::monitoring::tracking::of_days(
+        days,
+        last,
+        store.conversion_actions(AD).await.unwrap(),
+        monitoring.judge_by_conversions,
+    );
+    store.campaign_rules(AD, state, &monitoring).await.unwrap()
 }
 
 fn words_of(page: &str) -> String {
@@ -1438,13 +1510,18 @@ async fn the_export_has_every_chart_of_the_ad_account_page_and_of_the_breakdowns
 ) {
     let f = harbour_deep(true).await;
     let (charts, deep) = export_of(&f, true).await;
+    assert_eq!(charts[0].note.as_deref(), Some("The band shows one standard deviation above and below the weekday average, using up to 8 earlier matching weekdays and requiring at least 4. It describes past variation, not a forecast or confidence interval. A red point marks a larger deviation beyond the alert threshold. Crossing the shaded band alone does not trigger it. A dotted line marks a change in the Ad Account."));
+    assert!(charts[1..4].iter().all(|chart| chart.note.is_none()));
     assert_eq!(
         drawn(&charts),
         [
             ("Spend per day, against its usual range", true),
+            ("Conversions per day, against its usual range", true),
+            ("Cost per conversion per day, against its usual range", true),
+            ("Clicks per day, against its usual range", true),
             ("Cost per conversion, 12 weeks", true),
             ("Spend and conversions by Campaign, last 7 days", true),
-            ("Searches that the ads did not appear on, last 7 days", true),
+            ("Search impression share, last 7 days", true),
             ("Spend and conversions by device, last 7 days", false),
             ("Conversions by conversion action, 8 weeks", true),
         ]
@@ -1460,13 +1537,21 @@ async fn the_export_has_every_chart_of_the_ad_account_page_and_of_the_breakdowns
         ]
     );
     assert_eq!(
-        charts[1].note.as_deref(),
+        charts[4].note.as_deref(),
         Some("About 23% of conversions arrive more than 2 days after the ad was shown. The newest days are not complete.")
     );
+    let mut trends = Vec::new();
+    for metric in ["spend", "conversions", "cost-per-conversion", "clicks"] {
+        trends.push(words_of(&f.page(&format!("{PAGE}?metric={metric}")).await));
+    }
     let account = words_of(&f.page(PAGE).await);
     let breakdowns = words_of(&f.page(&format!("{PAGE}/breakdowns")).await);
     for (index, chart) in charts.iter().chain(&deep.charts).enumerate() {
-        let page = if index < 5 { &account } else { &breakdowns };
+        let page = match index {
+            0..4 => &trends[index],
+            4..8 => &account,
+            _ => &breakdowns,
+        };
         assert!(
             page.contains(&format!("{} {}", chart.title, chart.sentence)),
             "{}: {}",
@@ -1486,8 +1571,11 @@ async fn the_export_of_an_ad_account_that_is_not_judged_by_conversions_has_no_co
         drawn(&charts),
         [
             ("Spend per day, against its usual range", true),
+            ("Clicks per day, against its usual range", true),
+            ("Cost per click per day, against its usual range", true),
+            ("Impressions per day, against its usual range", true),
             ("Spend and clicks by Campaign, last 7 days", true),
-            ("Searches that the ads did not appear on, last 7 days", true),
+            ("Search impression share, last 7 days", true),
             ("Spend and clicks by device, last 7 days", false),
         ]
     );
@@ -1522,12 +1610,12 @@ async fn the_export_of_an_ad_account_without_a_deep_check_has_the_daily_charts_a
         drawn(&charts),
         [
             ("Spend per day, against its usual range", true),
+            ("Conversions per day, against its usual range", true),
+            ("Cost per conversion per day, against its usual range", true),
+            ("Clicks per day, against its usual range", true),
             ("Cost per conversion, 12 weeks", true),
             ("Spend and conversions by Campaign, last 7 days", true),
-            (
-                "Searches that the ads did not appear on, last 7 days",
-                false
-            ),
+            ("Search impression share, last 7 days", false),
             ("Spend and conversions by device, last 7 days", false),
             ("Conversions by conversion action, 12 weeks", false),
         ]
@@ -1602,14 +1690,19 @@ async fn the_export_of_a_campaign_has_the_charts_of_its_page_and_its_quality_sco
     let changes = export_changes(&store, &collected, Some(campaign))
         .await
         .unwrap();
-    let charts = campaign_export_charts(&store, &collected, campaign, &changes)
+    let rules = rules_of(&store, &days, last).await;
+    let charts = campaign_export_charts(&store, &collected, campaign, &changes, &rules)
         .await
         .unwrap();
     assert_eq!(
         drawn(&charts),
         [
             ("Spend per day, against its usual range", true),
-            ("Searches that the ads did not appear on, last 7 days", true),
+            ("Conversions per day, against its usual range", true),
+            ("Cost per conversion per day, against its usual range", true),
+            ("Clicks per day, against its usual range", true),
+            ("Cost per conversion, 12 weeks", true),
+            ("Search impression share, last 7 days", true),
             ("Spend and conversions by device, last 7 days", false),
             ("Spend and conversions by network, last 7 days", true),
         ]
@@ -1617,24 +1710,35 @@ async fn the_export_of_a_campaign_has_the_charts_of_its_page_and_its_quality_sco
     assert_eq!(
         charts[0].changes,
         keysend::monitoring::export::ChartChanges::Listed(vec![
-            (
-                "25 September".to_owned(),
-                "Daily budget changed from $300.00 to $340.00".to_owned()
-            ),
-            (
-                "4 October".to_owned(),
-                "Bid strategy changed from maximize clicks to maximize conversions".to_owned()
-            ),
+            keysend::monitoring::export::DatedChange {
+                date: "25 September".to_owned(),
+                text: "Daily budget changed from $300.00 to $340.00".to_owned(),
+                follow_up: Some("KeySend cannot judge it. In the 14 days after the change, against the 14 days before it. Spend $4,627 (before $4,014), conversions 93 (before 74), cost per conversion $49.75 (before $54.24). Other changes to this Campaign in the same 28 days: 1. The effect cannot be separated.".to_owned()),
+            },
+            keysend::monitoring::export::DatedChange {
+                date: "4 October".to_owned(),
+                text: "Bid strategy changed from maximize clicks to maximize conversions"
+                    .to_owned(),
+                follow_up: Some("KeySend checks the result on 20 October.".to_owned()),
+            },
         ])
     );
     let page = words_of(&f.page(&format!("{PAGE}/campaigns/2")).await);
+    let mut pages = vec![page.clone()];
+    for metric in ["conversions", "cost-per-conversion", "clicks"] {
+        pages.push(words_of(
+            &f.page(&format!("{PAGE}/campaigns/2?metric={metric}")).await,
+        ));
+    }
     for chart in &charts {
+        let said = format!("{} {}", chart.title, chart.sentence);
         assert!(
-            page.contains(&format!("{} {}", chart.title, chart.sentence)),
+            pages.iter().any(|page| page.contains(&said)),
             "{}",
             chart.title
         );
     }
+    assert!(page.contains("KeySend cannot judge it. In the 14 days after the change"));
     let deep = campaign_deep_check(&store, &collected, campaign, true)
         .await
         .unwrap()

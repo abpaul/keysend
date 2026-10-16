@@ -1,4 +1,7 @@
-use std::sync::{Arc, OnceLock};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, OnceLock},
+};
 
 use axum::{
     extract::{Path, Query},
@@ -11,8 +14,8 @@ use serde::Deserialize;
 use tokio::sync::Semaphore;
 
 use super::monitoring::{
-    campaign_deep_check, campaign_export_charts, export_changes, export_charts, first_read_day,
-    Collected, RawChange,
+    campaign_deep_check, campaign_export_charts, campaign_sparklines, export_changes,
+    export_charts, first_read_day, metric_sparklines, Collected,
 };
 use crate::{
     app::not_found,
@@ -21,16 +24,21 @@ use crate::{
     monitoring::{
         campaign_settings::Resolved,
         causes::{self, Cause},
-        export::{self, CampaignRow, ChartImage, Export, RecommendationText, Subject, UpdateText},
+        export::{
+            self, CampaignRow, ChartImage, EarlierUpdate, Export, RecommendationText, Subject,
+            UpdateLine, UpdateText,
+        },
         format,
         metrics::{self, CampaignDay, Window},
-        tracking, view, UPDATES_SHOWN,
+        tracking,
+        view::{self, Notice},
+        UPDATES_SHOWN,
     },
     settings::Settings,
     translation::{Translations, Wanted},
     workspace::{
         history::{date_of, day_number, local_time, Campaign},
-        monitoring::{Recommendation, RecommendationState},
+        monitoring::{RecommendationState, RecommendationWithFinding},
         WorkspaceStore,
     },
 };
@@ -57,10 +65,9 @@ fn with_cause(
     }
 }
 
-#[derive(Deserialize)]
-struct Params {
-    window: Option<String>,
-    language: Option<String>,
+#[derive(Default, Deserialize)]
+pub struct Params {
+    pub window: Option<String>,
 }
 
 fn file_name(text: &Text, name: &str, days: i64) -> Result<String> {
@@ -102,6 +109,7 @@ struct Read {
     first_day: i64,
     days: Vec<CampaignDay>,
     judged: bool,
+    notice: Option<Notice>,
     rules: Resolved,
     campaigns: Vec<Campaign>,
     campaign: Option<Campaign>,
@@ -122,6 +130,10 @@ impl Read {
             window: self.window,
         }
     }
+
+    fn date(&self, day: i64) -> Result<String> {
+        view::long_date(self.text, day)
+    }
 }
 
 fn refused(status: StatusCode, message: &'static str) -> Response {
@@ -134,9 +146,9 @@ async fn read(
     id: &str,
     campaign: Option<i64>,
     params: &Params,
-    user: &'static Text,
-    default_language: Language,
+    user_language: Language,
 ) -> Result<std::result::Result<Read, Response>> {
+    let user = user_language.text()?;
     let campaigns = store.campaigns(id).await?;
     let campaign = match campaign {
         Some(campaign) => {
@@ -157,17 +169,9 @@ async fn read(
             )))
         }
     };
-    let language = match params.language.as_deref() {
-        None => default_language,
-        Some(code) => match Language::parse_available(code) {
-            Some(language) => language,
-            None => {
-                return Ok(Err(refused(
-                    StatusCode::UNPROCESSABLE_ENTITY,
-                    user.written.export_refuse_language,
-                )))
-            }
-        },
+    let language = match user_language {
+        Language::Ro => Language::Ro,
+        _ => Language::En,
     };
     let now = settings.now();
     if !store.monitoring_access(now.timestamp()).await? {
@@ -204,85 +208,137 @@ async fn read(
         monitoring.judge_by_conversions,
     );
     let rules = store.campaign_rules(id, state, &monitoring).await?;
+    let text = language.text()?;
     Ok(Ok(Read {
         window,
         language,
-        text: language.text()?,
-        prepared: language
-            .text()?
-            .written
-            .format
-            .date_with_year(local.date_naive()),
+        text,
+        prepared: text.written.format.date_with_year(local.date_naive()),
         today,
         currency,
         end,
         first_day: day_number(first),
         days,
         judged,
+        notice: view::tracking_notice(text, state, monitoring.judge_by_conversions, judged),
         rules,
         campaigns,
         campaign,
     }))
 }
 
+async fn translated(
+    store: &WorkspaceStore<'_>,
+    read: &Read,
+    english: &[&str],
+) -> Result<std::result::Result<Translations, Response>> {
+    let mut wanted = Wanted::default();
+    for text in english {
+        wanted.text(text);
+    }
+    let translations = Translations::load(store, read.language, wanted).await?;
+    let missing = english
+        .iter()
+        .filter(|text| translations.shown(text).english)
+        .count();
+    if missing > 0 {
+        tracing::warn!(
+            missing,
+            language = read.language.code(),
+            "Export refused: stored text has no translation yet"
+        );
+        return Ok(Err(refused(
+            StatusCode::CONFLICT,
+            read.text.written.export_refuse_untranslated,
+        )));
+    }
+    Ok(Ok(translations))
+}
+
 fn open_recommendations(
-    all: Vec<Recommendation>,
+    all: Vec<RecommendationWithFinding>,
     campaign: Option<i64>,
     rules: &Resolved,
-) -> Vec<Recommendation> {
-    all.into_iter()
-        .filter(|recommendation| {
-            recommendation.state == RecommendationState::Open
-                && campaign.is_none_or(|id| recommendation.campaign_id == Some(id))
-                && rules.shows_recommendation(recommendation)
+) -> Vec<RecommendationWithFinding> {
+    let mut open = all
+        .into_iter()
+        .filter(|found| {
+            found.recommendation.state == RecommendationState::Open
+                && campaign.is_none_or(|id| found.recommendation.campaign_id == Some(id))
+                && rules.shows_recommendation(&found.recommendation)
+        })
+        .collect::<Vec<_>>();
+    let spend = |found: &RecommendationWithFinding| {
+        found
+            .finding
+            .as_ref()
+            .map_or(f64::NEG_INFINITY, |finding| finding.spend)
+    };
+    open.sort_by(|a, b| spend(b).total_cmp(&spend(a)));
+    open
+}
+
+fn recommendation_english(recommendations: &[RecommendationWithFinding]) -> Vec<&str> {
+    recommendations
+        .iter()
+        .flat_map(|found| {
+            [
+                found.recommendation.action.as_str(),
+                found.recommendation.reason.as_str(),
+                found.recommendation.evidence.as_str(),
+            ]
+            .into_iter()
+            .chain(found.finding.as_ref().map(|finding| finding.title.as_str()))
         })
         .collect()
 }
 
 fn recommendation_texts(
-    recommendations: &[Recommendation],
+    recommendations: &[RecommendationWithFinding],
     translations: &Translations,
 ) -> Vec<RecommendationText> {
     recommendations
         .iter()
-        .map(|recommendation| RecommendationText {
-            action: translations.shown(&recommendation.action).text.into(),
-            reason: translations.shown(&recommendation.reason).text.into(),
-            evidence: translations.shown(&recommendation.evidence).text.into(),
+        .map(|found| RecommendationText {
+            finding: found
+                .finding
+                .as_ref()
+                .map(|finding| translations.shown(&finding.title).text.into()),
+            action: translations.shown(&found.recommendation.action).text.into(),
+            reason: translations.shown(&found.recommendation.reason).text.into(),
+            evidence: translations
+                .shown(&found.recommendation.evidence)
+                .text
+                .into(),
         })
         .collect()
 }
 
-fn long_date(text: &Text, day: i64) -> String {
-    date_of(day)
-        .map(|date| format::long_date(text, date))
-        .unwrap_or_default()
-}
-
 struct Content {
     cells: Vec<format::Cell>,
+    sparklines: Vec<(&'static str, String)>,
+    notice: Option<Notice>,
     charts: Vec<ChartImage>,
     recommendations: Vec<RecommendationText>,
     subject: Subject,
 }
 
-async fn render(
+async fn assemble(
     store: &WorkspaceStore<'_>,
     id: &str,
     read: &Read,
     content: Content,
-) -> Result<Response> {
+) -> Result<Export> {
     let branding = store
         .branding(id)
         .await?
         .ok_or_else(|| Error::Message("Branding is missing".into()))?;
-    let logo = store.logo(id).await?;
     let length = read.window.days();
     let date = |day: i64| date_of(day).ok_or_else(|| Error::Message("Invalid Export day".into()));
-    let export = Export {
+    Ok(Export {
         name: branding.name,
         accent: branding.accent_colour,
-        logo,
+        logo: store.logo(id).await?,
         window_days: length,
         campaign_names: read
             .campaigns
@@ -302,19 +358,23 @@ async fn render(
             true,
         ),
         prepared: read.prepared.clone(),
+        notice: content.notice,
         cells: content.cells,
-        judged: read.judged,
+        sparklines: content.sparklines,
         charts: content.charts,
         recommendations: content.recommendations,
         subject: content.subject,
-    };
+    })
+}
+
+async fn render(export: Export, text: &'static Text) -> Result<Response> {
     let file = file_name(
-        read.text,
+        text,
         &match &export.subject {
             Subject::AdAccount { .. } => export.name.clone(),
             Subject::Campaign { name, .. } => format!("{} {name}", export.name),
         },
-        length,
+        export.window_days,
     )?;
     let permit = RENDERS
         .get_or_init(|| Arc::new(Semaphore::new(2)))
@@ -322,7 +382,6 @@ async fn render(
         .acquire_owned()
         .await
         .map_err(|_| Error::Message("Rendering is unavailable".into()))?;
-    let text = read.text;
     let bytes = tokio::task::spawn_blocking(move || {
         let _permit = permit;
         export::pdf(&export, text)
@@ -342,141 +401,198 @@ async fn render(
         .into_response())
 }
 
-async fn export_pdf(
-    OwnedAdAccount { signed, .. }: OwnedAdAccount,
-    State(ctx): State<AppContext>,
-    Extension(settings): Extension<Arc<Settings>>,
-    Path(id): Path<String>,
-    Query(params): Query<Params>,
-) -> Result<Response> {
-    let store = WorkspaceStore::new(&ctx.db, &signed.workspace);
-    let user = signed.user.language.text()?;
-    let read = match read(
-        &store,
-        &settings,
-        &id,
-        None,
-        &params,
-        user,
-        signed.user.language,
-    )
-    .await?
-    {
+fn campaign_rows(read: &Read, sparklines: &BTreeMap<i64, String>) -> Result<Vec<CampaignRow>> {
+    let grouped = metrics::by_campaign(&read.days);
+    let mut rows = read
+        .campaigns
+        .iter()
+        .map(|campaign| {
+            (
+                campaign,
+                metrics::window_metrics(
+                    grouped
+                        .get(&campaign.id)
+                        .map(Vec::as_slice)
+                        .unwrap_or_default(),
+                    read.end,
+                    read.window,
+                    None,
+                    read.rules.effective(campaign.id).judged,
+                ),
+            )
+        })
+        .filter(|(_, movement)| movement.current.serving() || movement.previous.serving())
+        .collect::<Vec<_>>();
+    rows.sort_by(|(a, a_movement), (b, b_movement)| {
+        b_movement
+            .current
+            .spend
+            .total_cmp(&a_movement.current.spend)
+            .then_with(|| a.name.cmp(&b.name))
+    });
+    rows.into_iter()
+        .map(|(campaign, movement)| {
+            Ok(CampaignRow {
+                name: campaign.name.clone(),
+                sparkline: sparklines.get(&campaign.id).cloned(),
+                cells: view::all_campaign_cells(read.text, &movement, &read.currency, read.judged)?,
+            })
+        })
+        .collect()
+}
+
+pub type Built = std::result::Result<(Export, &'static Text), Response>;
+
+/// The Export of an Ad Account with the text it is written in, or the response that refuses it.
+pub async fn ad_account_export(
+    store: &WorkspaceStore<'_>,
+    settings: &Settings,
+    id: &str,
+    params: &Params,
+    user_language: Language,
+) -> Result<Built> {
+    let read = match read(store, settings, id, None, params, user_language).await? {
         Ok(read) => read,
-        Err(response) => return Ok(response),
+        Err(response) => return Ok(Err(response)),
     };
     let rules = &read.rules;
-    let judged = read.judged;
-    let total = metrics::window_metrics(&read.days, read.end, read.window, None, judged);
-    let grouped = metrics::by_campaign(&read.days);
-    let mut campaigns = Vec::new();
-    for campaign in &read.campaigns {
-        let movement = metrics::window_metrics(
-            grouped
-                .get(&campaign.id)
-                .map(Vec::as_slice)
-                .unwrap_or_default(),
-            read.end,
-            read.window,
-            None,
-            rules.effective(campaign.id).judged,
-        );
-        if movement.current.serving() || movement.previous.serving() {
-            campaigns.push((campaign.name.clone(), movement.current));
+    let total = metrics::window_metrics(&read.days, read.end, read.window, None, read.judged);
+    let updates = store
+        .updates(id, read.today - read.window.days() + 1, read.today)
+        .await?;
+    let latest = updates
+        .first()
+        .filter(|update| update.day > read.today - Window::SevenDays.days());
+    let earlier = updates
+        .iter()
+        .skip(usize::from(latest.is_some()))
+        .collect::<Vec<_>>();
+    let recommendations =
+        open_recommendations(store.recommendations_with_findings(id).await?, None, rules);
+    let raw_changes =
+        export_changes(store, &read.collected(id, &Translations::english()), None).await?;
+    let earlier = view::earlier(
+        read.text,
+        &earlier,
+        |update| update.day,
+        |update| update.detection.quiet(),
+    )?;
+    let lines = latest
+        .map(|update| {
+            update
+                .lines
+                .iter()
+                .filter(|line| rules.shows(line.campaign_id, &line.text))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let mut english = recommendation_english(&recommendations);
+    if let Some(update) = latest {
+        english.push(&update.summary);
+        english.extend(update.cause.as_ref().map(|cause| cause.evidence.as_str()));
+    }
+    for line in &lines {
+        english.push(&line.text);
+        english.extend(line.cause.as_ref().map(|cause| cause.evidence.as_str()));
+    }
+    for item in &earlier {
+        if let view::Earlier::One(update) = item {
+            english.push(&update.summary);
         }
     }
-    campaigns.sort_by(|a, b| b.1.spend.total_cmp(&a.1.spend).then_with(|| a.0.cmp(&b.0)));
-    let campaigns = campaigns
-        .into_iter()
-        .map(|(name, current)| CampaignRow {
-            name,
-            spend: read.text.money(current.spend, &read.currency),
-            clicks: read.text.count(current.clicks),
-            impressions: read.text.count(current.impressions),
-            conversions: judged.then(|| {
-                current.conversions.map_or_else(
-                    || read.text.written.export_not_judged.into(),
-                    |value| read.text.count(value),
-                )
-            }),
-        })
-        .collect();
-    let latest = store
-        .updates(&id, read.today - 6, read.today)
-        .await?
-        .into_iter()
-        .next();
-    let recommendations =
-        open_recommendations(store.monitoring_recommendations(&id).await?, None, rules);
-    let raw_changes =
-        export_changes(&store, &read.collected(&id, &Translations::english()), None).await?;
-    let mut wanted = Wanted::default();
-    if let Some(update) = &latest {
-        wanted.update(update);
-    }
-    for recommendation in &recommendations {
-        wanted.recommendation(recommendation);
-    }
-    RawChange::wanted(&raw_changes, &mut wanted);
-    let translations = Translations::load(&store, read.language, wanted).await?;
-    let update = latest.map(|update| UpdateText {
-        date: long_date(read.text, update.day),
-        summary: translations.shown(&update.summary).text.into(),
-        cause: update
-            .cause
-            .as_ref()
-            .map(|cause| cause_text(read.text, cause, &translations)),
-        lines: update
-            .lines
+    english.extend(raw_changes.iter().map(|change| change.text.as_str()));
+    let translations = match translated(store, &read, &english).await? {
+        Ok(translations) => translations,
+        Err(response) => return Ok(Err(response)),
+    };
+    let name_of = |campaign: i64| {
+        read.campaigns
             .iter()
-            .filter(|line| rules.shows(line.campaign_id, &line.text))
-            .map(|line| {
-                with_cause(
-                    read.text,
-                    translations.shown(&line.text).text,
-                    line.cause.as_ref(),
-                    &translations,
-                )
+            .find(|found| found.id == campaign)
+            .map(|found| found.name.clone())
+    };
+    let update = latest
+        .map(|update| {
+            Ok::<_, Error>(UpdateText {
+                date: read.date(update.day)?,
+                summary: translations.shown(&update.summary).text.into(),
+                cause: update
+                    .cause
+                    .as_ref()
+                    .map(|cause| cause_text(read.text, cause, &translations)),
+                lines: lines
+                    .iter()
+                    .map(|line| {
+                        let campaign = update
+                            .detection
+                            .campaigns
+                            .iter()
+                            .find(|campaign| campaign.campaign_id == line.campaign_id)
+                            .map(|campaign| campaign.name.clone())
+                            .or_else(|| name_of(line.campaign_id))
+                            .ok_or_else(|| {
+                                Error::Message("Update names an unknown Campaign".into())
+                            })?;
+                        Ok(UpdateLine {
+                            campaign,
+                            text: translations.shown(&line.text).text.into(),
+                            cause: line
+                                .cause
+                                .as_ref()
+                                .map(|cause| cause_text(read.text, cause, &translations)),
+                        })
+                    })
+                    .collect::<Result<_>>()?,
+                more_campaigns: update.more_campaigns,
             })
-            .collect(),
-    });
-    let (charts, deep_charts) =
-        export_charts(&store, &read.collected(&id, &translations), &raw_changes).await?;
+        })
+        .transpose()?;
+    let earlier = earlier
+        .into_iter()
+        .map(|item| {
+            Ok(match item {
+                view::Earlier::One(update) => EarlierUpdate {
+                    date: read.date(update.day)?,
+                    summary: translations.shown(&update.summary).text.into(),
+                },
+                view::Earlier::Quiet(date) => EarlierUpdate {
+                    date,
+                    summary: read.text.earlier_quiet.into(),
+                },
+            })
+        })
+        .collect::<Result<_>>()?;
+    let collected = read.collected(id, &translations);
+    let (charts, deep_charts) = export_charts(store, &collected, &raw_changes, rules).await?;
     let content = Content {
         cells: format::cells(read.text, &total, &read.currency)?,
+        sparklines: metric_sparklines(&collected, None)?,
+        notice: read.notice.clone(),
         charts,
         recommendations: recommendation_texts(&recommendations, &translations),
         subject: Subject::AdAccount {
             update,
-            campaigns,
+            earlier,
+            campaign_headers: view::all_campaign_headers(read.text, read.judged),
+            campaigns: campaign_rows(&read, &campaign_sparklines(&collected)?)?,
             deep_charts,
         },
     };
-    render(&store, &id, &read, content).await
+    Ok(Ok((assemble(store, id, &read, content).await?, read.text)))
 }
 
-async fn campaign_export_pdf(
-    OwnedAdAccount { signed, .. }: OwnedAdAccount,
-    State(ctx): State<AppContext>,
-    Extension(settings): Extension<Arc<Settings>>,
-    Path((id, campaign)): Path<(String, i64)>,
-    Query(params): Query<Params>,
-) -> Result<Response> {
-    let user = signed.user.language.text()?;
-    let store = WorkspaceStore::new(&ctx.db, &signed.workspace);
-    let read = match read(
-        &store,
-        &settings,
-        &id,
-        Some(campaign),
-        &params,
-        user,
-        signed.user.language,
-    )
-    .await?
-    {
+/// The Export of one Campaign with the text it is written in, or the response that refuses it.
+pub async fn campaign_export(
+    store: &WorkspaceStore<'_>,
+    settings: &Settings,
+    id: &str,
+    campaign: i64,
+    params: &Params,
+    user_language: Language,
+) -> Result<Built> {
+    let read = match read(store, settings, id, Some(campaign), params, user_language).await? {
         Ok(read) => read,
-        Err(response) => return Ok(response),
+        Err(response) => return Ok(Err(response)),
     };
     let campaign = read
         .campaign
@@ -486,41 +602,50 @@ async fn campaign_export_pdf(
     let total =
         metrics::window_metrics(&read.days, read.end, read.window, Some(campaign.id), judged);
     let update_lines = store
-        .campaign_update_lines(&id, campaign.id, UPDATES_SHOWN)
+        .campaign_update_lines(id, campaign.id, UPDATES_SHOWN)
         .await?
         .into_iter()
         .filter(|(_, text, _)| read.rules.shows(campaign.id, text))
         .collect::<Vec<_>>();
-    let recommendations = open_recommendations(
-        store.monitoring_recommendations(&id).await?,
-        Some(campaign.id),
-        &read.rules,
-    );
+    let found = store.recommendations_with_findings(id).await?;
+    let findings = store
+        .monitoring_findings(id)
+        .await?
+        .into_iter()
+        .filter(|finding| {
+            finding.campaign_id == Some(campaign.id)
+                && read.rules.shows(campaign.id, &finding.rule.detail)
+                && !found.iter().any(|found| {
+                    found.recommendation.finding_key == finding.rule.key
+                        && found.recommendation.state == RecommendationState::Open
+                })
+        })
+        .collect::<Vec<_>>();
+    let recommendations = open_recommendations(found, Some(campaign.id), &read.rules);
     let raw_changes = export_changes(
-        &store,
+        store,
         &Collected {
             judged,
-            ..read.collected(&id, &Translations::english())
+            ..read.collected(id, &Translations::english())
         },
         Some(&campaign),
     )
     .await?;
-    let mut wanted = Wanted::default();
+    let mut english = recommendation_english(&recommendations);
     for (_, text, cause) in &update_lines {
-        wanted.text(text);
-        if let Some(cause) = cause {
-            wanted.text(&cause.evidence);
-        }
+        english.push(text);
+        english.extend(cause.as_ref().map(|cause| cause.evidence.as_str()));
     }
-    for recommendation in &recommendations {
-        wanted.recommendation(recommendation);
-    }
-    RawChange::wanted(&raw_changes, &mut wanted);
-    let translations = Translations::load(&store, read.language, wanted).await?;
+    english.extend(findings.iter().map(|finding| finding.rule.detail.as_str()));
+    english.extend(raw_changes.iter().map(|change| change.text.as_str()));
+    let translations = match translated(store, &read, &english).await? {
+        Ok(translations) => translations,
+        Err(response) => return Ok(Err(response)),
+    };
     let mut lines = Vec::new();
     for (day, text, cause) in &update_lines {
         lines.push((
-            view::long_date(read.text, *day)?,
+            read.date(*day)?,
             with_cause(
                 read.text,
                 translations.shown(text).text,
@@ -531,19 +656,63 @@ async fn campaign_export_pdf(
     }
     let collected = Collected {
         judged,
-        ..read.collected(&id, &translations)
+        ..read.collected(id, &translations)
     };
     let content = Content {
         cells: format::cells(read.text, &total, &read.currency)?,
-        charts: campaign_export_charts(&store, &collected, &campaign, &raw_changes).await?,
+        sparklines: metric_sparklines(&collected, Some(campaign.id))?,
+        notice: view::campaign_notice(read.text, read.notice.clone(), judged),
+        charts: campaign_export_charts(store, &collected, &campaign, &raw_changes, &read.rules)
+            .await?,
         recommendations: recommendation_texts(&recommendations, &translations),
         subject: Subject::Campaign {
-            deep_check: campaign_deep_check(&store, &collected, &campaign, judged).await?,
+            deep_check: campaign_deep_check(store, &collected, &campaign, judged).await?,
+            findings: findings
+                .iter()
+                .map(|finding| translations.shown(&finding.rule.detail).text.into())
+                .collect(),
             name: campaign.name,
             lines,
         },
     };
-    render(&store, &id, &read, content).await
+    Ok(Ok((assemble(store, id, &read, content).await?, read.text)))
+}
+
+async fn export_pdf(
+    OwnedAdAccount { signed, .. }: OwnedAdAccount,
+    State(ctx): State<AppContext>,
+    Extension(settings): Extension<Arc<Settings>>,
+    Path(id): Path<String>,
+    Query(params): Query<Params>,
+) -> Result<Response> {
+    let store = WorkspaceStore::new(&ctx.db, &signed.workspace);
+    match ad_account_export(&store, &settings, &id, &params, signed.user.language).await? {
+        Ok((export, text)) => render(export, text).await,
+        Err(response) => Ok(response),
+    }
+}
+
+async fn campaign_export_pdf(
+    OwnedAdAccount { signed, .. }: OwnedAdAccount,
+    State(ctx): State<AppContext>,
+    Extension(settings): Extension<Arc<Settings>>,
+    Path((id, campaign)): Path<(String, i64)>,
+    Query(params): Query<Params>,
+) -> Result<Response> {
+    let store = WorkspaceStore::new(&ctx.db, &signed.workspace);
+    match campaign_export(
+        &store,
+        &settings,
+        &id,
+        campaign,
+        &params,
+        signed.user.language,
+    )
+    .await?
+    {
+        Ok((export, text)) => render(export, text).await,
+        Err(response) => Ok(response),
+    }
 }
 
 pub fn routes() -> Routes {

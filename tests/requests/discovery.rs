@@ -168,12 +168,31 @@ async fn sitemap_dates_each_resource_and_each_index_with_its_newest_entry() {
         );
         let body = response.text();
         for url in [
-            "<url><loc>https://keysend.app/</loc></url>",
             "<url><loc>https://keysend.app/privacy</loc></url>",
             "<url><loc>https://keysend.app/terms</loc></url>",
+            "<url><loc>https://keysend.app/security</loc></url>",
         ] {
             assert!(body.contains(url), "{url}");
         }
+        for path in ["/", "/ro"] {
+            let entry = body
+                .split(&format!("<url><loc>https://keysend.app{path}</loc>"))
+                .nth(1)
+                .unwrap()
+                .split("</url>")
+                .next()
+                .unwrap();
+            for (language, url) in [
+                ("en", "https://keysend.app/"),
+                ("ro", "https://keysend.app/ro"),
+                ("x-default", "https://keysend.app/"),
+            ] {
+                assert!(entry.contains(&format!("hreflang=\"{language}\" href=\"{url}\"")));
+            }
+            assert!(!entry.contains("<lastmod>"));
+        }
+        assert!(body.contains("xmlns:xhtml=\"http://www.w3.org/1999/xhtml\""));
+        assert!(!body.contains("https://keysend.app/fr"));
         let catalog = Catalog::load();
         let dated = |path: &str, at: String| {
             format!("<url><loc>https://keysend.app{path}</loc><lastmod>{at}</lastmod></url>")

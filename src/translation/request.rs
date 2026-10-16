@@ -68,6 +68,7 @@ fn instructions(language: Language, target: &Text) -> String {
     format!(
         "You translate short texts of KeySend, a daily monitoring tool for Google Ads accounts, from English into {name} (language code {code}). Each item has an id and a text. Return every id with the translation of its text. \
 Rules: Translate the meaning faithfully. Do not add, remove, explain or soften anything. \
+Write natural, professional language for Google Ads consultants and business owners. Avoid literal English word order. Keep observations separate from recommendations. A recorded conversion is not necessarily a sale or a new customer. \
 Keep every placeholder of the form ⟦1⟧, ⟦2⟧ and so on exactly as written, the same number of times. A placeholder stands for a name, a number, an amount, a percentage or a date that KeySend writes back after your translation: never write a digit, a name or a date yourself, never change a placeholder, and put each placeholder where the sentence needs it. A placeholder can stand for any number, so choose wording that stays correct when the number is more than one. \
 ⟦a⟧ and ⟦b⟧ mark the start and the end of one phrase: keep both, around the same phrase in the translation. \
 Keep the careful wording of the English. A word that only gives the order in time, such as \"after\", must stay a word of time and must not become a word of cause such as \"because\" or \"due to\". \"can be chance\", \"Google Ads reports\" and \"estimate\" stay as careful as in English. \

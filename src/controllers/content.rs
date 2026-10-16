@@ -52,8 +52,13 @@ async fn page(
 
 async fn sitemap(Extension(catalog): Extension<Arc<Catalog>>) -> Result<Response> {
     let visible = catalog.visible(crate::settings::wall_clock());
-    let mut pages: Vec<(&str, Option<DateTime<Utc>>)> =
-        vec![("/", None), ("/privacy", None), ("/terms", None)];
+    let mut pages: Vec<(&str, Option<DateTime<Utc>>)> = vec![
+        ("/", None),
+        ("/ro", None),
+        ("/privacy", None),
+        ("/terms", None),
+        (super::page::SECURITY_PATH, None),
+    ];
     pages.extend(AUDIENCES.iter().map(|page| (page.path, None)));
     pages.extend(content::INDEXES.iter().filter_map(|index| {
         visible
@@ -69,8 +74,16 @@ async fn sitemap(Extension(catalog): Extension<Arc<Catalog>>) -> Result<Response
     let urls = pages
         .into_iter()
         .map(|(path, modified)| {
+            let alternates = if matches!(path, "/" | "/ro") {
+                format!(
+                    "<xhtml:link rel=\"alternate\" hreflang=\"en\" href=\"{0}/\"/><xhtml:link rel=\"alternate\" hreflang=\"ro\" href=\"{0}/ro\"/><xhtml:link rel=\"alternate\" hreflang=\"x-default\" href=\"{0}/\"/>",
+                    content::ORIGIN
+                )
+            } else {
+                String::new()
+            };
             format!(
-                "<url><loc>{}{}</loc>{}</url>",
+                "<url><loc>{}{}</loc>{}{alternates}</url>",
                 content::ORIGIN,
                 content::escape(path),
                 modified.map_or_else(String::new, |at| format!(
@@ -80,7 +93,7 @@ async fn sitemap(Extension(catalog): Extension<Arc<Catalog>>) -> Result<Response
             )
         })
         .collect::<String>();
-    Ok(([(header::CONTENT_TYPE, "application/xml; charset=utf-8")], format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">{urls}</urlset>")).into_response())
+    Ok(([(header::CONTENT_TYPE, "application/xml; charset=utf-8")], format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" xmlns:xhtml=\"http://www.w3.org/1999/xhtml\">{urls}</urlset>")).into_response())
 }
 
 async fn feed(Extension(catalog): Extension<Arc<Catalog>>) -> Result<Response> {
@@ -184,6 +197,7 @@ KeySend is run by ALPLUS TECHNOLOGIES S.R.L., a company registered in Romania. C
 - [Start the Trial]({origin}/sign-in): sign in with the Google login that you use for Google Ads
 - [Privacy]({origin}/privacy): what KeySend stores and what it reads from Google Ads
 - [Terms]({origin}/terms): price, payment, refunds and the operator
+- [Security]({origin}/security): encryption, where the data is, how long KeySend keeps it, and the rights of the User
 
 ## Who it is for
 

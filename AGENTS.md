@@ -4,15 +4,14 @@ Read `README.md` for the system, `docs/features.md` to find a feature, and `docs
 
 ## Check a change
 
-Run before every commit. CI runs the same commands. `git config core.hooksPath .githooks` makes Git run them before each push.
+Run `scripts/check.sh` before every commit. Manual CI and the pre-push hook
+use the same command. Set `git config core.hooksPath .githooks` to enable the
+hook. The command runs formatting, Clippy, Rust tests and script checks with
+private disposable SQLite storage. It keeps failure evidence and never uses a
+shared development database.
 
-```sh
-cargo fmt --all -- --check
-cargo clippy --all-targets --locked -- -D warnings
-cargo test --locked
-```
-
-A new, moved or deleted file, or a change in `scripts/`, `content/seo/`, `README.md` or `.github/workflows/`, also needs the commands of the `scripts` job in `.github/workflows/ci.yml`, when the workflow has that job. When `README.md` has a section "Public repository", follow it: it says which files leave this repository.
+When `README.md` has a section "Public repository", follow it: it defines which
+files leave this repository.
 
 | Change | How to show that it works |
 |---|---|

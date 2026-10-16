@@ -79,7 +79,7 @@ async fn the_ad_account_page_draws_its_five_charts_with_a_sentence_and_a_text_al
     assert!(
         trend.starts_with(
             r#"id="trend">Spend per day, against its usual range</h2>
-<p class="chart-say">Spend was unusual on 3 of the last 56 days, the last time on 19 Aug.</p>"#
+<p class="chart-say">Spend had no unusual day in the last 7 days.</p>"#
         ),
         "{trend}"
     );
@@ -92,33 +92,30 @@ async fn the_ad_account_page_draws_its_five_charts_with_a_sentence_and_a_text_al
 <span id="trend-end" tabindex="-1"></span>"#
     ));
     assert_eq!(count(&page, r#"<a class="chart-skip""#), 3);
-    assert_eq!(count(trend, r#"<text class="tick--second" x=""#), 2);
-    assert!(trend.contains(r#"<li><i class="key key--outside"></i>Unusual day</li>"#));
+    assert!(!trend.contains("17 Aug"));
+    assert!(!trend.contains("unusual day</td>"));
     assert_eq!(
-        count(trend, r#"<g class="pt" tabindex="0" role="img">"#),
-        56
+        count(
+            trend,
+            r#"<g class="pt" tabindex="0" role="img" aria-label="#
+        ),
+        7
     );
-    assert_eq!(count(trend, "pt__dot--out"), 3);
-    assert!(trend.contains("<title>Sun 11 Oct: $593. Usual: $540 to $581.</title>"));
-    assert_eq!(
-        trend
-            .split(r#"<text class="chart__change"#)
-            .skip(1)
-            .filter_map(|rest| rest.split("</text>").next())
-            .collect::<Vec<_>>(),
-        [
-            r#" wide" x="70.91%" dx="-6" y="10" text-anchor="end">3 Account changes · 25 Sep to 8 Oct"#,
-            r#" narrow" x="70.91%" dx="-6" y="10" text-anchor="end">25 Sep to 8 Oct"#,
-        ]
-    );
-    assert_eq!(count(trend, r#"<line class="change""#), 3);
-    assert!(trend.contains("<caption>Spend per day, 17 Aug to 11 Oct</caption>"));
+    assert_eq!(count(trend, "pt__dot--out"), 0);
+    assert!(trend.contains(
+        r#"aria-label="Sun 11 Oct: $593. Usual: $540 to $581. 2% above the usual range.""#
+    ));
+    assert!(trend.contains(
+        r#"<text class="chart__change" x="50.00%" y="10" text-anchor="middle">8 Oct</text>"#
+    ));
+    assert_eq!(count(trend, r#"<line class="change""#), 1);
+    assert!(trend.contains("<caption>Spend per day, 5 Oct to 11 Oct</caption>"));
     assert!(trend.contains(r#"<tr><th scope="col">Day</th><th scope="col">Spend</th><th scope="col">Usual range</th><th scope="col">Account change</th></tr>"#));
     assert!(trend.contains(
         r#"<tr><th scope="row">Sun 11 Oct</th><td>$593</td><td>$540 to $581</td><td></td></tr>"#
     ));
-    assert!(trend.contains(r#"<tr><th scope="row">Fri 25 Sep</th><td>$595</td><td>$174 to $649</td><td>Search - Emergency: Daily budget changed from $300.00 to $340.00</td></tr>"#));
-    assert!(trend.contains("<td>$547, unusual day</td>"));
+    assert!(trend.contains(r#"<tr><th scope="row">Thu 8 Oct</th><td>$591</td><td>$541 to $566</td><td>Display - Remarketing: Daily budget changed from $45.00 to $20.00</td></tr>"#));
+    assert!(!trend.contains("Fri 25 Sep"));
     assert!(trend.contains(r#"<li><i class="key key--band"></i>Usual range for the weekday</li>"#));
 
     let weeks = part(&page, "cost-weeks", "cost-weeks-end");
@@ -128,11 +125,15 @@ async fn the_ad_account_page_draws_its_five_charts_with_a_sentence_and_a_text_al
     ), "{weeks}");
     assert!(!weeks.contains("Target"));
     assert_eq!(
-        count(weeks, r#"<g class="pt" tabindex="0" role="img">"#),
+        count(
+            weeks,
+            r#"<g class="pt" tabindex="0" role="img" aria-label="#
+        ),
         12
     );
-    assert!(weeks
-        .contains("<title>Week of 5 Oct (so far): $39.62. $4,120 spend, 104 conversions.</title>"));
+    assert!(weeks.contains(
+        r#"aria-label="Week of 5 Oct (so far): $39.62. $4,120 spend, 104 conversions.""#
+    ));
     assert!(weeks.contains(
         r#"<tr><th scope="row">Week of 28 Sep</th><td>$46.48</td><td>$4,090</td><td>88</td></tr>"#
     ));
@@ -143,7 +144,7 @@ async fn the_ad_account_page_draws_its_five_charts_with_a_sentence_and_a_text_al
         r#"id="campaign-shares">Spend and conversions by Campaign, last 7 days</h2>
 <p class="chart-say"><b class="campaign-name">Search - Implants</b> takes <mark class="chart-say__point">23% of spend and brings 12% of conversions.</mark></p>"#
     ), "{shares}");
-    assert!(shares.contains(r#"<div class="chart__row"><a class="campaign-name" href="/ad-accounts/4829153307/campaigns/3">Search - Implants</a><svg class="chart__bars" height="29" role="group" aria-label="Search - Implants"><g class="pt" tabindex="0" role="img"><title>Search - Implants: 23% of spend, $936 of $4,120</title>"#));
+    assert!(shares.contains(r#"<div class="chart__row"><a class="campaign-name" href="/ad-accounts/4829153307/campaigns/3">Search - Implants</a><svg class="chart__bars" height="29" role="group" aria-label="Search - Implants"><g class="pt" tabindex="0" role="img" aria-label="Search - Implants: 23% of spend, $936 of $4,120">"#));
     assert!(shares.contains(r#"<rect class="bar bar--spend" x="0" y="0" width="39.85%" height="13" rx="4"/><text x="39.85%" dx="6" y="11">23%</text>"#));
     assert!(shares.contains(r#"<rect class="bar bar--results" x="0" y="16" width="20.24%" height="13" rx="4"/><text x="20.24%" dx="6" y="27">12%</text>"#));
     assert!(shares.contains(r#"<tr><th scope="row">Search - Emergency</th><td>$2,349</td><td>57%</td><td>58</td><td>56%</td></tr>"#));
@@ -205,12 +206,12 @@ async fn each_metric_number_links_to_its_trend_chart_and_the_query_chooses_the_m
         .await;
     assert!(cost.contains(
         r#"id="trend">Cost per conversion per day, against its usual range</h2>
-<p class="chart-say">Cost per conversion had no unusual day in the last 32 days.</p>"#
+<p class="chart-say">Cost per conversion had no unusual day in the last 30 days.</p>"#
     ));
     assert!(cost.contains(r#"<a href="/ad-accounts/4829153307?window=30&amp;metric=cost-per-conversion#trend" data-swap aria-current="true">Show cost per conversion per day</a>"#));
     assert!(cost.contains(r#"<a href="/ad-accounts/4829153307?window=30&amp;metric=spend#trend" data-swap>Show spend per day</a>"#));
     assert!(cost.contains(r#"<a href="/ad-accounts/4829153307?metric=cost-per-conversion" data-swap aria-label="Show the last 7 days">7 days</a>"#));
-    assert!(cost.contains("<caption>Cost per conversion per day, 17 Aug to 11 Oct</caption>"));
+    assert!(cost.contains("<caption>Cost per conversion per day, 12 Sep to 11 Oct</caption>"));
     assert!(cost.contains(r#"<tr><th scope="row">Sun 11 Oct</th><td>$42.36</td><td>$48.09 to $52.85</td><td></td></tr>"#), "{cost}");
 
     let campaign = f
@@ -218,13 +219,11 @@ async fn each_metric_number_links_to_its_trend_chart_and_the_query_chooses_the_m
         .await;
     assert!(campaign.contains(
         r#"id="trend">Conversions per day, against its usual range</h2>
-<p class="chart-say">Conversions had no unusual day in the last 56 days.</p>"#
+<p class="chart-say">Conversions had no unusual day in the last 7 days.</p>"#
     ));
     assert!(campaign.contains(r#"<a href="/ad-accounts/4829153307/campaigns/4?metric=conversions#trend" data-swap aria-current="true">Show conversions per day</a>"#));
     assert!(campaign.contains(r#"<a href="/ad-accounts/4829153307/campaigns/4?window=30&amp;metric=conversions" data-swap aria-label="Show the last 30 days">30 days</a>"#));
-    assert!(campaign.contains(
-        r#"<text class="chart__change wide" x="94.55%" dx="-6" y="10" text-anchor="end">Daily budget $45 → $20 · 8 Oct</text>"#
-    ));
+    assert!(campaign.contains("Account change: Daily budget $45 → $20."));
     assert!(campaign.contains("<li>8 October: Daily budget changed from $45.00 to $20.00."));
     assert!(campaign.contains("KeySend checks the result on 24 October."));
 
@@ -250,28 +249,21 @@ async fn the_campaign_page_draws_the_trend_of_the_campaign_and_its_device_split(
     assert!(
         trend.starts_with(
             r#"id="trend">Spend per day, against its usual range</h2>
-<p class="chart-say">Spend was unusual on 1 of the 7 days after the Account change of 4 Oct.</p>"#
+<p class="chart-say">Spend was unusual on 1 of the last 7 days, the last time on 11 Oct.</p>"#
         ),
         "{trend}"
     );
     assert_eq!(
-        count(trend, r#"<g class="pt" tabindex="0" role="img">"#),
-        56
+        count(
+            trend,
+            r#"<g class="pt" tabindex="0" role="img" aria-label="#
+        ),
+        7
     );
-    assert!(trend.contains("<title>Sun 11 Oct: $1,123. Usual: $283 to $324. Unusual day.</title>"));
-    assert_eq!(
-        trend
-            .split(r#"<text class="chart__change"#)
-            .skip(1)
-            .filter_map(|rest| rest.split("</text>").next())
-            .collect::<Vec<_>>(),
-        [
-            r#" wide" x="87.27%" y="10" text-anchor="middle">4 Oct"#,
-            r#" wide" x="70.91%" y="10" text-anchor="middle">25 Sep"#,
-            r#" narrow" x="70.91%" dx="-6" y="10" text-anchor="end">25 Sep to 4 Oct"#,
-        ]
-    );
-    assert!(trend.contains(r#"<h3 class="heading-s">Account changes in these 8 weeks</h3>"#));
+    assert!(trend.contains(r#"aria-label="Sun 11 Oct: $1,123. Usual: $283 to $324. Unusual day: 247% above the usual range.""#));
+    assert!(!trend.contains(r#"<text class="chart__change"#));
+    assert!(!trend.contains("<td>Daily budget changed from $300.00 to $340.00</td>"));
+    assert!(trend.contains(r#"<h3 class="heading-s">Account changes in the last 8 weeks</h3>"#));
     assert!(!trend.contains("to $20.00"));
     assert!(page.contains(r#"id="cost-weeks">Cost per conversion, 12 weeks</h2>"#));
     assert!(!page.contains(r#"id="campaign-shares""#));
@@ -323,12 +315,10 @@ async fn an_ad_account_that_is_not_judged_by_conversions_has_no_conversion_word_
     assert!(!charts.to_lowercase().contains("conversion"), "{charts}");
     assert!(charts.starts_with(
         r#"id="trend">Clicks per day, against its usual range</h2>
-<p class="chart-say">Clicks were unusual on 3 of the last 56 days, the last time on 19 Aug.</p>"#
+<p class="chart-say">Clicks had no unusual day in the last 7 days.</p>"#
     ));
-    assert!(charts.contains(
-        r#"<text class="chart__change wide" x="70.91%" dx="-6" y="10" text-anchor="end">Daily budget $300 → $340 · 25 Sep</text>"#
-    ));
-    assert!(charts.contains("<caption>Clicks per day, 17 Aug to 11 Oct</caption>"));
+    assert!(!charts.contains(r#"<text class="chart__change"#));
+    assert!(charts.contains("<caption>Clicks per day, 5 Oct to 11 Oct</caption>"));
     assert!(campaign.contains(r#"<a href="/ad-accounts/4829153307/campaigns/2?metric=clicks#trend" data-swap aria-current="true">Show clicks per day</a>"#));
 }
 
@@ -340,16 +330,19 @@ async fn thin_account_history_draws_no_usual_range_and_says_so() {
     let trend = part(&page, "trend", "campaign-shares");
     assert!(trend.starts_with(
         r#"id="trend">Spend per day</h2>
-<p class="chart-say">Spend per day for 21 days. The chart has no usual range, because the Account history has fewer than 8 weeks.</p>"#
+<p class="chart-say">Spend per day for 7 days. The usual range needs at least 4 earlier observations for the same weekday.</p>"#
     ), "{trend}");
     assert_eq!(
-        count(trend, r#"<g class="pt" tabindex="0" role="img">"#),
-        21
+        count(
+            trend,
+            r#"<g class="pt" tabindex="0" role="img" aria-label="#
+        ),
+        7
     );
     assert!(!trend.contains(r#"class="band""#));
     assert!(!trend.contains("Usual range for the weekday"));
     assert!(trend.contains(
-        r#"<tr><th scope="row">Mon 21 Sep</th><td>$30.00</td><td>Not available</td><td></td></tr>"#
+        r#"<tr><th scope="row">Mon 5 Oct</th><td>$30.00</td><td>Not available</td><td></td></tr>"#
     ));
     let weeks = part(&page, "cost-weeks", "cost-weeks-end");
     assert!(weeks.starts_with(
@@ -372,7 +365,7 @@ async fn a_chart_with_nothing_to_show_is_one_sentence() {
     let page = f.page(&format!("{PAGE}?metric=cost-per-conversion")).await;
     for sentence in [
         r#"id="trend">Cost per conversion per day</h2>
-<p class="chart-say">No day of the last 21 had a cost per conversion.</p>"#,
+<p class="chart-say">No cost per conversion on any of the last 7 days.</p>"#,
         r#"id="cost-weeks">Cost per conversion, 12 weeks</h2>
 <p class="chart-say">No week of the last 12 had conversions, so there is no cost per conversion to show.</p>"#,
         r#"id="campaign-shares">Spend and conversions by Campaign, last 7 days</h2>
@@ -397,4 +390,50 @@ async fn each_chart_and_the_metrics_explain_what_they_show_and_what_the_user_can
         page.contains("<li>Look at an unusual day first, and read the Update of that day.</li>")
     );
     assert!(page.contains(r#"<p class="chart-note"><b>Data limitation:</b> Google Ads can correct the numbers of the newest days.</p>"#));
+}
+
+#[tokio::test]
+#[serial]
+async fn every_daily_metric_shows_the_selected_window_on_the_ad_account_and_campaign() {
+    for judged in [true, false] {
+        let f = pages::harbour(judged).await;
+        let metrics = if judged {
+            ["spend", "conversions", "cost-per-conversion", "clicks"]
+        } else {
+            ["spend", "clicks", "cost-per-click", "impressions"]
+        };
+        for path in [PAGE.to_owned(), format!("{PAGE}/campaigns/2")] {
+            for metric in metrics {
+                for (window, first) in [(7, "Mon 5 Oct"), (30, "Sat 12 Sep")] {
+                    let page = f
+                        .page(&format!("{path}?window={window}&metric={metric}"))
+                        .await;
+                    let table = page
+                        .split("<figure class=\"chart chart--trend\"")
+                        .nth(1)
+                        .unwrap()
+                        .split("</figure>")
+                        .next()
+                        .unwrap();
+                    let rows = table
+                        .split("<tr><th scope=\"row\">")
+                        .skip(1)
+                        .map(|row| row.split("</th>").next().unwrap())
+                        .collect::<Vec<_>>();
+                    assert_eq!(rows.len(), window, "{path}, {metric}, {window}");
+                    assert_eq!(
+                        rows.first().copied(),
+                        Some(first),
+                        "{path}, {metric}, {window}"
+                    );
+                    assert_eq!(
+                        rows.last().copied(),
+                        Some("Sun 11 Oct"),
+                        "{path}, {metric}, {window}"
+                    );
+                    assert!(table.contains("<td>"), "{path}, {metric}, {window}");
+                }
+            }
+        }
+    }
 }

@@ -201,10 +201,9 @@ written! {
         export_recommendations,
         export_no_recommendations,
         export_no_campaign_recommendations,
-        export_finding,
         export_not_judged,
         export_refuse_window,
-        export_refuse_language,
+        export_refuse_untranslated,
         export_refuse_trial_ended,
         export_refuse_unread,
         email_subject_weekly,
@@ -295,6 +294,11 @@ written! {
         trend_tip_day,
         trend_tip_usual,
         trend_unusual_day,
+        trend_tip_below,
+        trend_tip_above,
+        trend_tip_unusual,
+        trend_tip_change,
+        trend_tip_changes,
         trend_value_none,
         trend_value_unusual,
         trend_range,
@@ -417,7 +421,8 @@ written! {
         ss_title_budget,
         ss_title_rank,
         ss_tip,
-        ss_named,
+        ss_named_budget,
+        ss_named_rank,
         ss_alone,
         ss_all_limited,
         ss_all_zero,
@@ -617,7 +622,8 @@ written! {
         action_weeks_title,
         action_weeks_empty,
         action_mark,
-        ss_left_out,
+        ss_coverage,
+        ss_lower,
         hours_fewest_tied,
         hours_most_tied,
         export_file,
@@ -861,7 +867,7 @@ mod tests {
         assert_eq!(chart.rows[0].svg.matches("din cheltuieli").count(), 1);
         assert!(chart.rows[0]
             .svg
-            .contains("<title>A: 84 la sută din cheltuieli, 4.121 US$ din 4.901 US$</title>"));
+            .contains(r#"aria-label="A: 84 la sută din cheltuieli, 4.121 US$ din 4.901 US$""#));
         let everything = serde_json::to_string(&chart).unwrap();
         for english in [
             "Spend",

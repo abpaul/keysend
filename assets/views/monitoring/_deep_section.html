@@ -18,6 +18,7 @@
   {% if section.key %}<p class="facts__key"><i class="key key--mark"></i>{{ section.key }}</p>{% endif %}
   <details class="explain">
     <summary>{{ t(key="explain_what_this_shows") }}</summary>
+    <div class="explain__body">
     {% for text in section.about %}<p>{{ text }}</p>
     {% endfor %}
     {% if section.terms %}
@@ -26,13 +27,16 @@
       {% endfor %}
     </dl>
     {% endif %}
+    </div>
   </details>
   <details class="explain">
     <summary>{{ t(key="explain_what_you_can_do") }}</summary>
+    <div class="explain__body">
     <ul class="list">
       {% for action in section.actions %}<li>{{ action }}</li>
       {% endfor %}
     </ul>
+    </div>
   </details>
   <p class="chart-note"><b>{{ t(key="explain_data_limitation") }}</b> {{ section.limitation }}</p>
   {% endif %}

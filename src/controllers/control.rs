@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::Path,
-    http::StatusCode,
+    http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Redirect},
     Extension,
 };
@@ -14,6 +14,7 @@ use crate::{
     auth::Authenticated,
     language::Language,
     monitoring::worker::{TranslationJob, TranslationWorker},
+    removal::Refusal,
     settings::Settings,
     workspace::WorkspaceStore,
 };
@@ -59,6 +60,7 @@ async fn settings(
 async fn choose_language(
     Authenticated(signed): Authenticated,
     State(ctx): State<AppContext>,
+    headers: HeaderMap,
     Form(form): Form<LanguageChoice>,
 ) -> Result<Response> {
     let Some(language) = Language::parse_available(&form.language) else {
@@ -79,7 +81,14 @@ async fn choose_language(
             tracing::warn!("The translation of the stored texts could not be queued");
         }
     }
-    Ok(Redirect::to("/settings").into_response())
+    Ok(Redirect::to(page_of(&headers).unwrap_or("/settings")).into_response())
+}
+
+fn page_of(headers: &HeaderMap) -> Option<&str> {
+    let referer = headers.get(header::REFERER)?.to_str().ok()?;
+    let (_, rest) = referer.split_once("://")?;
+    let path = &rest[rest.find('/')?..];
+    (!matches!(path.as_bytes().get(1), Some(b'/' | b'\\'))).then_some(path)
 }
 
 async fn confirm(
@@ -162,65 +171,39 @@ pub(crate) async fn remove_owned(
     if !confirmed {
         return Ok(Some(StatusCode::UNPROCESSABLE_ENTITY.into_response()));
     }
-    if kind == "workspaces" {
-        if let Some(customer) = store.stripe_customer().await? {
-            let deleted = crate::billing::request(
-                settings,
-                reqwest::Method::DELETE,
-                &format!("customers/{customer}"),
-                &[],
-                None,
-            )
-            .await;
-            if !matches!(deleted, Ok(body) if body["id"]==customer && body["deleted"]==true) {
-                return Ok(Some(
-                    (
-                        StatusCode::SERVICE_UNAVAILABLE,
-                        signed
-                            .user
-                            .language
-                            .text()?
-                            .written
-                            .page_payment_details_not_removed,
-                    )
-                        .into_response(),
-                ));
+    let refusal = match kind {
+        "workspaces" => crate::removal::delete_workspace(ctx, settings, &signed.workspace).await?,
+        "connections" => {
+            let refusal = crate::removal::revoke_google(settings, &store, Some(id)).await?;
+            if refusal.is_none() {
+                store.remove_google_connection(id).await?;
             }
+            refusal
         }
-    }
-    if kind != "accounts" {
-        let Some(key) = settings.master_key.as_ref() else {
-            return Ok(Some(StatusCode::SERVICE_UNAVAILABLE.into_response()));
-        };
-        for connection in connections
-            .iter()
-            .filter(|connection| kind == "workspaces" || connection.id == id)
-        {
-            let Some(token) = store.refresh_token(&connection.id, key).await? else {
-                return Ok(Some(StatusCode::NOT_FOUND.into_response()));
-            };
-            if crate::google::revoke(settings, &token).await.is_err() {
-                return Ok(Some(
-                    (
-                        StatusCode::SERVICE_UNAVAILABLE,
-                        signed
-                            .user
-                            .language
-                            .text()?
-                            .written
-                            .page_google_permission_not_removed,
-                    )
-                        .into_response(),
-                ));
-            }
+        _ => {
+            store.remove_ad_account(id).await?;
+            None
         }
-    }
-    match kind {
-        "accounts" => store.remove_ad_account(id).await?,
-        "connections" => store.remove_google_connection(id).await?,
-        _ => store.delete_user().await?,
-    }
-    Ok(None)
+    };
+    refusal.map(|refusal| refused(refusal, signed)).transpose()
+}
+
+fn refused(refusal: Refusal, signed: &crate::identity::SignedIn) -> Result<Response> {
+    let written = &signed.user.language.text()?.written;
+    Ok(match refusal {
+        Refusal::PaymentDetailsKept => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            written.page_payment_details_not_removed,
+        )
+            .into_response(),
+        Refusal::GooglePermissionKept => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            written.page_google_permission_not_removed,
+        )
+            .into_response(),
+        Refusal::MasterKeyMissing => StatusCode::SERVICE_UNAVAILABLE.into_response(),
+        Refusal::RefreshTokenMissing => StatusCode::NOT_FOUND.into_response(),
+    })
 }
 
 pub fn routes() -> Routes {

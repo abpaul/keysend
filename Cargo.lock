@@ -27,6 +27,7 @@ dependencies = [
  "cfg-if",
  "cipher",
  "cpufeatures 0.2.17",
+ "zeroize",
 ]
 
 [[package]]
@@ -41,6 +42,7 @@ dependencies = [
  "ctr",
  "ghash",
  "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -1304,6 +1306,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "01a7799fd6b852db0e61728dde9a204c423b44d689dbd432522543614b490e78"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "credseal"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "aes-gcm",
+ "base64 0.22.1",
+ "getrandom 0.4.3",
+ "libc",
+ "serde",
+ "thiserror 2.0.21",
+ "toml 1.1.8+spec-1.1.0",
+ "zeroize",
 ]
 
 [[package]]
@@ -3378,6 +3395,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "chrono-tz 0.10.4",
+ "credseal",
  "hmac 0.12.1",
  "image",
  "keysend",

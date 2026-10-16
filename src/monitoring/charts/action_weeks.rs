@@ -138,7 +138,7 @@ pub fn action_weeks(
         let to_left = center(index) > 50.0;
         let _ = write!(
             svg,
-            r#"<g class="pt" tabindex="0" role="img"><title>{}</title><rect class="pt__hit" x="{:.2}%" y="0" width="{SLOT:.2}%" height="{WEEKS_HEIGHT:.0}"/>{bars}<svg x="{:.2}%" width="1" height="1" overflow="visible">{}</svg></g>"#,
+            r#"<g class="pt" tabindex="0" role="img" aria-label="{}"><rect class="pt__hit" x="{:.2}%" y="0" width="{SLOT:.2}%" height="{WEEKS_HEIGHT:.0}"/>{bars}<svg x="{:.2}%" width="1" height="1" overflow="visible">{}</svg></g>"#,
             esc(&format!("{}.", lines.join(". "))),
             slot(index),
             center(index),
@@ -251,7 +251,7 @@ mod tests {
             r#"<text class="chart__value" x="95.83%" y="38.3" text-anchor="middle">20</text>"#
         ));
         assert!(svg.contains(
-            "<title>Week of 5 Oct (so far): 20 conversions. Booking form: 12. Phone call: 6. Chat: 2.</title>"
+            r#"aria-label="Week of 5 Oct (so far): 20 conversions. Booking form: 12. Phone call: 6. Chat: 2.""#
         ));
         assert_eq!(svg.matches(r#"class="pt" tabindex="0""#).count(), 12);
         assert!(svg.contains(r#"<text x="0.66%" y="148">20 Jul</text>"#));

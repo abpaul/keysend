@@ -234,9 +234,26 @@ fn lang(_kwargs: Kwargs, _state: &State) -> TeraResult<Value> {
     Ok(Value::from(current()?.code()))
 }
 
+fn languages(_kwargs: Kwargs, _state: &State) -> TeraResult<Value> {
+    let current = current()?;
+    Ok(Value::from(
+        Language::available()
+            .into_iter()
+            .map(|language| {
+                let mut entry = tera::Map::new();
+                entry.insert("code".into(), Value::from(language.code()));
+                entry.insert("name".into(), Value::from(language.name()));
+                entry.insert("selected".into(), Value::from(language == current));
+                Value::from(entry)
+            })
+            .collect::<Vec<_>>(),
+    ))
+}
+
 pub fn register(tera: &mut Tera) {
     tera.register_function("t", t);
     tera.register_function("lang", lang);
+    tera.register_function("languages", languages);
 }
 
 #[cfg(test)]
@@ -651,7 +668,7 @@ mod tests {
             register(tera);
             tera.global_context().insert(
                 "assets",
-                &serde_json::json!({"images/logo.svg":"/l","images/logo-on-plum.svg":"/p","app.css":"/a","parts.css":"/b"}),
+                &serde_json::json!({"images/logo.svg":"/l","images/logo-on-plum.svg":"/p","app.css":"/a","parts.css":"/b","popover.js":"/j"}),
             );
             Ok(())
         })
@@ -667,7 +684,7 @@ mod tests {
             })
         };
         let one = page(serde_json::json!([{"code":"en","name":"English","selected":true}]));
-        assert!(!one.contains("/settings/language"));
+        assert!(!one.contains(r#"<form class="form" method="post" action="/settings/language">"#));
         let two = page(serde_json::json!([
             {"code":"en","name":"English","selected":true},
             {"code":"ro","name":"Română","selected":false}

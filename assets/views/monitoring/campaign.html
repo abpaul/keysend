@@ -9,7 +9,7 @@
 <div class="page-head">
   <h1 class="heading-xl">{{ campaign.name }}</h1>
   <div class="actions">
-    <a class="button" href="{{ export_href }}">{{ t(key="export_pdf") }}</a>
+    {% include "monitoring/_export.html" %}
     <a href="{{ settings_href }}">{{ t(key="settings") }}</a>
   </div>
 </div>
@@ -21,14 +21,7 @@
 <p class="muted">{{ t(key="campaign_alerts_off") }} {{ t(key="campaign_alerts_off_effect") }} {% set settings_link %}<a href="{{ settings_href }}">{{ t(key="settings") }}</a>{% endset %}{{ t(key="campaign_alerts_change", settings=settings_link) }}</p>
 {% endif %}
 
-{% if campaign_not_judged %}
-<div class="notice">
-  <h2 class="notice__title">{{ t(key="campaign_not_judged_title") }}</h2>
-  <p>{{ t(key="campaign_not_judged_text") }}</p>
-</div>
-{% else %}
 {% include "monitoring/_notice.html" %}
-{% endif %}
 
 <div class="bento">
   {% include "monitoring/_metrics.html" %}

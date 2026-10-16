@@ -299,6 +299,45 @@ async fn the_settings_page_reads_its_texts_in_the_language_of_the_user() {
 
 #[tokio::test]
 #[serial]
+async fn a_user_switches_the_language_from_the_header_and_returns_to_the_same_page() {
+    let f = Fixture::monitoring().await;
+    let page = f.page("/settings").await;
+    assert!(page
+        .contains(r#"<form class="lang-menu__list" method="post" action="/settings/language">"#));
+    assert!(page.contains(
+        r#"<button type="submit" name="language" value="de" lang="de">Deutsch</button>"#
+    ));
+    assert!(page.contains(
+        r#"<button type="submit" name="language" value="en" lang="en" aria-current="true">English</button>"#
+    ));
+    let choose = |referer: String| {
+        f.request
+            .post("/settings/language")
+            .add_cookie(f.a.clone())
+            .add_header("origin", ORIGIN)
+            .add_header("referer", referer)
+            .form(&json!({"language":"de"}))
+    };
+    let back = choose(format!("{ORIGIN}/ad-accounts/4829153307?window=30")).await;
+    assert_eq!(back.status_code(), 303);
+    assert_eq!(back.header("location"), "/ad-accounts/4829153307?window=30");
+    assert_eq!(signed(&f.ctx, &f.a).await.user.language, Language::De);
+    for elsewhere in [
+        format!("{ORIGIN}//example.com/ad-accounts"),
+        format!("{ORIGIN}/\\example.com/ad-accounts"),
+        "example.com/ad-accounts".to_owned(),
+    ] {
+        let response = choose(elsewhere.clone()).await;
+        assert_eq!(response.header("location"), "/settings", "{elsewhere}");
+    }
+    let german = f.page("/settings").await;
+    assert!(german.contains(
+        r#"<button type="submit" name="language" value="de" lang="de" aria-current="true">Deutsch</button>"#
+    ));
+}
+
+#[tokio::test]
+#[serial]
 async fn a_user_chooses_only_an_offered_language() {
     let f = Fixture::monitoring().await;
     let saved = f
@@ -385,4 +424,34 @@ async fn signed(ctx: &AppContext, cookie: &Cookie<'static>) -> identity::SignedI
         .await
         .unwrap()
         .unwrap()
+}
+
+#[tokio::test]
+#[serial]
+async fn a_user_keeps_the_chosen_language_after_visiting_both_public_home_pages() {
+    let f = Fixture::monitoring().await;
+    let header = f.page("/settings").await;
+    assert!(header.contains("English / Română"));
+    assert_eq!(
+        f.post(&f.a, "/settings/language", json!({"language":"ro"}))
+            .await
+            .status_code(),
+        303
+    );
+    for (path, language) in [("/", "en"), ("/ro", "ro"), ("/", "en")] {
+        let response = f.request.get(path).add_cookie(f.a.clone()).await;
+        assert_eq!(response.status_code(), 200);
+        assert_eq!(response.header("cache-control"), "no-store");
+        assert!(response
+            .text()
+            .contains(&format!("<html lang=\"{language}\">")));
+    }
+    assert!(f.page("/settings").await.contains("<html lang=\"ro\">"));
+    assert_eq!(
+        f.post(&f.a, "/settings/language", json!({"language":"en"}))
+            .await
+            .status_code(),
+        303
+    );
+    assert!(f.page("/settings").await.contains("<html lang=\"en\">"));
 }

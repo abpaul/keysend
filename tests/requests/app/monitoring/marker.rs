@@ -74,36 +74,6 @@ fn without_chips(html: &str) -> String {
     html.replace(open, "").replace("</b>", "")
 }
 
-fn typst_text(source: &str) -> String {
-    let source = source.replace("\")#campaign(\"", "").replace("\")#(\"", "");
-    let mut out = String::new();
-    let mut rest = source.as_str();
-    while let Some(start) = rest.find('"') {
-        let tail = &rest[start + 1..];
-        let mut end = None;
-        let mut escaped = false;
-        for (index, character) in tail.char_indices() {
-            match character {
-                '\\' if !escaped => escaped = true,
-                '"' if !escaped => {
-                    end = Some(index);
-                    break;
-                }
-                _ => escaped = false,
-            }
-        }
-        let Some(end) = end else { break };
-        let literal = format!("\"{}\"", &tail[..end]);
-        let string = serde_json::from_str::<String>(&literal).unwrap_or_default();
-        if !string.ends_with(".svg") && !string.ends_with(".png") {
-            out.push_str(&string);
-            out.push('\n');
-        }
-        rest = &tail[end + 1..];
-    }
-    out
-}
-
 fn without_markers(text: &str) -> String {
     let mut out = String::new();
     let mut rest = text;
@@ -284,8 +254,16 @@ async fn in_a_test_language_no_page_export_or_email_keeps_an_english_fixed_word(
     let changes = keysend::controllers::monitoring::export_changes(&store, &collected, None)
         .await
         .unwrap();
+    let rules = store
+        .campaign_rules(
+            AD,
+            keysend::monitoring::tracking::ConversionTracking::Working,
+            &Default::default(),
+        )
+        .await
+        .unwrap();
     let (charts, deep_charts) =
-        keysend::controllers::monitoring::export_charts(&store, &collected, &changes)
+        keysend::controllers::monitoring::export_charts(&store, &collected, &changes, &rules)
             .await
             .unwrap();
     let export = |subject: Subject, charts, recommendations| Export {
@@ -300,13 +278,20 @@ async fn in_a_test_language_no_page_export_or_email_keeps_an_english_fixed_word(
             .map(|campaign| campaign.name.clone())
             .collect(),
         prepared: format::long_date(text, today()),
+        notice: keysend::monitoring::view::tracking_notice(
+            text,
+            keysend::monitoring::tracking::ConversionTracking::NotSetUp,
+            None,
+            false,
+        ),
         cells: format::cells(text, &total, "USD").unwrap(),
-        judged: true,
+        sparklines: keysend::controllers::monitoring::metric_sparklines(&collected, None).unwrap(),
         charts,
         recommendations,
         subject,
     };
     let advice = export::RecommendationText {
+        finding: Some("dental implants jobs wastes spend".into()),
         action: "Add dental implants jobs as a negative keyword in Search - Implants.".into(),
         reason: "People who search for jobs are not patients.".into(),
         evidence: "dental implants jobs: $186 spend, 74 clicks, 0 conversions.".into(),
@@ -317,14 +302,23 @@ async fn in_a_test_language_no_page_export_or_email_keeps_an_english_fixed_word(
                 date: format::long_date(text, today()),
                 summary: "Spend was steady at $2,765.".into(),
                 cause: None,
-                lines: vec!["Search - Emergency: 42 conversions, up from 28.".into()],
+                lines: vec![export::UpdateLine {
+                    campaign: "Search - Emergency".into(),
+                    text: "42 conversions, up from 28.".into(),
+                    cause: None,
+                }],
+                more_campaigns: 2,
             }),
+            earlier: vec![export::EarlierUpdate {
+                date: format::long_date(text, today()),
+                summary: "Spend was steady.".into(),
+            }],
+            campaign_headers: keysend::monitoring::view::all_campaign_headers(text, true),
             campaigns: vec![export::CampaignRow {
                 name: "Search - Emergency".into(),
-                spend: text.money(2349.0, "USD"),
-                clicks: text.count(1010.0),
-                impressions: text.count(9000.0),
-                conversions: Some(text.count(58.0)),
+                sparkline: None,
+                cells: keysend::monitoring::view::all_campaign_cells(text, &total, "USD", true)
+                    .unwrap(),
             }],
             deep_charts,
         },
@@ -348,6 +342,7 @@ async fn in_a_test_language_no_page_export_or_email_keeps_an_english_fixed_word(
         &collected,
         campaign,
         &campaign_changes,
+        &rules,
     )
     .await
     .unwrap();
@@ -435,7 +430,6 @@ async fn in_a_test_language_no_page_export_or_email_keeps_an_english_fixed_word(
         )
         .unwrap();
         let campaign_export = Export {
-            judged,
             ..export(
                 Subject::Campaign {
                     name: campaign.name.clone(),
@@ -443,6 +437,7 @@ async fn in_a_test_language_no_page_export_or_email_keeps_an_english_fixed_word(
                         format::long_date(text, today()),
                         "42 conversions, up from 28.".into(),
                     )],
+                    findings: vec!["Search - Emergency spends on free dental care.".into()],
                     deep_check: Some(CampaignDeepCheck {
                         date: deep.date,
                         sections,
@@ -461,6 +456,7 @@ async fn in_a_test_language_no_page_export_or_email_keeps_an_english_fixed_word(
         Subject::Campaign {
             name: campaign.name.clone(),
             lines: Vec::new(),
+            findings: Vec::new(),
             deep_check: None,
         },
         campaign_charts,
@@ -473,6 +469,8 @@ async fn in_a_test_language_no_page_export_or_email_keeps_an_english_fixed_word(
     let without_deep = export(
         Subject::AdAccount {
             update: None,
+            earlier: Vec::new(),
+            campaign_headers: Vec::new(),
             campaigns: Vec::new(),
             deep_charts: DeepCharts {
                 date: None,
@@ -577,6 +575,8 @@ async fn in_a_test_language_no_page_export_or_email_keeps_an_english_fixed_word(
         "Add dental implants jobs as a negative keyword in Search - Implants.",
         "People who search for jobs are not patients.",
         "dental implants jobs: $186 spend, 74 clicks, 0 conversions.",
+        "dental implants jobs wastes spend",
+        "Search - Emergency spends on free dental care.",
         "Spend was steady at $2,765.",
         "Spend was steady.",
         "Search - Emergency: 42 conversions, up from 28.",

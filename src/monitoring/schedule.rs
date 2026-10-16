@@ -1,11 +1,14 @@
-use chrono::Timelike;
+use chrono::{DateTime, Timelike, Utc};
 use loco_rs::{
     app::AppContext,
     bgworker::{BackgroundWorker, JobStatus},
     Result,
 };
 
-use super::worker::{MonitoringJob, MonitoringWorker};
+use super::{
+    retention::{self, RetentionJob, RetentionWorker},
+    worker::{MonitoringJob, MonitoringWorker},
+};
 use crate::{
     identity,
     workspace::{Workspace, WorkspaceStore},
@@ -65,10 +68,23 @@ pub async fn remove_old_jobs(ctx: &AppContext) -> Result<()> {
         .await
 }
 
+pub async fn queue_retention(ctx: &AppContext, now: DateTime<Utc>) -> Result<()> {
+    if retention::due(now) {
+        RetentionWorker::perform_later(ctx, RetentionJob {}).await?;
+    }
+    Ok(())
+}
+
 pub async fn hourly(ctx: AppContext) {
     loop {
         if remove_old_jobs(&ctx).await.is_err() {
             tracing::warn!("Old jobs could not be removed from the queue");
+        }
+        if queue_retention(&ctx, crate::settings::wall_clock())
+            .await
+            .is_err()
+        {
+            tracing::warn!("Daily run could not queue the retention job");
         }
         match identity::workspace_ids(&ctx.db).await {
             Ok(ids) => {

@@ -3,7 +3,7 @@ use std::fmt::Write as _;
 use super::{chars, esc, Chart, Key, PRINT_PLOT};
 
 const WIDTH: f64 = 640.0;
-const NAME_COLUMN: f64 = 170.0;
+const NAME_COLUMN: f64 = 220.0;
 const SHARES_STEP: f64 = 42.0;
 const STACK_STEP: f64 = 58.0;
 const GRID_LABELS: f64 = 36.0;
@@ -54,8 +54,8 @@ fn name_lines(name: &str) -> Vec<String> {
 
 fn rows(chart: &Chart, step: f64, bar: f64) -> (String, f64) {
     let mut body = String::new();
-    for (index, row) in chart.rows.iter().enumerate() {
-        let top = index as f64 * step;
+    let mut top = 0.0;
+    for row in &chart.rows {
         let lines = name_lines(&row.name);
         let first = if lines.len() == 1 { 18.0 } else { 13.0 };
         for (line, text) in lines.iter().enumerate() {
@@ -72,16 +72,31 @@ fn rows(chart: &Chart, step: f64, bar: f64) -> (String, f64) {
             WIDTH - NAME_COLUMN - 44.0,
             inner(&row.svg)
         );
+        let mut details = Vec::<String>::new();
         if let Some(values) = &row.values {
+            for value in values.split(" · ") {
+                match details.last_mut() {
+                    Some(line)
+                        if (chars(line) + chars(value) + 3.0) * 6.0 <= WIDTH - NAME_COLUMN =>
+                    {
+                        line.push_str(" · ");
+                        line.push_str(value);
+                    }
+                    _ => details.push(value.into()),
+                }
+            }
+        }
+        for (index, line) in details.iter().enumerate() {
             let _ = write!(
                 body,
                 r#"<text class="detail" x="{NAME_COLUMN:.0}" y="{:.0}">{}</text>"#,
-                top + bar + 14.0,
-                esc(values)
+                top + bar + (index + 1) as f64 * 14.0,
+                esc(line)
             );
         }
+        top += step.max(bar + details.len() as f64 * 14.0 + 8.0);
     }
-    (body, chart.rows.len() as f64 * step)
+    (body, top)
 }
 
 fn keys(keys: &[Key], top: f64) -> (String, f64) {
@@ -115,6 +130,13 @@ fn keys(keys: &[Key], top: f64) -> (String, f64) {
         x += width;
     }
     (out, if keys.is_empty() { top } else { y + 16.0 })
+}
+
+pub fn standalone_spark(svg: &str) -> String {
+    format!(
+        r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 32" preserveAspectRatio="none"><style>path{{fill:none;stroke:#5126A6;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}}</style>{}</svg>"#,
+        inner(svg)
+    )
 }
 
 pub fn standalone(chart: &Chart, frame: Frame) -> Option<String> {
@@ -186,16 +208,52 @@ mod tests {
             r#"<svg xmlns="http://www.w3.org/2000/svg" width="640" height="104" viewBox="0 0 640 104"><style>text{fill:#5C5470;"#
         ), "{svg}");
         assert!(svg.contains(
-            r#"</style><text class="name" x="0" y="13">Search - Emergency &amp; a</text><text class="name" x="0" y="27">very long Campaign na…</text><svg x="170" y="0" width="426" height="29" overflow="visible"><g class="pt" tabindex="0" role="img"><title>"#
+            r#"</style><text class="name" x="0" y="13">Search - Emergency &amp; a very</text><text class="name" x="0" y="27">long Campaign name</text><svg x="220" y="0" width="376" height="29" overflow="visible"><g class="pt" tabindex="0" role="img" aria-label="#
         ), "{svg}");
         assert!(svg.contains(
-            r#"<text class="name" x="0" y="60">Search - Brand</text><svg x="170" y="42" width="426" height="29" overflow="visible">"#
+            r#"<text class="name" x="0" y="60">Search - Brand</text><svg x="220" y="42" width="376" height="29" overflow="visible">"#
         ));
         assert!(svg.ends_with(
             r#"<rect class="k--spend" x="0" y="88" width="10" height="10" rx="3"/><text x="16" y="97">Share of spend</text><rect class="k--results" x="124" y="88" width="10" height="10" rx="3"/><text x="140" y="97">Share of clicks</text></svg>"#
         ), "{svg}");
         assert_eq!(svg.matches("<svg").count(), 3);
         assert_eq!(svg.matches("</svg>").count(), 3);
+    }
+
+    #[test]
+    fn a_name_takes_one_line_up_to_29_letters_and_ends_with_an_ellipsis_after_two() {
+        assert_eq!(
+            name_lines("Popesti-Leordeni, Ilfov Count"),
+            ["Popesti-Leordeni, Ilfov Count"]
+        );
+        assert_eq!(
+            name_lines("Website traffic-Search-1 Clicks"),
+            ["Website traffic-Search-1", "Clicks"]
+        );
+        assert_eq!(
+            name_lines("Performance Max - All products in every country - Spring sale"),
+            ["Performance Max - All", "products in every country -…"]
+        );
+    }
+
+    #[test]
+    fn translated_stack_values_wrap_without_clipping_or_overlapping_the_next_campaign() {
+        let text = crate::language::Language::Ro.text().unwrap();
+        let row = |name: &str| SearchShare {
+            name: name.into(),
+            href: None,
+            shares: Some((0.60, 0.25, 0.15)),
+            exact_days: 7,
+            limit_days: 0,
+            days: 7,
+        };
+        let chart =
+            super::super::search_share(text, "Cota de afișări", vec![row("Prima"), row("A doua")])
+                .unwrap();
+        let svg = standalone(&chart, Frame::Stack).unwrap();
+        assert!(svg.contains(r#"<text class="detail" x="220" y="42">Cota de afișări 60 % · Pierdută din cauza bugetului 25 %</text>"#), "{svg}");
+        assert!(svg.contains(r#"<text class="detail" x="220" y="56">Pierdută din cauza clasării anunțului 15 %</text>"#), "{svg}");
+        assert!(svg.contains(r#"<svg x="220" y="64""#), "{svg}");
     }
 
     #[test]
@@ -207,6 +265,7 @@ mod tests {
                     name: "Search - Emergency".into(),
                     href: None,
                     shares: Some((0.52, 0.31, 0.17)),
+                    exact_days: 7,
                     limit_days: 0,
                     days: 7,
                 },
@@ -214,6 +273,7 @@ mod tests {
                     name: "Search - Brand".into(),
                     href: None,
                     shares: Some((0.91, 0.02, 0.07)),
+                    exact_days: 7,
                     limit_days: 0,
                     days: 7,
                 },
@@ -221,13 +281,13 @@ mod tests {
         );
         let svg = standalone(&stack, Frame::Stack).unwrap();
         assert!(svg.contains(
-            r#"<text class="detail" x="170" y="42">Shown 52% · Missed: budget 31% · Missed: ad rank 17%</text>"#
+            r#"<text class="detail" x="220" y="42">Impression share 52% · Lost to budget 31% · Lost to ad rank 17%</text>"#
         ), "{svg}");
         assert!(svg.contains(
-            r#"<text class="detail" x="170" y="100">Shown 91% · Missed: budget 2% · Missed: ad rank 7%</text>"#
+            r#"<text class="detail" x="220" y="100">Impression share 91% · Lost to budget 2% · Lost to ad rank 7%</text>"#
         ), "{svg}");
         assert!(
-            svg.contains(r#"<text x="16" y="129">Shown</text>"#),
+            svg.contains(r#"<text x="16" y="129">Impression share</text>"#),
             "{svg}"
         );
 

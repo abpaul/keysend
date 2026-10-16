@@ -16,7 +16,7 @@ use super::{
     update::{Update, RESULTS_UNJUDGED},
 };
 use crate::{
-    language::{english, say, say_plural, with_language, Language, Text},
+    language::{english, fill, say, say_plural, with_language, Language, Text},
     settings::Settings,
     translation::{Translations, Wanted},
     workspace::{
@@ -285,11 +285,17 @@ struct CauseView {
 }
 
 #[derive(Serialize)]
+struct LineView {
+    name: Option<String>,
+    text: Stored,
+}
+
+#[derive(Serialize)]
 struct UpdateView {
     date: String,
     summary: Stored,
     cause: Option<CauseView>,
-    lines: Vec<Stored>,
+    lines: Vec<LineView>,
 }
 
 #[derive(Serialize)]
@@ -458,7 +464,15 @@ fn update_view(
         lines: update
             .lines
             .iter()
-            .map(|line| stored(translations, campaigns, &line.text))
+            .map(|line| LineView {
+                name: update
+                    .detection
+                    .campaigns
+                    .iter()
+                    .find(|campaign| campaign.campaign_id == line.campaign_id)
+                    .map(|campaign| display_name(&campaign.name)),
+                text: stored(translations, campaigns, &line.text),
+            })
             .collect(),
     }
 }
@@ -521,15 +535,26 @@ fn join_names(text: &Text, names: &[String]) -> Result<String> {
     }
 }
 
-fn text_update(update: &UpdateView) -> String {
-    let mut text = format!("{}\n{}\n", update.date, update.summary.text);
+fn text_update(text: &Text, update: &UpdateView) -> Result<String> {
+    let mut out = format!("{}\n{}\n", update.date, update.summary.text);
     if let Some(cause) = &update.cause {
-        text.push_str(&format!("{}: {}\n", cause.label, cause.evidence.text));
+        out.push_str(&format!("{}: {}\n", cause.label, cause.evidence.text));
     }
     for line in &update.lines {
-        text.push_str(&format!("- {}\n", line.text));
+        let shown = match &line.name {
+            Some(name) => fill(
+                "update_campaign_line",
+                text.update_campaign_line,
+                &[
+                    ("campaign", name.as_str()),
+                    ("text", line.text.text.as_str()),
+                ],
+            )?,
+            None => line.text.text.clone(),
+        };
+        out.push_str(&format!("- {shown}\n"));
     }
-    text
+    Ok(out)
 }
 
 fn text_block(text: &Text, block: &BlockView) -> Result<String> {
@@ -538,7 +563,7 @@ fn text_block(text: &Text, block: &BlockView) -> Result<String> {
         "{}\n{}\n\n{}\n",
         block.name,
         say!(text, email_block_range, range = &block.range)?,
-        text_update(&block.lead)
+        text_update(text, &block.lead)?
     );
     out.push_str(&format!("\n{}\n", written.email_metrics_heading));
     for cell in &block.cells {
@@ -580,7 +605,7 @@ fn text_block(text: &Text, block: &BlockView) -> Result<String> {
     if !block.earlier.is_empty() {
         out.push_str(&format!("\n{}\n", written.email_earlier_updates));
         for update in &block.earlier {
-            out.push_str(&format!("\n{}", text_update(update)));
+            out.push_str(&format!("\n{}", text_update(text, update)?));
         }
     }
     if let Some(recommendation) = &block.recommendation {

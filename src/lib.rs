@@ -14,6 +14,7 @@ pub mod identity;
 pub mod initializers;
 pub mod language;
 pub mod monitoring;
+pub mod removal;
 mod security;
 pub mod settings;
 pub mod translation;

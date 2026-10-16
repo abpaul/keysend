@@ -403,7 +403,7 @@ pub fn deep_check(day: i64) -> (DeepCheck, Vec<Recommendation>) {
             EMERGENCY,
             "budget-limited:Search - Emergency",
             "Search - Emergency is limited by its budget",
-            "Search - Emergency lost 31% of its search impressions to budget. Its cost per conversion is $42.62, below the Ad Account value of $52.01, with 214 conversions.",
+            "Search - Emergency lost an estimated 31% of its eligible Search impressions to budget. Its cost per conversion is $42.62, with 214 conversions.",
             "Search - Emergency",
             9120.0,
         ),
@@ -427,7 +427,7 @@ pub fn deep_check(day: i64) -> (DeepCheck, Vec<Recommendation>) {
     let actions = [
         (
             "Increase the daily budget of Search - Emergency.",
-            "The ads miss searches when the daily budget is used up, and this Campaign has the lowest cost per conversion of the Search Campaigns that are not for your own name.",
+            "Google estimates that the budget limits this Campaign's eligible Search impressions. Review its cost per conversion before testing a higher daily budget.",
         ),
         (
             "Add dental implants jobs as a negative keyword in Search - Implants.",
@@ -566,6 +566,10 @@ pub fn update(days: &[metrics::CampaignDay], offset: i64) -> Update {
         ),
         _ => (QUIET.to_owned(), None, vec![]),
     };
+    let yesterday = (summary != QUIET && lines.is_empty())
+        .then(|| summary.clone())
+        .into_iter()
+        .collect();
     Update {
         day,
         summary,
@@ -576,7 +580,7 @@ pub fn update(days: &[metrics::CampaignDay], offset: i64) -> Update {
             currency: CURRENCY.into(),
             metrics: metrics.clone(),
             movements: vec![],
-            yesterday: vec![],
+            yesterday,
             campaigns: lines
                 .iter()
                 .filter_map(|line| {
@@ -662,4 +666,169 @@ pub fn search_share_totals(start: i64, end: i64) -> Vec<SearchShareTotal> {
             },
         )
         .collect()
+}
+
+pub fn localized_campaigns(text: &crate::language::Text) -> Vec<history::Campaign> {
+    let names = [
+        text.home_campaign_emergency,
+        text.home_campaign_implants,
+        text.home_campaign_brand,
+        text.home_campaign_remarketing,
+    ];
+    campaigns()
+        .into_iter()
+        .zip(names)
+        .map(|(mut campaign, name)| {
+            campaign.name = name.into();
+            campaign
+        })
+        .collect()
+}
+
+pub fn localized_update(
+    text: &'static crate::language::Text,
+    days: &[metrics::CampaignDay],
+) -> loco_rs::Result<Update> {
+    let mut sample = update(days, 0);
+    let end = sample.day - 1;
+    let of = |campaign| metrics::window_metrics(days, end, Window::SevenDays, campaign, true);
+    let values = |metrics: &WindowMetrics| {
+        [
+            (
+                "before",
+                text.count(metrics.previous.conversions.unwrap_or_default().round()),
+            ),
+            (
+                "now",
+                text.count(metrics.current.conversions.unwrap_or_default().round()),
+            ),
+        ]
+    };
+    let highlight = text.get("home_example_highlight", &values(&sample.metrics))?;
+    sample.summary = text.get(
+        "home_example_summary",
+        &[
+            (
+                "spend",
+                text.whole_money(sample.metrics.current.spend, CURRENCY),
+            ),
+            ("highlight", highlight.clone()),
+            ("emergency", text.home_campaign_emergency.into()),
+            ("remarketing", text.home_campaign_remarketing.into()),
+        ],
+    )?;
+    sample.highlight = Some(highlight);
+    let emergency = of(Some(EMERGENCY));
+    let mut emergency_values = values(&emergency).to_vec();
+    emergency_values.push((
+        "cost",
+        text.money(
+            emergency.current.spend / emergency.current.conversions.unwrap_or_default().round(),
+            CURRENCY,
+        ),
+    ));
+    sample.lines[0].text = text.get("home_example_emergency_line", &emergency_values)?;
+    sample.lines[1].text = text.get(
+        "home_example_remarketing_line",
+        &values(&of(Some(REMARKETING))),
+    )?;
+    let campaigns = localized_campaigns(text);
+    for campaign in &mut sample.detection.campaigns {
+        if let Some(localized) = campaigns
+            .iter()
+            .find(|item| item.id == campaign.campaign_id)
+        {
+            campaign.name.clone_from(&localized.name);
+        }
+    }
+    Ok(sample)
+}
+
+pub fn localized_recommendations(
+    text: &'static crate::language::Text,
+) -> loco_rs::Result<Vec<RecommendationWithFinding>> {
+    let emergency = [("campaign", text.home_campaign_emergency.to_owned())];
+    let term = [("term", text.home_example_jobs_term.to_owned())];
+    let implants = [
+        ("campaign", text.home_campaign_implants.to_owned()),
+        ("term", text.home_example_jobs_term.to_owned()),
+    ];
+    let words = [
+        (
+            text.get("home_example_budget_title", &emergency)?,
+            text.get("home_example_budget_action", &emergency)?,
+            text.home_example_budget_reason,
+            text.get("home_example_budget_evidence", &emergency)?,
+        ),
+        (
+            text.home_example_wasted_title.to_owned(),
+            text.get("home_example_wasted_action", &implants)?,
+            text.home_example_wasted_reason,
+            text.get("home_example_wasted_evidence", &term)?,
+        ),
+        (
+            text.get("home_example_page_title", &emergency)?,
+            text.get("home_example_page_action", &emergency)?,
+            text.home_example_page_reason,
+            text.home_example_page_evidence.to_owned(),
+        ),
+    ];
+    Ok(recommendations()
+        .into_iter()
+        .zip(words)
+        .map(|(mut found, (title, action, reason, evidence))| {
+            if let Some(finding) = &mut found.finding {
+                finding.title = title;
+            }
+            found.recommendation.action = action;
+            found.recommendation.reason = reason.into();
+            found.recommendation.evidence = evidence;
+            found
+        })
+        .collect())
+}
+
+pub fn localized_change(
+    text: &'static crate::language::Text,
+    change: &AccountChange,
+) -> loco_rs::Result<(String, String)> {
+    use crate::google_ads::{change_kind, ChangeKind};
+
+    let (phrase, label, values, short_values) = match change_kind(change) {
+        Some(ChangeKind::Budget {
+            from: Some(from),
+            to: Some(to),
+        }) => (
+            "home_example_budget_change",
+            "home_example_budget_change_label",
+            [
+                ("from", text.written.format.amount(from, 2, CURRENCY)),
+                ("to", text.written.format.amount(to, 2, CURRENCY)),
+            ],
+            [
+                ("from", text.whole_money(from, CURRENCY)),
+                ("to", text.whole_money(to, CURRENCY)),
+            ],
+        ),
+        Some(ChangeKind::BidStrategy { from, to })
+            if from == "maximize clicks" && to == "maximize conversions" =>
+        {
+            let values = [
+                ("from", text.home_example_strategy_clicks.to_owned()),
+                ("to", text.home_example_strategy_conversions.to_owned()),
+            ];
+            (
+                "home_example_strategy_change",
+                "home_example_strategy_change_label",
+                values.clone(),
+                values,
+            )
+        }
+        _ => {
+            return Err(loco_rs::Error::Message(
+                "The sample has an unsupported Account change".into(),
+            ))
+        }
+    };
+    Ok((text.get(phrase, &values)?, text.get(label, &short_values)?))
 }

@@ -32,7 +32,9 @@ use crate::{
     translation::{Translations, Wanted},
     workspace::{
         history::{day_number, local_time, Campaign, HistoryState},
-        monitoring::{AccountSettings, RecommendationState, RecommendationWithFinding},
+        monitoring::{
+            AccountSettings, EarlierUpdate, RecommendationState, RecommendationWithFinding,
+        },
         profile::Profile,
         settings::AdAccountSettings,
         AdAccount, WorkspaceStore,
@@ -46,8 +48,8 @@ pub mod example;
 mod print_charts;
 pub use chart_pages::RawChange;
 pub use print_charts::{
-    campaign_deep_check, campaign_export_charts, export_changes, export_charts, first_read_day,
-    Collected,
+    campaign_deep_check, campaign_export_charts, campaign_sparklines, export_changes,
+    export_charts, first_read_day, metric_sparklines, Collected,
 };
 
 const TRACKING_DAYS: i64 = 30;
@@ -252,14 +254,17 @@ fn panel_href(path: &str, window: Window) -> String {
     format!("{base}{join}recommendations={PANEL_OPEN}#recommendations")
 }
 
-fn earlier(text: &Text, summaries: &[(i64, String)], campaigns: &Campaigns) -> Result<Vec<Value>> {
-    summaries
-        .iter()
-        .map(|(day, summary)| {
-            Ok(json!({
-                "date": view::long_date(text, *day)?,
-                "summary": campaigns.parts(summary, None),
-            }))
+fn earlier(text: &Text, updates: &[EarlierUpdate], campaigns: &Campaigns) -> Result<Vec<Value>> {
+    view::earlier(text, updates, |update| update.day, |update| update.quiet)?
+        .into_iter()
+        .map(|item| {
+            Ok(match item {
+                view::Earlier::One(update) => json!({
+                    "date": view::long_date(text, update.day)?,
+                    "summary": campaigns.parts(&update.summary, None),
+                }),
+                view::Earlier::Quiet(date) => json!({"date": date, "quiet": true}),
+            })
         })
         .collect()
 }
@@ -383,8 +388,8 @@ async fn show(
     if !store.monitoring_access(settings.now().timestamp()).await? {
         let updates = store.earlier_summaries(&id, 0, UPDATES_SHOWN).await?;
         let mut wanted = Wanted::default();
-        for (_, summary) in &updates {
-            wanted.text(summary);
+        for update in &updates {
+            wanted.text(&update.summary);
         }
         let translations = Translations::load(&store, signed.user.language, wanted).await?;
         return ended(text, &v, &store, &ad, &updates, translations).await;
@@ -414,8 +419,8 @@ async fn show(
     if let Some(update) = &latest {
         wanted.update(update);
     }
-    for (_, summary) in &earlier_summaries {
-        wanted.text(summary);
+    for update in &earlier_summaries {
+        wanted.text(&update.summary);
     }
     for found in &recommendations {
         wanted.found(found);
@@ -432,7 +437,7 @@ async fn show(
     let mut data = json!({
         "ad": {"id": id, "name": ad.name},
         "settings_href": format!("{path}/settings"),
-        "export_href": format!("{path}/export.pdf?window={}", window.days()),
+        "export": {"action": format!("{path}/export.pdf"), "window": window.days()},
         "window_days": window.days(),
         "update": latest
             .as_ref()
@@ -609,7 +614,7 @@ async fn ended(
     v: &TeraView,
     store: &WorkspaceStore<'_>,
     ad: &AdAccount,
-    updates: &[(i64, String)],
+    updates: &[EarlierUpdate],
     translations: Translations,
 ) -> Result<Response> {
     let subscribed = store.subscription().await?.is_some();
@@ -782,15 +787,14 @@ async fn campaign(
         json!({
             "ad": {"id": id, "name": ad.name, "href": with_window(&account_path(&id), window)},
             "campaign": {"id": campaign_id, "name": campaign.name},
-            "export_href": format!("{path}/export.pdf?window={}", window.days()),
+            "export": {"action": format!("{path}/export.pdf"), "window": window.days()},
             "lines": lines,
             "window": chart_pages::window_view(text, &path, window, numbers.end, metric)?,
             "explain": explain::charts(text, judged),
             "metric_links": chart_pages::metric_links(text, &path, window, &shown, metric, judged),
             "metrics": shown,
             "metric_sparklines": source.metric_sparklines(Some(campaign_id))?,
-            "notice": numbers.notice,
-            "campaign_not_judged": !judged && numbers.judged,
+            "notice": view::campaign_notice(text, numbers.notice.clone(), judged),
             "alerts_off": !effective.alerts,
             "settings_href": campaign_settings::path(&id, campaign_id),
             "trend": source.trend(Some(campaign_id), metric, &changes)?,

@@ -1,0 +1,6 @@
+/target/
+*.key
+.env
+.env.*
+*.toml.enc.lock
+.DS_Store

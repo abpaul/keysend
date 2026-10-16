@@ -1,0 +1,131 @@
+{% extends "home/legal.html" %}
+{% block title %}{{ title | safe }} | KeySend{% endblock title %}
+{% block description %}{{ description | safe }}{% endblock description %}
+{% block head_extra %}
+  <link rel="canonical" href="https://keysend.app{{ path }}">
+  <script type="application/ld+json">{{ schema | safe }}</script>
+{%- endblock head_extra %}
+{% block legal_kicker %}{{ t(key="footer_security") }}{% endblock legal_kicker %}
+{% block legal_title %}{{ t(key="security_h1") }}{% endblock legal_title %}
+{% block legal_lede %}{{ t(key="security_lede") }}{% endblock legal_lede %}
+{% block legal_updated %}{{ t(key="security_updated") }}{% endblock legal_updated %}
+{% block legal_short %}
+            <li>{{ t(key="footer_read_only") }}</li>
+            <li>{{ t(key="security_short_sign_in") }}</li>
+            <li>{{ t(key="security_short_tokens") }}</li>
+            <li>{{ t(key="security_short_where") }}</li>
+            <li>{{ t(key="security_short_delete") }}</li>
+{%- endblock legal_short %}
+{% block legal_toc %}
+            <li><a href="#sign-in">{{ t(key="security_sign_in_h") }}</a></li>
+            <li><a href="#google">{{ t(key="security_google_h") }}</a></li>
+            <li><a href="#connections">{{ t(key="security_connections_h") }}</a></li>
+            <li><a href="#payments">{{ t(key="security_payments_h") }}</a></li>
+            <li><a href="#ai">{{ t(key="security_ai_h") }}</a></li>
+            <li><a href="#where">{{ t(key="security_where_h") }}</a></li>
+            <li><a href="#keep">{{ t(key="security_keep_h") }}</a></li>
+            <li><a href="#rights">{{ t(key="security_rights_h") }}</a></li>
+{%- endblock legal_toc %}
+{% block legal_body %}
+{%- set settings_link %}<a href="/settings">{{ t(key="settings") }}</a>{% endset %}
+{%- set contact_link %}<a href="{{ contact_href }}">{{ contact }}</a>{% endset %}
+          <section id="sign-in" aria-labelledby="sign-in-h">
+            <h2 id="sign-in-h">{{ t(key="security_sign_in_h") }}</h2>
+            <p>{{ t(key="security_sign_in_text") }}</p>
+          </section>
+
+          <section id="google" aria-labelledby="google-h">
+            <h2 id="google-h">{{ t(key="security_google_h") }}</h2>
+            <p>{{ t(key="footer_read_only") }}</p>
+            <p>{{ t(key="security_google_tokens") }}</p>
+            <p>{{ t(key="security_google_revoke") }}</p>
+          </section>
+
+          <section id="connections" aria-labelledby="connections-h">
+            <h2 id="connections-h">{{ t(key="security_connections_h") }}</h2>
+            <p>{{ t(key="security_connections_text") }}</p>
+            <p>{{ t(key="security_connections_browser") }}</p>
+          </section>
+
+          <section id="payments" aria-labelledby="payments-h">
+            <h2 id="payments-h">{{ t(key="security_payments_h") }}</h2>
+            <p>{{ t(key="security_payments_text") }}</p>
+          </section>
+
+          <section id="ai" aria-labelledby="ai-h">
+            <h2 id="ai-h">{{ t(key="security_ai_h") }}</h2>
+            <p>{{ t(key="security_ai_text") }}</p>
+            <p>{{ t(key="security_ai_store") }}</p>
+          </section>
+
+          <section id="where" aria-labelledby="where-h">
+            <h2 id="where-h">{{ t(key="security_where_h") }}</h2>
+            <p>{{ t(key="security_where_text") }}</p>
+            <p>{{ t(key="security_where_keys") }}</p>
+            <p>{% set link %}<a href="/privacy#where">{{ t(key="security_privacy_link") }}</a>{% endset %}{{ t(key="security_where_more", link=link) }}</p>
+          </section>
+
+          <section id="keep" aria-labelledby="keep-h">
+            <h2 id="keep-h">{{ t(key="security_keep_h") }}</h2>
+            <dl class="legal-dl">
+              <div>
+                <dt>{{ t(key="security_keep_workspace_dt") }}</dt>
+                <dd>{{ t(key="security_keep_workspace_dd") }}</dd>
+              </div>
+              <div>
+                <dt>{{ t(key="security_keep_history_dt") }}</dt>
+                <dd>{{ t(key="security_keep_history_dd") }}</dd>
+              </div>
+              <div>
+                <dt>{{ t(key="security_keep_ad_account_dt") }}</dt>
+                <dd>{{ t(key="security_keep_ad_account_dd") }}</dd>
+              </div>
+              <div>
+                <dt>{{ t(key="security_keep_connection_dt") }}</dt>
+                <dd>{{ t(key="security_keep_connection_dd") }}</dd>
+              </div>
+              <div>
+                <dt>{{ t(key="security_keep_google_dt") }}</dt>
+                <dd>{{ t(key="security_keep_google_dd") }}</dd>
+              </div>
+              <div>
+                <dt>{{ t(key="security_keep_workspace_deleted_dt") }}</dt>
+                <dd>{{ t(key="security_keep_workspace_deleted_dd") }}</dd>
+              </div>
+              <div>
+                <dt>{{ t(key="security_keep_backups_dt") }}</dt>
+                <dd>{{ t(key="security_keep_backups_dd") }}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section id="rights" aria-labelledby="rights-h">
+            <h2 id="rights-h">{{ t(key="security_rights_h") }}</h2>
+            <dl class="legal-dl">
+              <div>
+                <dt>{{ t(key="security_rights_basis_dt") }}</dt>
+                <dd>{{ t(key="security_rights_basis_dd") }}</dd>
+              </div>
+              <div>
+                <dt>{{ t(key="security_rights_see_dt") }}</dt>
+                <dd>{{ t(key="security_rights_see_dd") }}</dd>
+              </div>
+              <div>
+                <dt>{{ t(key="security_rights_correct_dt") }}</dt>
+                <dd>{{ t(key="security_rights_correct_dd") }}</dd>
+              </div>
+              <div>
+                <dt>{{ t(key="security_rights_delete_dt") }}</dt>
+                <dd>{{ t(key="security_rights_delete_dd", link=settings_link) }}</dd>
+              </div>
+              <div>
+                <dt>{{ t(key="security_rights_object_dt") }}</dt>
+                <dd>{{ t(key="security_rights_object_dd") }}</dd>
+              </div>
+              <div>
+                <dt>{{ t(key="security_rights_ask_dt") }}</dt>
+                <dd>{{ t(key="security_rights_ask_dd", email=contact_link) }}</dd>
+              </div>
+            </dl>
+          </section>
+{%- endblock legal_body %}

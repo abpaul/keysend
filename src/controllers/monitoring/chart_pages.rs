@@ -66,7 +66,14 @@ impl Source<'_> {
         charts::trend(
             self.text,
             metric,
-            &charts::trend_days(self.days, self.end, self.first_day, campaign, metric),
+            &charts::trend_days(
+                self.days,
+                self.end,
+                self.first_day,
+                campaign,
+                metric,
+                self.window,
+            ),
             changes,
             self.currency,
         )
@@ -81,7 +88,14 @@ impl Source<'_> {
         charts::trend_for_print(
             self.text,
             metric,
-            &charts::trend_days(self.days, self.end, self.first_day, campaign, metric),
+            &charts::trend_days(
+                self.days,
+                self.end,
+                self.first_day,
+                campaign,
+                metric,
+                self.window,
+            ),
             changes,
             self.currency,
         )

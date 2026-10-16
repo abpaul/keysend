@@ -49,6 +49,7 @@ impl EnvironmentGuard {
     fn new(credentials: bool, key: bool) -> Self {
         let mut previous = Vec::new();
         for (name, value) in [
+            ("CREDSEAL_MASTER_KEY", None),
             ("GOOGLE_CLIENT_ID", credentials.then_some("stub-id")),
             ("GOOGLE_CLIENT_SECRET", credentials.then_some("stub-secret")),
             ("KEYSEND_MASTER_KEY", key.then_some(KEY)),
@@ -1623,7 +1624,7 @@ async fn a_full_set_of_pending_google_states_drops_the_oldest_and_sign_in_still_
 #[serial]
 async fn an_https_origin_sends_strict_transport_security() {
     let fixture = Fixture::configured(true, true, true).await;
-    for path in ["/", "/sign-in", "/missing-page"] {
+    for path in ["/", "/sign-in", "/security", "/missing-page"] {
         let response = fixture.request.get(path).await;
         assert_eq!(
             response.header("strict-transport-security"),

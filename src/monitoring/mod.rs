@@ -18,6 +18,7 @@ pub mod follow_up;
 pub mod format;
 pub mod metrics;
 pub mod recommendation;
+pub mod retention;
 pub mod schedule;
 pub mod tracking;
 pub mod update;

@@ -26,6 +26,32 @@ pub async fn workspace_ids(db: &DatabaseConnection) -> Result<Vec<String>> {
         .collect())
 }
 
+/// Whether the User of the Workspace has a session that has not expired.
+pub async fn signed_in(db: &DatabaseConnection, workspace_id: &str) -> Result<bool> {
+    Ok(db
+        .query_one_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Sqlite,
+            "SELECT 1 FROM sessions s JOIN workspaces w ON w.user_id=s.user_id WHERE w.id=? AND s.expires_at>?",
+            vec![
+                workspace_id.into(),
+                crate::settings::wall_clock().timestamp().into(),
+            ],
+        ))
+        .await?
+        .is_some())
+}
+
+/// Deletes the Trial hashes of Trials that started before `oldest`, a Unix time.
+pub async fn remove_trial_history_before(db: &DatabaseConnection, oldest: i64) -> Result<()> {
+    db.execute_raw(Statement::from_sql_and_values(
+        DatabaseBackend::Sqlite,
+        "DELETE FROM trial_history WHERE started_at<?",
+        vec![oldest.into()],
+    ))
+    .await?;
+    Ok(())
+}
+
 #[derive(Serialize)]
 pub struct User {
     pub id: String,

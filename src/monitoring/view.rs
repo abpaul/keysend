@@ -32,6 +32,40 @@ pub fn short_date(text: &Text, day: i64) -> Result<String> {
     Ok(text.written.format.short_date(date(day)?))
 }
 
+pub enum Earlier<'a, T> {
+    One(&'a T),
+    Quiet(String),
+}
+
+pub fn earlier<'a, T>(
+    text: &Text,
+    updates: &'a [T],
+    day: impl Fn(&T) -> i64,
+    quiet: impl Fn(&T) -> bool,
+) -> Result<Vec<Earlier<'a, T>>> {
+    let mut items = Vec::new();
+    let mut index = 0;
+    while index < updates.len() {
+        let run = updates[index..]
+            .iter()
+            .take_while(|update| quiet(update))
+            .count();
+        if run == 0 {
+            items.push(Earlier::One(&updates[index]));
+            index += 1;
+            continue;
+        }
+        let (newest, oldest) = (day(&updates[index]), day(&updates[index + run - 1]));
+        items.push(Earlier::Quiet(if newest == oldest {
+            long_date(text, newest)?
+        } else {
+            span(text, oldest, newest)?
+        }));
+        index += run;
+    }
+    Ok(items)
+}
+
 pub fn iso_date(day: i64) -> Result<String> {
     Ok(date(day)?.to_string())
 }
@@ -136,8 +170,13 @@ pub fn campaign_headers(text: &Text, judged: bool) -> Vec<&'static str> {
         .collect()
 }
 
-pub fn campaign_cells(text: &Text, window: &WindowMetrics, currency: &str) -> Result<Vec<Cell>> {
-    columns(window.current.conversions.is_some())[..3]
+fn cells_of(
+    text: &Text,
+    columns: &[&Column],
+    window: &WindowMetrics,
+    currency: &str,
+) -> Result<Vec<Cell>> {
+    columns
         .iter()
         .map(|column| {
             let format = |value| column.show(text, value, currency);
@@ -152,7 +191,41 @@ pub fn campaign_cells(text: &Text, window: &WindowMetrics, currency: &str) -> Re
         .collect()
 }
 
-#[derive(Debug, Serialize, PartialEq)]
+pub fn campaign_cells(text: &Text, window: &WindowMetrics, currency: &str) -> Result<Vec<Cell>> {
+    cells_of(
+        text,
+        &columns(window.current.conversions.is_some())[..3],
+        window,
+        currency,
+    )
+}
+
+pub fn all_campaign_headers(text: &Text, judged: bool) -> Vec<&'static str> {
+    format::all_columns(judged)
+        .iter()
+        .map(|column| (column.label)(&text.written))
+        .collect()
+}
+
+pub fn all_campaign_cells(
+    text: &Text,
+    window: &WindowMetrics,
+    currency: &str,
+    judged: bool,
+) -> Result<Vec<Cell>> {
+    let mut cells = cells_of(text, format::all_columns(judged), window, currency)?;
+    if window.current.conversions.is_none() {
+        for (cell, column) in cells.iter_mut().zip(format::all_columns(judged)) {
+            if (column.read)(&window.current).is_none() {
+                text.written.export_not_judged.clone_into(&mut cell.value);
+                cell.was.clear();
+            }
+        }
+    }
+    Ok(cells)
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct Notice {
     pub title: &'static str,
     pub text: &'static str,
@@ -186,6 +259,23 @@ pub fn tracking_notice(
             }
         },
     )
+}
+
+/// The notice of a Campaign: none when its results are judged, its own when only the Ad Account
+/// is judged, and the notice of the Ad Account otherwise.
+pub fn campaign_notice(
+    text: &Text,
+    account: Option<Notice>,
+    campaign_judged: bool,
+) -> Option<Notice> {
+    if campaign_judged {
+        None
+    } else {
+        account.or(Some(Notice {
+            title: text.campaign_not_judged_title,
+            text: text.campaign_not_judged_text,
+        }))
+    }
 }
 
 #[derive(Debug, Serialize, PartialEq)]

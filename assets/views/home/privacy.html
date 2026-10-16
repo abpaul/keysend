@@ -7,7 +7,7 @@
 {% block legal_kicker %}Privacy{% endblock legal_kicker %}
 {% block legal_title %}What we store, what we read, and what we leave alone.{% endblock legal_title %}
 {% block legal_lede %}No ads and no selling of data. Here's what we keep, where it lives, and how you take it back.{% endblock legal_lede %}
-{% block legal_updated %}Last updated 12 October 2026.{% endblock legal_updated %}
+{% block legal_updated %}Last updated 15 October 2026.{% endblock legal_updated %}
 {% block legal_short %}
             <li>You sign in with Google. We store your Google account ID, your email address, and your name. We never see a password.</li>
             <li>When you connect Google Ads, we read performance data for the Ad Accounts you add. We send read requests only. We never change a campaign, an ad, a budget, or a billing setting.</li>
@@ -25,6 +25,7 @@
             <li><a href="#email">Email</a></li>
             <li><a href="#where">Where it lives and who helps us</a></li>
             <li><a href="#see">Who can see your data</a></li>
+            <li><a href="#keep">How long we keep it</a></li>
             <li><a href="#remove">Removing access and deleting your data</a></li>
 {%- endblock legal_toc %}
 {% block legal_body %}
@@ -86,7 +87,7 @@
 
           <section id="updates" aria-labelledby="updates-h">
             <h2 id="updates-h">How Updates are written</h2>
-            <p>To write an Update or a Recommendation, we send the numbers and the changes that KeySend detected to OpenAI, through the OpenAI API. We don't send your Google account details, and we never send the refresh token.</p>
+            <p>To write an Update or a Recommendation, we send OpenAI, through the OpenAI API, the numbers and the changes that KeySend detected, the names of your Campaigns, the search terms, keywords, ads and landing pages of a Finding, and the note that you wrote about a Campaign. Each request tells OpenAI not to store the answer. We don't send your Google account details, and we never send the refresh token.</p>
           </section>
 
           <section id="cookies" aria-labelledby="cookies-h">
@@ -114,7 +115,7 @@
 
           <section id="email" aria-labelledby="email-h">
             <h2 id="email-h">Email</h2>
-            <p>We send two kinds of message: the Weekly email, and an Alert on the same day when a Campaign stops, spend doubles, or conversions go to zero. They go to your own address, and you can turn each of them off for an Ad Account in its Settings. We never email your clients.</p>
+            <p>We send two kinds of message: the Weekly email, and an Alert the next morning when a Campaign stops, spend doubles, or conversions go to zero. They go to your own address, and you can turn each of them off for an Ad Account in its Settings. We never email your clients.</p>
           </section>
 
           <section id="where" aria-labelledby="where-h">
@@ -129,7 +130,7 @@
                 <tr><th scope="row">OVHcloud</th><td>The server that runs the application and the database, in Canada.</td></tr>
                 <tr><th scope="row">Cloudflare</th><td>The network in front of the site, the storage of encrypted database backups (Cloudflare R2), and the sending of our emails (Cloudflare Email Service).</td></tr>
                 <tr><th scope="row">Google</th><td>Sign-in, and the Google Ads data you connect.</td></tr>
-                <tr><th scope="row">OpenAI</th><td>The writing of Updates and Recommendations from the numbers and the changes that KeySend detected.</td></tr>
+                <tr><th scope="row">OpenAI</th><td>The writing of Updates and Recommendations from the numbers and the changes that KeySend detected, the names of your Campaigns, the details of a Finding, and your Campaign notes.</td></tr>
                 <tr><th scope="row">Stripe</th><td>Payment for the Subscription.</td></tr>
                 <tr><th scope="row">Purelymail</th><td>The inbox for hello@keysend.app.</td></tr>
                 <tr><th scope="row">PostDeploy</th><td>Error reports with fixed operation descriptions, without tokens or Ad Account data, and a count of visits to our public pages. Its script sets no cookie and stores nothing in your browser, and it does nothing when your browser sends Do Not Track. Like any web request, it receives your IP address and browser type. <a href="https://postdeploy.dev">PostDeploy</a> is a product by the same owner as KeySend.</td></tr>
@@ -143,11 +144,20 @@
             <p>Your data sits in your own Workspace, apart from every other Workspace. A person who signs in sees only their own Workspace.</p>
           </section>
 
-          <section id="remove" aria-labelledby="remove-h">
-            <h2 id="remove-h">Removing access and deleting your data</h2>
-            <p>You can remove KeySend's Google permission at any time on Google's own page: <a href="https://myaccount.google.com/connections">myaccount.google.com/connections</a>.</p>
-            <p>Use <a href="/settings">Settings</a> to delete your User account and Workspace. This removes your Google Connections, Ad Accounts, Account history, Updates, Recommendations and Branding, revokes Google permission, and cancels your Subscription. Stripe retains payment history. You can also remove a Google Connection or an Ad Account on the Ad Accounts page.</p>
+          <section id="keep" aria-labelledby="keep-h">
+            <h2 id="keep-h">How long we keep it</h2>
+            <ul>
+              <li>We keep the Account history, Updates, Findings and Recommendations of an Ad Account for 24 months. Each day we delete what is older.</li>
+              <li>When your Trial or your Subscription ends, we keep your Workspace for 12 months, so that you can come back. Then, once you have not signed in for 30 days, we delete it as if you deleted it in Settings.</li>
+              <li>When a Workspace is deleted, we keep a one-way hash of your Google account ID and the date your Trial started, so that a new Workspace does not get a second Trial. We delete it 24 months after the Trial started.</li>
+            </ul>
           </section>
 
-          <p class="legal-after">See also our <a href="/terms">terms</a>.</p>
+          <section id="remove" aria-labelledby="remove-h">
+            <h2 id="remove-h">Removing access and deleting your data</h2>
+            <p>You can remove KeySend's Google permission at any time on Google's own page: <a href="https://myaccount.google.com/connections">myaccount.google.com/connections</a>. This stops us reading your Google Ads, but it deletes no data. The data we already have stays until you delete it in KeySend.</p>
+            <p>Use <a href="/settings">Settings</a> to delete your User account and Workspace. This removes your Google Connections, Ad Accounts, Account history, Updates, Recommendations and Branding, revokes Google permission, and cancels your Subscription. Stripe retains payment history. You can also remove a Google Connection in Settings, and an Ad Account in the Settings of that Ad Account.</p>
+          </section>
+
+          <p class="legal-after">See also our <a href="/terms">terms</a> and <a href="/security">how we protect your data</a>.</p>
 {%- endblock legal_body %}

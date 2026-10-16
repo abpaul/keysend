@@ -1,5 +1,6 @@
 <details class="explain">
   <summary>{{ t(key="explain_title") }}</summary>
+  <div class="explain__body">
   {% for text in help.about %}<p>{{ text }}</p>
   {% endfor %}
   <p><b>{{ t(key="explain_what_you_can_do") }}</b></p>
@@ -8,4 +9,5 @@
     {% endfor %}
   </ul>
   {% if help.limitation %}<p class="chart-note"><b>{{ t(key="explain_data_limitation") }}</b> {{ help.limitation }}</p>{% endif %}
+  </div>
 </details>

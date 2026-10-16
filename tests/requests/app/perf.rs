@@ -36,18 +36,18 @@ const REQUESTS: usize = 5;
 const TOLERANCE_PERCENT: usize = 10;
 
 const BUDGET: [(&str, usize, usize); 13] = [
-    ("/ad-accounts", 5, 2598),
+    ("/ad-accounts", 5, 3504),
     ("/ad-accounts/4829153307", 19, 108573),
     ("/ad-accounts/4829153307?window=30", 19, 110155),
     ("/ad-accounts/4829153307/campaigns/701", 22, 82189),
-    ("/ad-accounts/4829153307/settings", 11, 5787),
-    ("/ad-accounts/4829153307/campaigns/701/settings", 9, 4759),
-    ("/subscription", 4, 2352),
-    ("/ad-accounts/4829153307/export.pdf?window=7", 24, 79336),
+    ("/ad-accounts/4829153307/settings", 11, 6693),
+    ("/ad-accounts/4829153307/campaigns/701/settings", 9, 5665),
+    ("/subscription", 4, 3258),
+    ("/ad-accounts/4829153307/export.pdf?window=7", 25, 187503),
     (
         "/ad-accounts/4829153307/campaigns/701/export.pdf?window=7",
-        23,
-        101264,
+        25,
+        141118,
     ),
     ("/", 0, 83432),
     ("/for/business-owners", 0, 23406),
@@ -688,6 +688,34 @@ async fn a_non_english_reader_costs_at_most_one_more_statement_for_a_page() {
         .execute_unprepared("UPDATE users SET language='ro' WHERE email='a@example.com'")
         .await
         .unwrap();
+    let signed = identity::authenticate(&f.ctx.db, f.a.value())
+        .await
+        .unwrap()
+        .unwrap();
+    let store = WorkspaceStore::new(&f.ctx.db, &signed.workspace);
+    let now = keysend::settings::Settings::load(&f.ctx).unwrap().now();
+    for ad in ACCOUNTS {
+        let translated = keysend::translation::collect::shown(&store, ad, now)
+            .await
+            .unwrap()
+            .iter()
+            .map(|item| {
+                (
+                    keysend::translation::hash(&item.text),
+                    format!("[ro] {}", item.text),
+                )
+            })
+            .collect::<Vec<_>>();
+        store
+            .save_translations(
+                ad,
+                keysend::language::Language::Ro,
+                &translated,
+                now.timestamp(),
+            )
+            .await
+            .unwrap();
+    }
     for ((path, _, _), english) in BUDGET.iter().zip(english) {
         let romanian = measure(&f, path).await.statements;
         println!("{path:<48}{english:>4} -> {:>2}", romanian.len());

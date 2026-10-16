@@ -302,8 +302,8 @@ async fn the_first_page_shows_a_waiting_card_that_a_turbo_frame_replaces_and_a_l
     assert!(!ready.contains("We are reading your Ad Account"));
     let full = f.page("/ad-accounts/4829153307").await;
     assert!(!full.contains("turbo"));
-    assert_eq!(full.matches("<script").count(), 1);
-    assert!(full.contains("/window-switch.js"));
+    assert_eq!(full.matches("<script").count(), 2);
+    assert!(full.contains("/window-switch.js") && full.contains("/popover.js"));
 
     let other = f
         .request

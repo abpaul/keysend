@@ -21,7 +21,7 @@
             <p>{{ t(key="home_export_text") }}</p>
             <p class="fine">{{ t(key="home_export_note") }}</p>
           </div>
-          <img class="paper" src="{{ assets["images/home/export.webp"] }}" alt="{{ t(key="home_shot_export_alt") }}" width="420" height="594" loading="lazy" decoding="async">
+          <img class="paper" src="{% if lang() == 'ro' %}{{ assets["images/home/export-ro.webp"] }}{% else %}{{ assets["images/home/export.webp"] }}{% endif %}" alt="{{ t(key="home_shot_export_alt") }}" width="420" height="594" loading="lazy" decoding="async">
         </div>{% endif %}
       </div>
     </section>

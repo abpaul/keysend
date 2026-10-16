@@ -151,7 +151,7 @@ pub fn hour_grid(text: &Text, values: &[[f64; 24]; 7], judged: bool) -> Result<C
         };
         let _ = write!(
             svg,
-            r#"<text x="-34" y="{:.0}">{short}</text><g class="pt" tabindex="0" role="img"><title>{}.</title><rect class="pt__hit" x="0" y="{top:.0}" width="100%" height="{CELL:.0}"/>"#,
+            r#"<text x="-34" y="{:.0}">{short}</text><g class="pt" tabindex="0" role="img" aria-label="{}."><rect class="pt__hit" x="0" y="{top:.0}" width="100%" height="{CELL:.0}"/>"#,
             top + 13.0,
             esc(&line)
         );
@@ -354,7 +354,7 @@ mod tests {
         assert_eq!(chart.sentence.mark, "between 09:00 and 12:00");
         let svg = chart.svg.unwrap();
         assert!(svg.starts_with(
-            r#"<svg class="chart__svg" height="162" role="group" aria-label="Clicks by hour and weekday, 30 days"><text x="-34" y="13">Mon</text><g class="pt" tabindex="0" role="img"><title>Monday: 56 clicks, the most at 09:00 (32).</title><rect class="pt__hit" x="0" y="0" width="100%" height="18"/><rect class="cell cell--0" x="0.00%" y="0" width="4.17%" height="18" rx="3"><title>Mon 00:00: 0 clicks</title></rect>"#
+            r#"<svg class="chart__svg" height="162" role="group" aria-label="Clicks by hour and weekday, 30 days"><text x="-34" y="13">Mon</text><g class="pt" tabindex="0" role="img" aria-label="Monday: 56 clicks, the most at 09:00 (32)."><rect class="pt__hit" x="0" y="0" width="100%" height="18"/><rect class="cell cell--0" x="0.00%" y="0" width="4.17%" height="18" rx="3"><title>Mon 00:00: 0 clicks</title></rect>"#
         ), "{svg}");
         assert!(svg.contains(
             r#"<rect class="cell cell--4" x="37.50%" y="0" width="4.17%" height="18" rx="3"><title>Mon 09:00: 32 clicks</title></rect><rect class="cell cell--2" x="41.67%" y="0" width="4.17%" height="18" rx="3"><title>Mon 10:00: 16 clicks</title></rect>"#
@@ -362,7 +362,7 @@ mod tests {
         assert!(svg.contains(
             r#"<rect class="cell cell--1" x="83.33%" y="100" width="4.17%" height="18" rx="3"><title>Sat 20:00: 4 clicks</title></rect>"#
         ));
-        assert!(svg.contains("<title>Sunday: no clicks.</title>"));
+        assert!(svg.contains(r#"aria-label="Sunday: no clicks.""#));
         assert_eq!(svg.matches(r#"<rect class="cell "#).count(), 168);
         assert_eq!(svg.matches(r#"class="pt" tabindex="0""#).count(), 7);
         assert!(svg.contains(r#"<text x="50.00%" y="154">12:00</text>"#));

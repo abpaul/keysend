@@ -1,9 +1,13 @@
-use std::{env, time::Duration};
+use std::{env, sync::Arc, time::Duration};
 
 use loco_rs::{app::AppContext, environment::Environment, Error, Result};
 use serde::Deserialize;
 
 use crate::crypto::MasterKey;
+
+mod credentials;
+
+pub use credentials::{Credentials, Scope, Status};
 
 #[derive(Deserialize)]
 #[serde(default)]
@@ -95,18 +99,6 @@ impl Settings {
         self.stripe_key.is_some() && self.stripe_webhook.is_some()
     }
 
-    pub fn validate_master_key(environment: &Environment) -> Result<Option<MasterKey>> {
-        let key = nonempty_env("KEYSEND_MASTER_KEY")
-            .map(|value| MasterKey::from_base64(&value))
-            .transpose()?;
-        if *environment == Environment::Production && key.is_none() {
-            return Err(Error::Message(
-                "KEYSEND_MASTER_KEY is required in production".into(),
-            ));
-        }
-        Ok(key)
-    }
-
     pub fn load(ctx: &AppContext) -> Result<Self> {
         #[derive(Default, Deserialize)]
         struct ApplicationSettings {
@@ -133,7 +125,11 @@ impl Settings {
                 "A clock override is allowed only in tests".into(),
             ));
         }
-        let master_key = Self::validate_master_key(&ctx.environment)?;
+        let credentials = ctx
+            .shared_store
+            .get::<Arc<Credentials>>()
+            .ok_or_else(|| Error::Message("Credentials are not loaded".into()))?;
+        let master_key = credentials.master_key(&ctx.environment)?;
         let mut host = reqwest::Url::parse(&ctx.config.server.host)
             .map_err(|_| Error::Message("Invalid server host".into()))?;
         if !matches!(host.scheme(), "http" | "https") || host.host_str().is_none() {
@@ -147,31 +143,22 @@ impl Settings {
                 .map_err(|_| Error::Message("Invalid server port".into()))?;
         }
         let origin = host.origin().ascii_serialization();
-        let stripe_key = nonempty_env("STRIPE_SECRET_KEY");
-        let stripe_live = match stripe_key.as_deref().map(crate::billing::key_mode) {
-            Some(Some(live)) => live,
-            Some(None) => {
-                return Err(Error::Message(
-                    "STRIPE_SECRET_KEY must be a secret or restricted Stripe key".into(),
-                ))
-            }
-            None => false,
-        };
+        let stripe_live = credentials.stripe_live()?;
         Ok(Self {
             postdeploy: application.postdeploy,
-            postdeploy_key: nonempty_env("POSTDEPLOY_INGEST_KEY"),
+            postdeploy_key: credentials.postdeploy_ingest_key.clone(),
             billing: application.billing,
-            stripe_key,
+            stripe_key: credentials.stripe_secret_key.clone(),
             stripe_live,
-            stripe_webhook: nonempty_env("STRIPE_WEBHOOK_SECRET"),
+            stripe_webhook: credentials.stripe_webhook_secret.clone(),
             google: application.google,
             services: application.services,
             monitoring: application.monitoring,
-            openai_key: nonempty_env("OPENAI_API_KEY"),
-            email_key: nonempty_env("CLOUDFLARE_EMAIL_TOKEN"),
-            email_recipient: nonempty_env("REPORT_EMAIL_RECIPIENT"),
-            client_id: nonempty_env("GOOGLE_CLIENT_ID"),
-            client_secret: nonempty_env("GOOGLE_CLIENT_SECRET"),
+            openai_key: credentials.openai_api_key.clone(),
+            email_key: credentials.cloudflare_email_token.clone(),
+            email_recipient: credentials.report_email_recipient.clone(),
+            client_id: credentials.google_client_id.clone(),
+            client_secret: credentials.google_client_secret.clone(),
             master_key,
             secure: host.scheme() == "https",
             redirect_uri: format!("{origin}/auth/google/callback"),

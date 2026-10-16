@@ -5,16 +5,19 @@ use serde_json::{json, Value};
 
 use super::{chart_pages, hero, open_recommendations};
 use crate::{
-    language::Text,
+    language::{say, Text},
     monitoring::{
-        campaign_text::Campaigns, charts::TrendMetric, deep_view, example, explain, metrics,
-        metrics::Window, tracking, view,
+        campaign_text::Campaigns,
+        charts::{Change, TrendMetric},
+        deep_view, example, explain, metrics,
+        metrics::Window,
+        tracking, view,
     },
     workspace::history::day_number,
 };
 
-pub fn view(text: &Text) -> Result<Value> {
-    let campaigns = example::campaigns();
+pub fn view(text: &'static Text) -> Result<Value> {
+    let campaigns = example::localized_campaigns(text);
     let names = campaigns
         .iter()
         .map(|campaign| (campaign.id, campaign.name.clone()))
@@ -51,16 +54,43 @@ pub fn view(text: &Text) -> Result<Value> {
         &metrics::window_metrics(&days, end, window, None, judged),
         example::CURRENCY,
     )?;
-    let changes = source.changes(
-        &source.readable_changes(&example::changes(), &names, None)?,
-        unlinked.translations(),
-    )?;
+    let mut changes = Vec::new();
+    for stored in example::changes() {
+        let (phrase, label) = example::localized_change(text, &stored)?;
+        for readable in source.readable_changes(std::slice::from_ref(&stored), &names, None)? {
+            let write = |phrase: &str| {
+                say!(
+                    text,
+                    change_of_campaign,
+                    campaign = &readable.campaign,
+                    text = phrase
+                )
+            };
+            changes.push(Change {
+                day: readable.day,
+                text: write(&phrase)?,
+                label: Some(write(&label)?),
+                english: false,
+            });
+        }
+    }
     let search_share = source.search_share_of(
         &source.search_campaigns(&campaigns, None),
         &example::search_share_totals(end - window.days() + 1, end),
         |_| None,
     )?;
-    let audits = example::audits();
+    let mut audits = example::audits();
+    if let Some(audit) = audits.get_mut(&example::EMERGENCY) {
+        for (row, name) in audit.search_terms.iter_mut().zip([
+            text.home_example_term_nearby,
+            text.home_example_term_today,
+            text.home_example_term_emergency,
+            text.home_example_term_saturday,
+            text.home_example_term_free,
+        ]) {
+            row.name = name.into();
+        }
+    }
     let audit = audits
         .get(&example::EMERGENCY)
         .ok_or_else(|| Error::Message("The example has no Deep check of its Campaign".into()))?;
@@ -68,7 +98,7 @@ pub fn view(text: &Text) -> Result<Value> {
         "example": true,
         "update": hero(
             text,
-            &example::update(&days, 0),
+            &example::localized_update(text, &days)?,
             example::today(),
             &names,
             &unlinked,
@@ -81,7 +111,7 @@ pub fn view(text: &Text) -> Result<Value> {
         "trend": source.trend(None, metric, &changes)?,
         "campaign_shares": source.campaign_shares(&campaigns, |_| String::new())?,
         "search_share": search_share,
-        "recommendations": open_recommendations(example::recommendations(), None, &unlinked),
+        "recommendations": open_recommendations(example::localized_recommendations(text)?, None, &unlinked),
         "search_terms": deep_view::search_terms_section(
             text,
             audit,

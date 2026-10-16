@@ -50,6 +50,7 @@ pub fn detect(data: &Data, by_campaign: &BTreeMap<i64, Audit>, rules: impl Rules
         },
         rules.judged(),
         "Ad Account",
+        None,
     )
     .into_iter()
     .filter(|finding| finding.key.starts_with("tracking"))
@@ -66,9 +67,18 @@ pub fn detect(data: &Data, by_campaign: &BTreeMap<i64, Audit>, rules: impl Rules
             },
             ..data.clone()
         };
-        for mut rule in findings::detect(&scoped, rules.campaign_judged(*id), "Ad Account")
-            .into_iter()
-            .filter(|finding| !finding.key.starts_with("tracking"))
+        for mut rule in findings::detect(
+            &scoped,
+            rules.campaign_judged(*id),
+            "Ad Account",
+            audit
+                .campaigns
+                .iter()
+                .find(|row| row.id == Some(*id))
+                .map(|row| row.name.as_str()),
+        )
+        .into_iter()
+        .filter(|finding| !finding.key.starts_with("tracking"))
         {
             rule.key = finding_key(&rule.key, *id);
             detected.push(Finding {
@@ -368,6 +378,28 @@ pub async fn collect(
     })
 }
 
+fn tracking_recommendation(finding: &Finding) -> Recommendation {
+    let (action, reason) = if finding.rule.key == "tracking-not-set-up" {
+        (
+            "Set up Conversion tracking in Google Ads.",
+            "The Ad Account has no active conversion action, so results cannot be judged.",
+        )
+    } else {
+        (
+            "Check that the conversion actions in Google Ads still record conversions.",
+            "Conversion actions exist, but clicks and spend produced 0 conversions, so results cannot be judged.",
+        )
+    };
+    Recommendation {
+        finding_key: finding.rule.key.clone(),
+        action: action.into(),
+        reason: reason.into(),
+        evidence: finding.rule.detail.clone(),
+        campaign_id: None,
+        state: RecommendationState::Open,
+    }
+}
+
 pub async fn recommendations(
     settings: &Settings,
     check: &DeepCheck,
@@ -379,15 +411,7 @@ pub async fn recommendations(
         .iter()
         .filter(|finding| finding.rule.key.starts_with("tracking"))
     {
-        result.push(Recommendation {
-            finding_key: finding.rule.key.clone(),
-            action: "Check Conversion tracking in Google Ads.".into(),
-            reason: "Results cannot be judged until Conversion tracking records enough results."
-                .into(),
-            evidence: finding.rule.detail.clone(),
-            campaign_id: None,
-            state: RecommendationState::Open,
-        });
+        result.push(tracking_recommendation(finding));
     }
     let mut eligible = check
         .findings
@@ -519,4 +543,54 @@ pub async fn recommendations(
         });
     }
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tracking(key: &str, detail: &str) -> Finding {
+        Finding {
+            campaign_id: None,
+            rule: findings::Finding {
+                key: key.into(),
+                title: String::new(),
+                detail: detail.into(),
+                subjects: vec![],
+                spend: 0.0,
+            },
+        }
+    }
+
+    #[test]
+    fn each_tracking_finding_has_the_action_and_the_reason_of_its_own_state() {
+        let said = |finding: &Finding| {
+            let recommendation = tracking_recommendation(finding);
+            (
+                recommendation.action,
+                recommendation.reason,
+                recommendation.evidence,
+            )
+        };
+        assert_eq!(
+            said(&tracking(
+                "tracking-not-set-up",
+                "The Ad Account has no active conversion action."
+            )),
+            (
+                "Set up Conversion tracking in Google Ads.".to_owned(),
+                "The Ad Account has no active conversion action, so results cannot be judged."
+                    .to_owned(),
+                "The Ad Account has no active conversion action.".to_owned(),
+            )
+        );
+        assert_eq!(
+            said(&tracking("tracking-no-results", "2,000 clicks and $4,000 spend produced 0 conversions.")),
+            (
+                "Check that the conversion actions in Google Ads still record conversions.".to_owned(),
+                "Conversion actions exist, but clicks and spend produced 0 conversions, so results cannot be judged.".to_owned(),
+                "2,000 clicks and $4,000 spend produced 0 conversions.".to_owned(),
+            )
+        );
+    }
 }

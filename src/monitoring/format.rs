@@ -109,8 +109,8 @@ fn cell(text: &Text, column: &Column, window: &WindowMetrics, currency: &str) ->
     )
 }
 
-pub fn cells(text: &Text, window: &WindowMetrics, currency: &str) -> Result<Vec<Cell>> {
-    let columns: &[&Column] = if window.current.conversions.is_some() {
+pub fn all_columns(judged: bool) -> &'static [&'static Column] {
+    if judged {
         &[
             &SPEND,
             &CONVERSIONS,
@@ -121,8 +121,11 @@ pub fn cells(text: &Text, window: &WindowMetrics, currency: &str) -> Result<Vec<
         ]
     } else {
         &[&SPEND, &CLICKS, &COST_PER_CLICK, &IMPRESSIONS]
-    };
-    columns
+    }
+}
+
+pub fn cells(text: &Text, window: &WindowMetrics, currency: &str) -> Result<Vec<Cell>> {
+    all_columns(window.current.conversions.is_some())
         .iter()
         .map(|column| cell(text, column, window, currency))
         .collect()

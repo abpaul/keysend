@@ -65,12 +65,9 @@ async fn the_campaign_page_links_to_the_settings_and_the_settings_page_shows_the
 {
     let f = harbour(true).await;
     let campaign = f.page(CAMPAIGN).await;
-    assert!(campaign.contains(
-        r#"    <a class="button" href="/ad-accounts/4829153307/campaigns/2/export.pdf?window=7">Export PDF</a>
-    <a href="/ad-accounts/4829153307/campaigns/2/settings">Settings</a>
-  </div>
-</div>"#
-    ));
+    assert!(
+        campaign.contains(r#"<a href="/ad-accounts/4829153307/campaigns/2/settings">Settings</a>"#)
+    );
     assert!(!campaign.contains("Alerts are off for this Campaign."));
 
     let page = f.page(SETTINGS).await;
@@ -483,7 +480,7 @@ async fn yes_cannot_override_conversion_tracking_that_does_not_work_but_can_over
     let campaign = f.page(CAMPAIGN).await;
     assert!(!campaign.contains("<dt>Conversions</dt>"));
     assert!(!campaign.contains(r#"id="cost-weeks""#));
-    assert!(campaign.contains("Conversion tracking has too few results"));
+    assert!(campaign.contains("Too few conversions to judge results"));
     assert!(!campaign.contains("We do not judge this Campaign"));
     drop(f);
 
@@ -512,7 +509,15 @@ async fn yes_cannot_override_conversion_tracking_that_does_not_work_but_can_over
     let campaign = f.page(CAMPAIGN).await;
     assert!(campaign.contains("<dt>Conversions</dt>"));
     assert!(campaign.contains(r#"id="cost-weeks""#));
-    assert!(!f.page(PAGE).await.contains("<dt>Conversions</dt>"));
+    assert!(!campaign.contains("We do not judge this"), "{campaign}");
+    let account = f.page(PAGE).await;
+    assert!(!account.contains("<dt>Conversions</dt>"));
+    assert!(account.contains("We do not judge this Ad Account by conversions"));
+
+    let words = export_words(&f, &signed, AD, Some(EMERGENCY), "7").await;
+    assert!(words.contains("\nConversions\n"), "{words}");
+    assert!(!words.contains("We do not judge this"), "{words}");
+    assert!(!words.contains("cannot be judged"), "{words}");
 }
 
 fn stop_rows(f: &Fixture) {
@@ -847,10 +852,6 @@ async fn removing_the_ad_account_or_the_workspace_leaves_no_campaign_settings() 
 #[tokio::test]
 #[serial]
 async fn the_export_leaves_out_the_conversions_of_a_campaign_that_is_not_judged() {
-    use keysend::monitoring::{
-        export::{self, CampaignRow, Export, RecommendationText, Subject, UpdateText},
-        format, metrics,
-    };
     let f = normal_day().await;
     let path = format!("{PAGE}/export.pdf?window=7");
     let fetch = || async {
@@ -870,138 +871,30 @@ async fn the_export_leaves_out_the_conversions_of_a_campaign_that_is_not_judged(
 
     let signed = signed(&f).await;
     let store = WorkspaceStore::new(&f.ctx.db, &signed.workspace);
-    let last = day_number(end());
-    let date = |day| keysend::workspace::history::date_of(day).unwrap();
-    let total = store
-        .window_metrics(AD, last, metrics::Window::SevenDays, None)
-        .await
-        .unwrap();
-    let mut rows = Vec::new();
-    for campaign in store.campaigns(AD).await.unwrap() {
-        let judged = campaign.id != EMERGENCY;
-        let current = store
-            .window_metrics(AD, last, metrics::Window::SevenDays, Some(campaign.id))
-            .await
-            .unwrap()
-            .current;
-        rows.push((campaign.name, current, judged));
-    }
-    rows.sort_by(|a, b| b.1.spend.total_cmp(&a.1.spend).then_with(|| a.0.cmp(&b.0)));
-    let update = store
-        .updates(AD, last + 1, last + 1)
+    let name = store
+        .campaigns(AD)
         .await
         .unwrap()
-        .remove(0);
-    assert!(update
-        .lines
-        .iter()
-        .any(|line| line.campaign_id == EMERGENCY));
-    let recommendations = store.monitoring_recommendations(AD).await.unwrap();
-    let branding = store.branding(AD).await.unwrap().unwrap();
-    let campaigns = store.campaigns(AD).await.unwrap();
-    let collected = keysend::controllers::monitoring::Collected {
-        text: keysend::language::english(),
-        id: AD,
-        days: &store
-            .monitoring_days(
-                AD,
-                keysend::controllers::monitoring::first_read_day(last),
-                last,
-            )
-            .await
-            .unwrap(),
-        campaigns: &campaigns,
-        first_day: day_number(
-            store
-                .history_state(AD)
-                .await
-                .unwrap()
-                .unwrap()
-                .first_day
-                .unwrap(),
-        ),
-        end: last,
-        currency: "USD",
-        judged: true,
-        window: metrics::Window::SevenDays,
-        translations: &keysend::translation::Translations::english(),
-    };
-    let changes = keysend::controllers::monitoring::export_changes(&store, &collected, None)
-        .await
-        .unwrap();
-    let (charts, deep_charts) =
-        keysend::controllers::monitoring::export_charts(&store, &collected, &changes)
-            .await
-            .unwrap();
-    let expected = export::pdf(
-        &Export {
-            name: branding.name,
-            accent: branding.accent_colour,
-            logo: None,
-            window_days: 7,
-            range: format::date_range(
-                keysend::language::english(),
-                date(last - 6),
-                date(last),
-                true,
-            ),
-            compared: format::date_range(
-                keysend::language::english(),
-                date(last - 13),
-                date(last - 7),
-                true,
-            ),
-            campaign_names: campaigns
-                .iter()
-                .map(|campaign| campaign.name.clone())
-                .collect(),
-            prepared: "12 October 2026".into(),
-            cells: format::cells(keysend::language::english(), &total, "USD").unwrap(),
-            judged: true,
-            recommendations: recommendations
-                .into_iter()
-                .filter(|recommendation| recommendation.campaign_id != Some(EMERGENCY))
-                .map(|recommendation| RecommendationText {
-                    action: recommendation.action,
-                    reason: recommendation.reason,
-                    evidence: recommendation.evidence,
-                })
-                .collect(),
-            charts,
-            subject: Subject::AdAccount {
-                update: Some(UpdateText {
-                    date: format::long_date(keysend::language::english(), today()),
-                    summary: update.summary.clone(),
-                    cause: None,
-                    lines: update
-                        .lines
-                        .iter()
-                        .filter(|line| line.campaign_id != EMERGENCY)
-                        .map(|line| line.text.clone())
-                        .collect(),
-                }),
-                campaigns: rows
-                    .into_iter()
-                    .map(|(name, current, judged)| CampaignRow {
-                        name,
-                        spend: metrics::english_money(current.spend, "USD"),
-                        clicks: metrics::english_count(current.clicks),
-                        impressions: metrics::english_count(current.impressions),
-                        conversions: Some(if judged {
-                            metrics::english_count(current.conversions.unwrap())
-                        } else {
-                            "Not judged".into()
-                        }),
-                    })
-                    .collect(),
-                deep_charts,
-            },
-        },
-        keysend::language::english(),
-    )
-    .unwrap();
-    assert!(
-        after == expected,
-        "the Export does not leave out the conversions of Search - Emergency"
-    );
+        .into_iter()
+        .find(|campaign| campaign.id == EMERGENCY)
+        .unwrap()
+        .name;
+    let words = export_words(&f, &signed, AD, None, "7").await;
+    let row = words
+        .split(&format!("\n{name}\nstretch\n"))
+        .nth(1)
+        .unwrap_or_else(|| panic!("{words}"))
+        .lines()
+        .take(6)
+        .collect::<Vec<_>>();
+    assert_eq!(row[2..], ["Not judged", "", "Not judged", ""], "{words}");
+    assert!(!words.contains(&format!("\n{name}: ")), "{words}");
+    for recommendation in store.monitoring_recommendations(AD).await.unwrap() {
+        assert_eq!(
+            words.contains(&recommendation.action),
+            recommendation.campaign_id != Some(EMERGENCY),
+            "{}",
+            recommendation.action
+        );
+    }
 }

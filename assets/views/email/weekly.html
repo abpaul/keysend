@@ -23,7 +23,7 @@
 {% endif %}
 {% for line in block.lead.lines %}
                 <tr>
-                  <td style="padding:0 0 {% if loop.last %}24{% else %}8{% endif %}px;">{% set stored = line %}{% include "email/_stored.html" %}</td>
+                  <td style="padding:0 0 {% if loop.last %}24{% else %}8{% endif %}px;">{% if line.name %}{% set campaign %}{% set name = line.name %}{% include "email/_campaign_name.html" %}{% endset %}{% set line_text %}{% set stored = line.text %}{% include "email/_stored.html" %}{% endset %}{{ t(key="update_campaign_line", campaign=campaign, text=line_text) }}{% else %}{% set stored = line.text %}{% include "email/_stored.html" %}{% endif %}</td>
                 </tr>
 {% endfor %}
                 <tr>
@@ -81,7 +81,7 @@
                 </tr>
 {% for update in block.earlier %}
                 <tr>
-                  <td style="padding:0 0 {% if loop.last %}24{% else %}14{% endif %}px;"><span style="font-size:14px; line-height:20px; color:#5C5470;">{{ update.date }}</span><br>{% set stored = update.summary %}{% include "email/_stored.html" %}{% for line in update.lines %}<br>{% set stored = line %}{% include "email/_stored.html" %}{% endfor %}</td>
+                  <td style="padding:0 0 {% if loop.last %}24{% else %}14{% endif %}px;"><span style="font-size:14px; line-height:20px; color:#5C5470;">{{ update.date }}</span><br>{% set stored = update.summary %}{% include "email/_stored.html" %}{% for line in update.lines %}<br>{% if line.name %}{% set campaign %}{% set name = line.name %}{% include "email/_campaign_name.html" %}{% endset %}{% set line_text %}{% set stored = line.text %}{% include "email/_stored.html" %}{% endset %}{{ t(key="update_campaign_line", campaign=campaign, text=line_text) }}{% else %}{% set stored = line.text %}{% include "email/_stored.html" %}{% endif %}{% endfor %}</td>
                 </tr>
 {% endfor %}
 {% else %}

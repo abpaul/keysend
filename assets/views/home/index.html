@@ -2,13 +2,17 @@
 {% block title %}{{ t(key="home_title") }} | KeySend{% endblock title %}
 {% block description %}{{ t(key="home_description", count=limit, trial_days=trial_days, price=price_text) }}{% endblock description %}
 {% block head_extra %}
-  <link rel="canonical" href="https://keysend.app/">
+  <link rel="canonical" href="{{ canonical }}">
+  <link rel="alternate" hreflang="en" href="https://keysend.app/">
+  <link rel="alternate" hreflang="ro" href="https://keysend.app/ro">
+  <link rel="alternate" hreflang="x-default" href="https://keysend.app/">
+  <meta property="og:locale" content="{% if lang() == 'ro' %}ro_RO{% else %}en_US{% endif %}">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="KeySend">
-  <meta property="og:url" content="https://keysend.app/">
+  <meta property="og:url" content="{{ canonical }}">
   <meta property="og:title" content="{{ t(key="home_title") }}">
   <meta property="og:description" content="{{ t(key="home_og_description") }}">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"KeySend","url":"https://keysend.app/","applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"{{ t(key="home_ld_description") }}","offers":{"@type":"Offer","price":"{{ price }}","priceCurrency":"USD","description":"{{ t(key="home_ld_offer", count=limit, trial_days=trial_days) }}"},"publisher":{"@id":"{{ organization_id }}"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"KeySend","url":"{{ canonical }}","inLanguage":"{{ lang() }}","applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"{{ t(key="home_ld_description") }}","offers":{"@type":"Offer","price":"{{ price }}","priceCurrency":"USD","description":"{{ t(key="home_ld_offer", count=limit, trial_days=trial_days) }}"},"publisher":{"@id":"{{ organization_id }}"}}</script>
   <script type="application/ld+json">{{ schema | safe }}</script>
 
   <link rel="stylesheet" href="{{ assets["parts.css"] }}">

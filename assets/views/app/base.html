@@ -8,6 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="{{ assets["images/logo.svg"] }}">
   <link rel="stylesheet" href="{{ assets["parts.css"] }}">
   <link rel="stylesheet" href="{{ assets["app.css"] }}">
+  <script defer src="{{ assets["popover.js"] }}"></script>
   {% block head %}{% endblock head %}
 </head>
 <body{% block body_attrs %}{% endblock body_attrs %}>
@@ -19,6 +20,13 @@
       <nav class="site-nav" aria-label="{{ t(key="nav_main_label") }}">
         <a href="/ad-accounts"{% block nav_accounts %}{% endblock nav_accounts %}>{{ t(key="ad_accounts") }}</a>
         <a href="/subscription"{% block nav_subscription %}{% endblock nav_subscription %}>{{ t(key="subscription") }}</a>
+        <details class="lang-menu">
+          <summary><span>{{ t(key="language_label") }}: </span>{% for language in languages() %}{% if language.selected %}{{ language.name }}{% endif %}{% endfor %}<span class="lang-menu__hint">{% for language in languages() %}{% if language.code == "en" %}{{ language.name }} / {% elif language.code == "ro" %}{{ language.name }}{% endif %}{% endfor %}</span></summary>
+          <form class="lang-menu__list" method="post" action="/settings/language">
+            {% for language in languages() %}<button type="submit" name="language" value="{{ language.code }}" lang="{{ language.code }}"{% if language.selected %} aria-current="true"{% endif %}>{{ language.name }}</button>
+            {% endfor %}
+          </form>
+        </details>
         <form method="post" action="/sign-out"><button class="link-button" type="submit">{{ t(key="sign_out") }}</button></form>
       </nav>
       {% endblock nav %}
@@ -32,6 +40,7 @@
   <footer class="site-footer">
     <div class="wrap">
       <p>{{ t(key="footer_read_only") }}</p>
+      <p>{% include "home/_source_link.html" %}</p>
       {% block footer %}{% endblock footer %}
     </div>
   </footer>

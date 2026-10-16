@@ -10,6 +10,7 @@
         <p>{{ t(key="home_founder_start") }}</p>
         <p>{{ t(key="home_founder_hard") }}</p>
         <p>{{ t(key="home_founder_looks") }}</p>
+        <p>{{ t(key="home_founder_source") }} {% include "home/_source_link.html" %}</p>
         <p>{% set email %}<a href="mailto:{{ contact }}">{{ contact }}</a>{% endset %}{{ t(key="home_founder_try", trial_days=trial_days, email=email) }}</p>
         </div>
       </div>
