@@ -286,10 +286,12 @@ fn recommendation_english(recommendations: &[RecommendationWithFinding]) -> Vec<
                 found.recommendation.action.as_str(),
                 found.recommendation.reason.as_str(),
                 found.recommendation.evidence.as_str(),
+                found.recommendation.measure.as_str(),
             ]
             .into_iter()
             .chain(found.finding.as_ref().map(|finding| finding.title.as_str()))
         })
+        .filter(|text| !text.trim().is_empty())
         .collect()
 }
 
@@ -300,12 +302,18 @@ fn recommendation_texts(
     recommendations
         .iter()
         .map(|found| RecommendationText {
+            subject: found.recommendation.subject.clone(),
+            confidence: found.recommendation.confidence,
             finding: found
                 .finding
                 .as_ref()
                 .map(|finding| translations.shown(&finding.title).text.into()),
             action: translations.shown(&found.recommendation.action).text.into(),
             reason: translations.shown(&found.recommendation.reason).text.into(),
+            measure: translations
+                .shown(&found.recommendation.measure)
+                .text
+                .into(),
             evidence: translations
                 .shown(&found.recommendation.evidence)
                 .text
@@ -336,6 +344,7 @@ async fn assemble(
     let length = read.window.days();
     let date = |day: i64| date_of(day).ok_or_else(|| Error::Message("Invalid Export day".into()));
     Ok(Export {
+        sample: false,
         name: branding.name,
         accent: branding.accent_colour,
         logo: store.logo(id).await?,
@@ -421,7 +430,7 @@ fn campaign_rows(read: &Read, sparklines: &BTreeMap<i64, String>) -> Result<Vec<
                 ),
             )
         })
-        .filter(|(_, movement)| movement.current.serving() || movement.previous.serving())
+        .filter(|(campaign, movement)| view::listed(campaign, movement))
         .collect::<Vec<_>>();
     rows.sort_by(|(a, a_movement), (b, b_movement)| {
         b_movement
@@ -455,6 +464,13 @@ pub async fn ad_account_export(
         Ok(read) => read,
         Err(response) => return Ok(Err(response)),
     };
+    let check = store.latest_deep_check(id).await?;
+    let assessment = check.as_ref().and_then(|check| {
+        check
+            .assessment
+            .as_ref()
+            .map(|assessment| (check.day, assessment))
+    });
     let rules = &read.rules;
     let total = metrics::window_metrics(&read.days, read.end, read.window, None, read.judged);
     let updates = store
@@ -487,6 +503,9 @@ pub async fn ad_account_export(
         })
         .unwrap_or_default();
     let mut english = recommendation_english(&recommendations);
+    if let Some((_, assessment)) = assessment {
+        english.extend(crate::translation::assessment_texts(assessment));
+    }
     if let Some(update) = latest {
         english.push(&update.summary);
         english.extend(update.cause.as_ref().map(|cause| cause.evidence.as_str()));
@@ -571,6 +590,22 @@ pub async fn ad_account_export(
         charts,
         recommendations: recommendation_texts(&recommendations, &translations),
         subject: Subject::AdAccount {
+            assessment: assessment
+                .map(|(day, assessment)| {
+                    let mut shown =
+                        view::assessment_text(read.text, day, assessment, &translations)?;
+                    if assessment
+                        .market
+                        .as_ref()
+                        .is_some_and(|market| !market.trim().is_empty())
+                    {
+                        shown.sources = view::market_sources(
+                            check.as_ref().and_then(|check| check.research.as_ref()),
+                        );
+                    }
+                    Ok::<_, Error>(Box::new(shown))
+                })
+                .transpose()?,
             update,
             earlier,
             campaign_headers: view::all_campaign_headers(read.text, read.judged),

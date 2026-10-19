@@ -190,6 +190,10 @@ impl Harbour {
             action: "Add dental implants jobs as a negative keyword in Search - Implants.".into(),
             reason: "People who search for jobs are not patients.".into(),
             evidence: evidence(judged),
+            measure: String::new(),
+            intent: String::new(),
+            subject: String::new(),
+            confidence: Default::default(),
             campaign_id: Some(703),
             state: RecommendationState::Open,
         };
@@ -202,6 +206,8 @@ impl Harbour {
                     findings: vec![finding],
                     judge_by_conversions: judged,
                     recommendations_generated: true,
+                    assessment: None,
+                    research: None,
                     by_campaign: Default::default(),
                 },
                 &[recommendation],
@@ -831,7 +837,7 @@ async fn the_subscription_page_of_a_trial_counts_the_days_left() {
     assert!(html.contains("<h1 class=\"heading-xl\">Subscription</h1>"));
     assert!(html.contains("Your Trial has 4 days left. It ends on 15 October."));
     assert!(html.contains("<dd class=\"num\">$49 per month</dd>"));
-    assert!(html.contains("<dd>Up to 3. You use 1.</dd>"));
+    assert!(html.contains("<dd>Up to 5. You use 1.</dd>"));
     assert!(html.contains("On the day you start the Subscription"));
     assert!(html.contains("action=\"/subscription\""));
     assert!(html.contains(">Start the Subscription</button>"));
@@ -907,13 +913,13 @@ async fn the_subscription_page_of_an_active_subscription_keeps_the_card_and_the_
 
 #[tokio::test]
 #[serial]
-async fn more_than_three_ad_accounts_cannot_start_a_subscription() {
+async fn more_than_five_ad_accounts_cannot_start_a_subscription() {
     let plan = Plan::new().await;
-    for number in 1..=3 {
+    for number in 1..=5 {
         plan.sql("INSERT INTO ad_accounts(id,workspace_id,customer_id,name,google_connection_id) SELECT ?,workspace_id,?,?,google_connection_id FROM ad_accounts WHERE workspace_id=? AND customer_id='4829153307'", vec![format!("extra{number}").into(), format!("{number:010}").into(), format!("Extra {number}").into(), plan.workspace.workspace.id().into()]).await;
     }
     let html = plan.page().await;
-    assert!(html.contains("A Subscription covers up to 3 Ad Accounts, and you have 4."));
+    assert!(html.contains("A Subscription covers up to 5 Ad Accounts, and you have 6."));
     assert!(html.contains("Remove 1 Ad Account to start the Subscription."));
     assert!(html.contains(
         "<button class=\"button\" type=\"submit\" disabled>Start the Subscription</button>"
@@ -928,7 +934,7 @@ async fn more_than_three_ad_accounts_cannot_start_a_subscription() {
     assert_eq!(response.status_code(), 422);
     assert_eq!(
         response.text(),
-        "A Subscription supports up to 3 Ad Accounts."
+        "A Subscription supports up to 5 Ad Accounts."
     );
     assert!(plan.f.calls.lock().unwrap().stripe.requests.is_empty());
 }
@@ -937,6 +943,10 @@ async fn more_than_three_ad_accounts_cannot_start_a_subscription() {
 #[serial]
 async fn starting_the_subscription_asks_stripe_for_the_monthly_price_and_returns_to_the_page() {
     let plan = Plan::new().await;
+    for number in 1..=4 {
+        plan.sql("INSERT INTO ad_accounts(id,workspace_id,customer_id,name,google_connection_id) SELECT ?,workspace_id,?,?,google_connection_id FROM ad_accounts WHERE workspace_id=? AND customer_id='4829153307'", vec![format!("extra{number}").into(), format!("{number:010}").into(), format!("Extra {number}").into(), plan.workspace.workspace.id().into()]).await;
+    }
+    assert!(plan.page().await.contains("Up to 5. You use 5."));
     let response = plan
         .f
         .request
@@ -998,7 +1008,7 @@ async fn the_old_billing_address_leads_to_the_subscription_and_each_workspace_se
         .add_cookie(plan.f.b.clone())
         .await;
     assert_eq!(other.status_code(), 200);
-    assert!(other.text().contains("<dd>Up to 3. You use 0.</dd>"));
+    assert!(other.text().contains("<dd>Up to 5. You use 0.</dd>"));
     assert_eq!(plan.f.request.get("/subscription").await.status_code(), 303);
 }
 
@@ -1189,6 +1199,126 @@ async fn the_export_ends_on_the_last_collected_day_like_the_page() {
     let words = h.export_words(None, "7").await;
     assert!(
         words.contains("Last 7 days, 3 to 9 October 2026. Compared with 26 September to 2 October 2026. Prepared on 12 October 2026."),
+        "{words}"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn a_romanian_user_reads_the_assessment_and_measure_only_after_their_translation() {
+    use keysend::{
+        language::Language,
+        monitoring::assessment::{Assessment, Verdict},
+        translation,
+    };
+    let h = Harbour::new(true).await;
+    let store = h.store();
+    let mut check = store.latest_deep_check(AD).await.unwrap().unwrap();
+    check.assessment = Some(Assessment {
+        verdict: Verdict::Improved,
+        headline: "The results improved.".into(),
+        worked: vec![keysend::monitoring::claims::Point {
+            observation: "Search - Implants delivered 42 conversions.".into(),
+            explanation: Some("The new opening hours may have helped.".into()),
+        }],
+        attention: vec!["Review wasted searches.".into()],
+        next: vec!["Check the search terms.".into()],
+        market: Some("Demand varies in autumn.".into()),
+        written_without_ai: false,
+    });
+    check.research = Some(keysend::monitoring::business::Research {
+        day: check.day,
+        website: Some("https://example.com".into()),
+        found: true,
+        kind: keysend::monitoring::business::Kind::LocalService,
+        summary: String::new(),
+        offers: vec![],
+        areas: vec![],
+        facts: vec![keysend::monitoring::business::Fact {
+            claim: "Demand varies in autumn.".into(),
+            kind: keysend::monitoring::business::FactKind::Seasonality,
+            source: "https://example.com/season".into(),
+            verified: true,
+        }],
+    });
+    let mut recommendations = store
+        .recommendations_with_findings(AD)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|found| found.recommendation)
+        .collect::<Vec<_>>();
+    recommendations[0].measure = "Compare conversions after 30 days.".into();
+    recommendations[0].subject = "dental implants jobs".into();
+    recommendations[0].confidence = keysend::monitoring::recommendation::Confidence::High;
+    h.sql(
+        "DELETE FROM monitoring_recommendations WHERE workspace_id=? AND ad_account_customer_id=?",
+        vec![h.workspace.workspace.id().into(), AD.into()],
+    )
+    .await;
+    store
+        .refresh_deep_check(AD, &check, &recommendations)
+        .await
+        .unwrap();
+    h.sql(
+        "UPDATE users SET language='ro' WHERE email='a@example.com'",
+        vec![],
+    )
+    .await;
+    h.translate_into_romanian().await;
+    let mut required = translation::assessment_texts(check.assessment.as_ref().unwrap());
+    required.push(&recommendations[0].measure);
+    for english in required {
+        h.sql(
+            "DELETE FROM translations WHERE workspace_id=? AND language='ro' AND source_hash=?",
+            vec![
+                h.workspace.workspace.id().into(),
+                translation::hash(english).into(),
+            ],
+        )
+        .await;
+        let response =
+            h.f.request
+                .get(&format!("/ad-accounts/{AD}/export.pdf"))
+                .add_cookie(h.f.a.clone())
+                .await;
+        assert_eq!(response.status_code(), 409, "{english}");
+        store
+            .save_translations(
+                AD,
+                Language::Ro,
+                &[(translation::hash(english), format!("RO {english}"))],
+                0,
+            )
+            .await
+            .unwrap();
+    }
+    let page = h.f.page(&format!("/ad-accounts/{AD}")).await;
+    assert!(page.contains("RO The results improved."));
+    assert!(page.contains("RO The new opening hours may have helped."));
+    assert!(page.contains("RO Review wasted searches."));
+    assert!(page.contains("Surse: example.com"));
+    assert!(page.contains("Încredere: ridicată"));
+    assert!(page.contains("Despre: dental implants jobs"));
+    assert!(page.contains("RO Compare conversions after 30 days."));
+    let signed = identity::authenticate(&h.f.ctx.db, h.f.a.value())
+        .await
+        .unwrap()
+        .unwrap();
+    let words = export_words(&h.f, &signed, AD, None, "7").await;
+    for expected in [
+        "RO The new opening hours may have helped.",
+        "Explicație posibilă",
+        "Surse: example.com",
+        "Încredere: ridicată",
+        "Despre: dental implants jobs",
+    ] {
+        assert!(words.contains(expected), "Missing {expected}: {words}");
+    }
+    assert!(words.contains("Evaluare"), "{words}");
+    assert!(words.contains("RO The results improved."), "{words}");
+    assert!(
+        words.contains("RO Compare conversions after 30 days."),
         "{words}"
     );
 }

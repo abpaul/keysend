@@ -105,6 +105,9 @@ pub async fn protect(State(policy): State<Policy>, mut request: Request, next: N
             path if crate::assets::is_fingerprinted(path) => {
                 Some("public, max-age=31536000, immutable")
             }
+            "/sample-report.pdf" if request.uri().query().is_none() => {
+                Some("public, max-age=0, must-revalidate")
+            }
             path if path.starts_with("/static/") => Some("no-cache"),
             _ => Some("no-store"),
         }
@@ -207,12 +210,17 @@ mod tests {
     #[tokio::test]
     async fn rendering_across_publication_does_not_cache_the_older_index() {
         let catalog = serde_json::from_value(serde_json::json!({
-            "schema_version": 1,
+            "schema_version": 2,
             "calculator_js": "",
             "entries": [{
                 "path": "/blog/scheduled-article",
                 "title": "Scheduled article",
+                "seo_title": "Scheduled article",
                 "description": "Scheduled article",
+                "updated_at": null,
+                "intent": "informational",
+                "related": [],
+                "cta": {"heading": "", "text": "", "link": null},
                 "publish_at": crate::settings::wall_clock() + chrono::Duration::milliseconds(300),
                 "kind": "article",
                 "cluster": "reporting",
@@ -248,7 +256,7 @@ mod tests {
     #[tokio::test]
     async fn a_session_keeps_fingerprinted_assets_immutable_and_other_assets_private() {
         let catalog = serde_json::from_value(serde_json::json!({
-            "schema_version": 1,
+            "schema_version": 2,
             "calculator_js": "",
             "entries": []
         }))

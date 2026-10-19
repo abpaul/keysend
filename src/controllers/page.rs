@@ -31,8 +31,8 @@ pub const AUDIENCES: [Audience; 3] = [
         source: "for-business-owners",
         template: "home/for_business_owners.html",
         questions: &[
-            ("home_faq_know_q", "home_faq_know_a"),
-            ("home_faq_start_q", "home_faq_start_a"),
+            ("for_owners_faq_know_q", "for_owners_faq_know_a"),
+            ("home_faq_start_q", "for_owners_faq_start_a"),
             ("home_faq_tracking_q", "home_faq_tracking_a"),
             ("home_faq_change_q", "home_faq_change_a"),
             ("home_faq_consent_q", "home_faq_consent_a"),
@@ -74,8 +74,9 @@ pub const AUDIENCES: [Audience; 3] = [
     },
 ];
 
-const HOME_QUESTIONS: [Question; 9] = [
+const HOME_QUESTIONS: [Question; 10] = [
     ("home_faq_change_q", "home_faq_change_a"),
+    ("home_faq_count_q", "home_faq_count_a"),
     ("home_faq_know_q", "home_faq_know_a"),
     ("home_faq_start_q", "home_faq_start_a"),
     ("home_faq_tracking_q", "home_faq_tracking_a"),
@@ -153,7 +154,9 @@ async fn home(
         {"code": Language::En.code(), "name": Language::En.name(), "path": "/"},
         {"code": Language::Ro.code(), "name": Language::Ro.name(), "path": "/ro"},
     ]);
-    data["nav_from"] = "home-nav".into();
+    let suffix = if language == Language::Ro { "-ro" } else { "" };
+    data["source_suffix"] = suffix.into();
+    data["nav_from"] = format!("home-nav{suffix}").into();
     data["schema"] = structured_data(&data, Vec::new()).into();
     format::render().view(&v, "home/index.html", data)
 }
@@ -215,7 +218,11 @@ async fn privacy(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
 }
 
 async fn terms(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    format::render().view(&v, "home/terms.html", data!({}))
+    format::render().view(
+        &v,
+        "home/terms.html",
+        data!({"limit": access::AD_ACCOUNT_LIMIT}),
+    )
 }
 
 pub const SECURITY_PATH: &str = "/security";
@@ -284,7 +291,9 @@ mod tests {
     fn the_sign_in_page_accepts_the_source_of_each_audience_page() {
         for page in &AUDIENCES {
             assert_eq!(
-                SignUpSource::parse(page.source).map(SignUpSource::as_str),
+                SignUpSource::parse(page.source)
+                    .as_ref()
+                    .map(SignUpSource::as_str),
                 Some(page.source)
             );
         }

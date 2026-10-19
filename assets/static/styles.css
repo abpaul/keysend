@@ -166,6 +166,7 @@ summary { cursor: pointer; font-weight: 700; }
 .hero-for { margin-bottom: 12px; font-weight: 800; color: var(--citron); }
 .hero .lede { max-width: 30em; color: var(--lilac); }
 .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; margin-top: 32px; }
+.cta .btn { max-width: 100%; white-space: normal; text-align: center; }
 .cta p { font-size: .9375rem; color: var(--fg-2); }
 .hero-shot { display: flex; flex-direction: column-reverse; gap: 14px; margin-bottom: calc(var(--over) * -1); }
 .hero-shot .update { box-shadow: var(--deep); }
@@ -261,7 +262,7 @@ summary { cursor: pointer; font-weight: 700; }
 .ticks li { position: relative; padding: 16px 0 16px 34px; border-top: 1px solid var(--rule); }
 .ticks li::before { content: ""; position: absolute; left: 0; top: 1.72em; width: 18px; height: 4px; background: var(--citron); }
 
-.price { display: grid; gap: clamp(36px, 5vw, 56px); }
+.price { display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(36px, 5vw, 56px); }
 .price dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px var(--gap); }
 .price dl > div { padding-top: 18px; border-top: 4px solid var(--ink); container-type: inline-size; }
 .price dt { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.015em; }
@@ -270,6 +271,7 @@ summary { cursor: pointer; font-weight: 700; }
 .price .cta { margin-top: 0; flex-wrap: nowrap; align-items: flex-start; gap: 20px 32px; }
 .price .cta p { max-width: 36em; }
 .price .btn { flex: none; }
+.price .ticks li::before { background: var(--plum); }
 
 .faq details { border-top: 2px solid var(--ink); }
 .faq details:last-child { border-bottom: 2px solid var(--ink); }
@@ -331,7 +333,10 @@ summary { cursor: pointer; font-weight: 700; }
 .lp-sec.prose > h1 + :is(nav, p) { margin-top: 20px; font-size: .9375rem; font-weight: 700; color: var(--ink-2); }
 .lp-sec.prose section { margin-top: 56px; }
 .lp-sec.prose section > h2 { margin-bottom: 16px; font-size: clamp(1.5rem, 2.8vw, 2.125rem); line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; text-wrap: balance; }
-.lp-sec.prose section > * + :is(p, ul, ol, table, form) { margin-top: 16px; }
+.lp-sec.prose section > * + :is(p, ul, ol, table, form, .table-scroll) { margin-top: 16px; }
+.lp-sec.prose section > h3 { margin-top: 36px; font-size: 1.3125rem; line-height: 1.25; letter-spacing: -0.02em; font-weight: 800; }
+.lp-sec.prose > .lede { margin-top: 28px; color: var(--ink); }
+.table-scroll { overflow-x: auto; }
 .lp-sec.prose section :is(ul, ol) { padding-left: 22px; list-style: disc; }
 .lp-sec.prose section ol { list-style: decimal; }
 .lp-sec.prose section li + li { margin-top: 8px; }
@@ -360,10 +365,13 @@ nav.lp-sec.prose > ul { margin-top: 0; font-size: 17px; }
 .try .box { padding: clamp(28px, 5vw, 48px); border-radius: var(--r-sheet); background: var(--citron); --fg-2: #453B5A; }
 .try h2 { margin-bottom: 12px; font-size: var(--d3); line-height: 1.08; letter-spacing: -0.03em; font-weight: 800; text-wrap: balance; }
 .try .cta { margin-top: 24px; }
+.try .cta > p + p { margin-top: 12px; }
 nav.lp-sec.prose > ul > li { padding-block: 6px; border-top-width: 1px; }
 nav.lp-sec.prose > ul > li a { display: inline-block; padding-block: 10px; font-weight: 700; }
 @media (max-width: 720px) {
   .prose { font-size: 1.0625rem; }
+  .lp-sec.prose table { font-size: 14px; }
+  .lp-sec.prose :is(th, td) { padding-right: 10px; }
 }
 
 /* Legal pages */

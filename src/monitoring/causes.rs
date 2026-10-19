@@ -335,15 +335,16 @@ impl Context<'_> {
         let moved = subject
             .movements
             .iter()
-            .find(|movement| movement.metric == MetricName::Conversions)
-            .filter(|movement| movement.current < movement.previous)?;
+            .find(|movement| movement.metric == MetricName::Conversions)?;
         let clicks_moved = subject
             .movements
             .iter()
             .any(|movement| movement.metric == MetricName::Clicks);
         let clicks = subject.metrics.current.clicks;
+        let stopped = moved.current <= moved.previous * NEAR_ZERO;
+        let doubled = moved.current >= moved.previous * super::tracking::SPIKE_RATE;
         (moved.previous >= MIN_CONVERSIONS
-            && moved.current <= moved.previous * NEAR_ZERO
+            && (stopped || doubled)
             && !clicks_moved
             && clicks >= MIN_TRACKING_CLICKS)
             .then(|| {
@@ -354,7 +355,8 @@ impl Context<'_> {
                     Level::Likely,
                     MetricName::Conversions,
                     format!(
-                        "Conversions fell from {} to {} in the 7 days that ended 2 days ago, while Clicks stayed inside their normal range at {} in the last 7 days.",
+                        "Conversions {} from {} to {} in the 7 days that ended 2 days ago, while Clicks stayed inside their normal range at {} in the last 7 days.",
+                        if stopped { "fell" } else { "rose" },
                         metrics::english_count(moved.previous),
                         metrics::english_count(moved.current),
                         metrics::english_count(clicks)
@@ -896,6 +898,9 @@ pub fn statement(candidate: &Candidate, rose: Option<bool>) -> Option<String> {
     };
     let reason = match candidate.kind {
         Kind::Concentration => return None,
+        Kind::Tracking if rose == Some(true) => {
+            "conversion tracking counts some of them twice".to_owned()
+        }
         Kind::Tracking => "conversion tracking stopped recording them".to_owned(),
         Kind::CampaignStopped => "the Campaign stopped serving".to_owned(),
         Kind::CampaignStarted => "the Campaign started serving".to_owned(),

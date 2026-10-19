@@ -70,7 +70,7 @@ fn schema_questions(graph: &serde_json::Value) -> Vec<(String, String)> {
 async fn the_home_page_leads_to_sign_in_states_the_price_and_shows_examples_without_controls() {
     request::<App, _, _>(|request, _ctx| async move {
         let res = request.get("/").await;
-        assert_eq!(res.status_code(), 200);
+        assert_eq!(res.status_code(), 200, "{}", res.text());
         let body = res.text();
 
         for source in ["home-nav", "home-hero", "home-price", "home-closing"] {
@@ -87,13 +87,22 @@ async fn the_home_page_leads_to_sign_in_states_the_price_and_shows_examples_with
         assert!(at(" id=\"price\"") < at("from=home-price"));
         assert!(at("from=home-price") < at(" id=\"questions\""));
         assert!(at(" id=\"start\"") < at("from=home-closing"));
-        for audience in ["/for/agency-clients", "/for/marketing-managers"] {
+        for audience in [
+            "/for/business-owners",
+            "/for/agency-clients",
+            "/for/marketing-managers",
+        ] {
             assert!(body.contains(&format!("href=\"{audience}\"")), "{audience}");
         }
 
         assert!(body.contains("14 days"));
+        assert!(body.contains("href=\"/terms#refunds\""));
+        let hero = body.split("id=\"how\"").next().unwrap();
+        assert!(hero.contains("$49"));
+        assert!(hero.contains("plus applicable tax"));
+        assert!(hero.contains("up to 5 Ad Accounts"));
         assert!(body.contains("$49"));
-        assert!(body.contains("per month for up to 3 Ad Accounts."));
+        assert!(body.contains("per month, plus applicable tax, for up to 5 Ad Accounts."));
         assert!(body.contains("\"price\":\"49\",\"priceCurrency\":\"USD\""));
         assert!(body.contains("<link rel=\"canonical\" href=\"https://keysend.app/\">"));
         assert!(body.contains("<meta property=\"og:url\" content=\"https://keysend.app/\">"));
@@ -105,7 +114,6 @@ async fn the_home_page_leads_to_sign_in_states_the_price_and_shows_examples_with
         for gone in [
             "<form",
             "<button",
-            "<figcaption",
             "/ad-accounts",
             "window-switch.js",
             "data-swap",
@@ -140,7 +148,6 @@ async fn scheduled_resources_hide_future_pages_and_keep_private_requests_uncache
         let future = catalog.scheduled();
         for path in [
             "/blog",
-            "/thoughts",
             "/guides",
             "/tools",
             "/resources",
@@ -486,7 +493,7 @@ async fn only_allowlisted_anonymous_html_is_publicly_cacheable() {
     request::<App, _, _>(|request, _ctx| async move {
         let public: Vec<String> =
             serde_json::from_slice(&std::fs::read("config/cache-policy.json").unwrap()).unwrap();
-        assert_eq!(public.len(), 16);
+        assert_eq!(public.len(), 15);
         for path in public {
             let response = request.get(&path).await;
             assert_eq!(response.status_code(), 200);
@@ -781,6 +788,50 @@ async fn the_policy_allows_the_progress_bar_style_of_the_vendored_turbo() {
 
 #[tokio::test]
 #[serial]
+async fn a_consultant_opens_the_sample_report_from_the_hero_and_reads_the_limit_and_the_contact_for_more(
+) {
+    request::<App, _, _>(|request, _ctx| async move {
+        for (path, sample, limit, more) in [
+            (
+                "/",
+                ">View a sample report</a>",
+                "Up to 5 Ad Accounts, usually one per client",
+                "Need more than 5 Ad Accounts? Email us at <a href=\"mailto:hello@keysend.app\">hello@keysend.app</a>.",
+            ),
+            (
+                "/ro",
+                ">Vedeți un exemplu de raport</a>",
+                "Cel mult 5 conturi de publicitate Google Ads",
+                "Aveți nevoie de mai mult de 5 conturi de publicitate? Scrieți-ne la <a href=\"mailto:hello@keysend.app\">hello@keysend.app</a>.",
+            ),
+        ] {
+            let body = request.get(path).await.text();
+            let hero = body.split(" id=\"how\"").next().unwrap();
+            assert!(
+                hero.contains(&format!("<a href=\"/sample-report.pdf\"{sample}")),
+                "{path}"
+            );
+            let price = body
+                .split(" id=\"price\"")
+                .nth(1)
+                .unwrap()
+                .split("</section>")
+                .next()
+                .unwrap();
+            assert!(price.contains("href=\"/sample-report.pdf\""), "{path}");
+            assert!(price.contains(limit), "{path}");
+            assert!(price.contains(more), "{path}");
+        }
+        assert_eq!(
+            request.get("/sample-report.pdf").await.header("content-type"),
+            "application/pdf"
+        );
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
 async fn the_founder_note_has_a_photo_that_loads_and_an_address_to_write_to() {
     request::<App, _, _>(|request, _ctx| async move {
         let body = request.get("/").await.text();
@@ -824,7 +875,7 @@ async fn home_names_its_publisher_and_its_questions_as_structured_data() {
 
         let questions = schema_questions(&blocks[1]);
         assert_eq!(questions, shown_questions(&body));
-        assert_eq!(questions.len(), 9);
+        assert_eq!(questions.len(), 10);
         assert_eq!(
             questions[0],
             (
@@ -833,22 +884,29 @@ async fn home_names_its_publisher_and_its_questions_as_structured_data() {
             )
         );
         assert_eq!(
-            questions[4],
+            questions[1],
+            (
+                "What counts as an Ad Account?".to_owned(),
+                "One Google Ads account that you connect, usually one client. A manager account does not count. You choose the client accounts under it.".to_owned()
+            )
+        );
+        assert_eq!(
+            questions[5],
             (
                 "Google says that KeySend can edit my Ad Account. Is that true?".to_owned(),
                 "Google words this permission broadly for every app, and it covers reading and editing. KeySend only sends read requests today. You can remove the permission at any time in your Google account.".to_owned()
             )
         );
         assert_eq!(
-            questions[6],
+            questions[7],
             (
                 "Does it work with Meta or other ad platforms?".to_owned(),
                 "No. KeySend reads Google Ads only.".to_owned()
             )
         );
         assert_eq!(
-            questions[7].1,
-            "Yes. One Subscription covers up to 3 Ad Accounts. Each Export can have the name, logo and accent colour that you choose. KeySend has no client login. You download the Export and send it yourself."
+            questions[8].1,
+            "Download a client's Export as a PDF with your name, logo and accent colour, and send it yourself. One Subscription covers up to 5 Ad Accounts. Clients have no login."
         );
     })
     .await;
@@ -916,15 +974,14 @@ async fn each_audience_page_leads_to_sign_in_with_its_source_and_describes_itsel
                 format!("<meta property=\"og:url\" content=\"{url}\">"),
                 "14 days".to_owned(),
                 "$49".to_owned(),
-                "per month for up to 3 Ad Accounts.".to_owned(),
+                "per month, plus applicable tax, for up to 5 Ad Accounts.".to_owned(),
                 "href=\"/resources\"".to_owned(),
                 "class=\"campaign-name\">Search - Emergency</".to_owned(),
             ] {
                 assert!(body.contains(&expected), "{path}: {expected}");
             }
             for gone in [
-                "<figcaption",
-                "invented dental practice",
+                    "invented dental practice",
                 "<button",
                 "<form",
                 "/ad-accounts",
@@ -1001,6 +1058,7 @@ async fn no_public_page_states_the_unsourced_number_and_each_button_names_a_know
         let catalog = Catalog::load();
         for path in [
             "/",
+            "/ro",
             "/for/business-owners",
             "/for/agency-clients",
             "/for/marketing-managers",
@@ -1024,6 +1082,7 @@ async fn no_public_page_states_the_unsourced_number_and_each_button_names_a_know
                     Some(source) => {
                         assert_eq!(
                             keysend::identity::SignUpSource::parse(source)
+                                .as_ref()
                                 .map(keysend::identity::SignUpSource::as_str),
                             Some(source),
                             "{path}"
@@ -1040,20 +1099,29 @@ async fn no_public_page_states_the_unsourced_number_and_each_button_names_a_know
                 }
             }
         }
-        assert_eq!(
-            sources.into_iter().collect::<Vec<_>>(),
-            [
-                "for-agency-clients",
-                "for-business-owners",
-                "for-marketing-managers",
-                "home-closing",
-                "home-hero",
-                "home-nav",
-                "home-price",
-                "nav",
-                "resource",
-            ]
+        let mut expected = [
+            "for-agency-clients",
+            "for-business-owners",
+            "for-marketing-managers",
+            "home-closing",
+            "home-hero",
+            "home-nav",
+            "home-price",
+            "nav",
+            "home-closing-ro",
+            "home-hero-ro",
+            "home-nav-ro",
+            "home-price-ro",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect::<std::collections::BTreeSet<_>>();
+        expected.insert(
+            keysend::identity::SignUpSource::resource(&catalog.published_kind("guide")[0].path)
+                .as_str()
+                .to_owned(),
         );
+        assert_eq!(sources, expected);
         for text in [
             keysend::language::en::TEXT.home_pain_clicks_text,
             keysend::language::ro::TEXT.home_pain_clicks_text,
@@ -1091,12 +1159,17 @@ async fn each_resource_page_ends_its_article_with_one_call_to_action() {
                 .unwrap();
             assert!(action.contains("aria-labelledby=\"try-keysend\""), "{path}");
             assert_eq!(
-                action.matches("href=\"/sign-in?from=resource\"").count(),
+                action
+                    .matches(&format!(
+                        "href=\"/sign-in?from={}\"",
+                        keysend::identity::SignUpSource::resource(path).as_str()
+                    ))
+                    .count(),
                 1,
                 "{path}"
             );
             assert_eq!(body.matches("</article>").count(), 1, "{path}");
-            assert_eq!(body.matches("See my first Update").count(), 1, "{path}");
+
             let ids = attribute_values(&body, "id");
             for id in &ids {
                 assert_eq!(
@@ -1117,14 +1190,9 @@ async fn each_resource_page_ends_its_article_with_one_call_to_action() {
 #[serial]
 async fn sign_in_explains_the_google_permission_and_carries_a_known_source() {
     request::<App, _, _>(|request, _ctx| async move {
-        let consent = "<p class=\"fine\">After you sign in, Google asks you to allow access to your Google Ads. Google words this permission broadly for every app. KeySend only sends read requests today, and you can remove the permission at any time.</p>";
         let body = request.get("/sign-in").await.text();
-        assert_eq!(body.matches(consent).count(), 1);
-        assert!(
-            body.find("href=\"/auth/google/start\"").unwrap() < body.find(consent).unwrap()
-        );
-        assert!(body.contains("Your Trial starts when you sign in."));
-        assert!(!body.contains(" trial"));
+        assert!(body.contains("href=\"/privacy#read\""));
+        assert!(body.find("href=\"/auth/google/start\"").unwrap() < body.find("href=\"/privacy#read\"").unwrap());
 
         let known = request.get("/sign-in?from=for-business-owners").await;
         assert_eq!(known.status_code(), 200);
@@ -1182,7 +1250,8 @@ async fn a_visitor_reads_the_romanian_home_page_directly_and_english_stays_separ
             }
             assert!(!body.contains("noindex"));
             for source in ["home-nav", "home-hero", "home-price", "home-closing"] {
-                assert!(body.contains(&format!("href=\"/sign-in?from={source}\"")));
+                let suffix = if language == "ro" { "-ro" } else { "" };
+                assert!(body.contains(&format!("href=\"/sign-in?from={source}{suffix}\"")));
             }
             assert!(body.contains(&format!("\"inLanguage\":\"{language}\"")));
             if language == "ro" {

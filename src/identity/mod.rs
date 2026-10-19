@@ -73,7 +73,7 @@ pub struct OAuthState {
     pub sign_up_source: Option<SignUpSource>,
 }
 
-const SIGN_UP_SOURCES: [&str; 9] = [
+const SIGN_UP_SOURCES: [&str; 13] = [
     "nav",
     "home-nav",
     "home-hero",
@@ -83,21 +83,36 @@ const SIGN_UP_SOURCES: [&str; 9] = [
     "for-agency-clients",
     "for-marketing-managers",
     "resource",
+    "home-nav-ro",
+    "home-hero-ro",
+    "home-price-ro",
+    "home-closing-ro",
 ];
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SignUpSource(&'static str);
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SignUpSource(String);
 
 impl SignUpSource {
     pub fn parse(value: &str) -> Option<Self> {
-        SIGN_UP_SOURCES
-            .iter()
-            .find(|source| **source == value)
-            .map(|source| Self(source))
+        let resource = value.strip_prefix("resource-").is_some_and(|digest| {
+            digest.len() == 27
+                && digest
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+        });
+        (SIGN_UP_SOURCES.contains(&value) || resource).then(|| Self(value.to_owned()))
     }
 
-    pub fn as_str(self) -> &'static str {
-        self.0
+    pub fn resource(path: &str) -> Self {
+        Self(format!("resource-{}", &hash_token(path)[..27]))
+    }
+
+    pub fn is_resource(&self) -> bool {
+        self.0.starts_with("resource-")
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
@@ -295,4 +310,30 @@ pub async fn consume_oauth(
         session_hash: row.session_hash,
         sign_up_source: row.sign_up_source.as_deref().and_then(SignUpSource::parse),
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_resource_has_a_stable_source_that_fits_the_stored_limit() {
+        let source = SignUpSource::resource("/guides/example-resource");
+        assert_eq!(source.as_str(), "resource-sanDgL4_1-xs6W_4hI6kVvCrSmZ");
+        assert_eq!(SignUpSource::parse(source.as_str()), Some(source));
+        for source in SIGN_UP_SOURCES {
+            assert_eq!(SignUpSource::parse(source).unwrap().as_str(), source);
+        }
+        for source in [
+            "resource-",
+            "resource-sanDgL4_1-xs6W_4hI6kVvCrSm",
+            "resource-sanDgL4_1-xs6W_4hI6kVvCrSmZZ",
+            "resource-sanDgL4_1-xs6W_4hI6kVvCrSm!",
+            "resource-sanDgL4_1-xs6W_4hI6kVvCrSmé",
+            "home-hero\"><script>",
+            "https://example.test",
+        ] {
+            assert_eq!(SignUpSource::parse(source), None, "{source}");
+        }
+    }
 }

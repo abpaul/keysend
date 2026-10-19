@@ -6,7 +6,7 @@
 
 <div class="card card--hero">
   <p class="lead">{{ t(key="connect_lead") }}</p>
-  <p>{{ t(key="connect_permission_note") }}</p>
+  <p>{{ t(key="connect_permission_note") }} <a href="/privacy#read">{{ t(key="footer_privacy") }}</a></p>
   <form class="actions" method="post" action="/connections/google/start">
     <button class="button" type="submit">{{ t(key="connect_google_ads") }}</button>
   </form>

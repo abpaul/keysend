@@ -14,7 +14,7 @@ use tokio::sync::Mutex;
 use crate::{
     auth::Authenticated,
     billing::{self, Checkout},
-    language::Text,
+    language::{say, Text},
     monitoring::access,
     settings::Settings,
     workspace::{Workspace, WorkspaceStore},
@@ -94,7 +94,11 @@ async fn subscribe(
     if store.ad_accounts().await?.len() > access::AD_ACCOUNT_LIMIT {
         return Ok((
             StatusCode::UNPROCESSABLE_ENTITY,
-            text.written.page_subscription_limit,
+            say!(
+                text,
+                page_subscription_limit,
+                count = access::AD_ACCOUNT_LIMIT
+            )?,
         )
             .into_response());
     }

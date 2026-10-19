@@ -542,6 +542,17 @@ async fn history(
             })
         })
         .collect::<Vec<_>>();
+    let known_campaigns = store
+        .campaigns(id)
+        .await
+        .map_err(|_| Failure::Unavailable)?
+        .into_iter()
+        .map(|campaign| campaign.id)
+        .collect::<BTreeSet<_>>();
+    let new_campaigns = campaigns
+        .iter()
+        .filter(|campaign| !known_campaigns.contains(&campaign.id))
+        .count();
     let changes_from = today
         .checked_sub_days(Days::new(28))
         .ok_or(Failure::Unavailable)?;
@@ -644,6 +655,9 @@ async fn history(
                 .record(&format!("campaign history: not stored ({kind})"))
                 .await;
             return Err(Failure::Unavailable);
+        }
+        if index == 0 {
+            tracing::info!(ad_account = id, new_campaigns, "Campaign discovery stored");
         }
     }
     breakdowns::collect(client, store, id, end, recent_only).await;

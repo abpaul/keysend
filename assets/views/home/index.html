@@ -20,7 +20,7 @@
 {% block built_with %}{% endblock built_with %}
 {% block main %}
 {% set hl %}<mark class="hl">{% endset %}{% set endhl %}</mark>{% endset %}
-{% set from = "home-hero" %}{% set hero_update = true %}{% set hero_for = t(key="home_hero_for") %}{% set hero_title = t(key="home_hero_title", hl=hl, endhl=endhl) %}{% set hero_lede = t(key="home_hero_lede") %}{% include "home/_hero.html" %}
+{% set from = "home-hero" ~ source_suffix %}{% set hero_update = true %}{% set hero_for = t(key="home_hero_for") %}{% set hero_title = t(key="home_hero_title", hl=hl, endhl=endhl) %}{% set hero_lede = t(key="home_hero_lede") %}{% include "home/_hero.html" %}
 
     <div class="field field--citron field--under">
     <section class="wrap sec" aria-labelledby="how">
@@ -30,11 +30,11 @@
         <ol class="steps">
           <li>{{ t(key="home_start_1") }}</li>
           <li>{{ t(key="home_start_2") }}</li>
-          <li>{{ t(key="home_start_3", hl=hl, endhl=endhl) }}</li>
+          <li>{{ t(key="home_start_3") }}</li>
         </ol>
         <p class="fine">{{ t(key="home_start_note") }}</p>
       </div>
-      <p class="for-row">{{ t(key="home_for_label") }} <a href="/for/agency-clients">{{ t(key="home_for_agency_clients") }}</a> <a href="/for/marketing-managers">{{ t(key="home_for_managers") }}</a></p>
+      <p class="for-row">{{ t(key="home_for_label") }} <a href="/for/business-owners">{{ t(key="for_owners_link") }}</a> <a href="/for/agency-clients">{{ t(key="home_for_agency_clients") }}</a> <a href="/for/marketing-managers">{{ t(key="home_for_managers") }}</a></p>
     </section>
     </div>
 
@@ -57,15 +57,15 @@
     </section>
     </div>
 
-{% set title = t(key="home_update_title", hl=hl, endhl=endhl) %}{% include "home/_update_points.html" %}
+{% set title = t(key="home_update_title", hl=hl, endhl=endhl) %}{% set intro = t(key="home_update_intro") %}{% set morning_title = t(key="home_point_morning_title") %}{% include "home/_update_points.html" %}
 {% set title = t(key="home_dashboard_title") %}{% include "home/_dashboard.html" %}
 {% include "home/_missed.html" %}
 {% set title = t(key="home_rec_title") %}{% set outro = t(key="home_rec_outro") %}{% include "home/_recommendations.html" %}
 {% set title = t(key="home_deep_title") %}{% include "home/_deep_check.html" %}
-{% set tiles = ["alert", "weekly", "export"] %}{% set title = t(key="home_email_title") %}{% set intro = t(key="home_email_intro") %}{% include "home/_inbox.html" %}
+{% set tiles = ["alert", "weekly", "export"] %}{% set title = t(key="home_email_title") %}{% set intro = t(key="home_email_intro") %}{% set weekly_text = t(key="home_weekly_text") %}{% set export_title = t(key="home_export_title") %}{% set export_text = t(key="home_export_text") %}{% include "home/_inbox.html" %}
 {% include "home/_founder.html" %}
 {% include "home/_trust.html" %}
-{% set from = "home-price" %}{% include "home/_price.html" %}
+{% set from = "home-price" ~ source_suffix %}{% include "home/_price.html" %}
 {% include "home/_faq.html" %}
-{% set from = "home-closing" %}{% set title = t(key="home_closing_title", hl=hl, endhl=endhl) %}{% include "home/_closing.html" %}
+{% set from = "home-closing" ~ source_suffix %}{% set title = t(key="home_closing_title", hl=hl, endhl=endhl) %}{% include "home/_closing.html" %}
 {% endblock main %}

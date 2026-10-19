@@ -158,6 +158,8 @@ fn deep_check() -> DeepCheck {
         }],
         judge_by_conversions: true,
         recommendations_generated: true,
+        assessment: None,
+        research: None,
     }
 }
 

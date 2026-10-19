@@ -701,7 +701,7 @@ fn deep_check_campaign_findings_carry_ids_even_when_names_match() {
     };
     let by_campaign = BTreeMap::from([(701, audit.clone()), (702, audit)]);
     let findings = deep_check::detect(&data, &by_campaign, AllFollowAccount { judged: true });
-    assert_eq!(findings[0].rule.detail,"Shared spent $600 for 1 conversions ($600 per conversion). The Ad Account cost per conversion is $100.");
+    assert_eq!(findings[0].rule.detail,"Shared spent $600 for 1 conversions ($600 per conversion). The Ad Account cost per conversion is $100. It had 60% of the spend and 10% of the conversions.");
     assert_eq!(
         findings
             .iter()
@@ -1539,6 +1539,10 @@ fn weekly_with_campaign_names() -> super::email::WeeklyEmail {
                 action: "Pause Search - Emergency on Sunday.".into(),
                 reason: "Display - Remarketing has the same clicks.".into(),
                 evidence: "Tom & <b>Jerry</b>: $186 spend.".into(),
+                measure: String::new(),
+                intent: String::new(),
+                subject: String::new(),
+                confidence: Default::default(),
                 campaign_id: Some(3),
                 state: crate::workspace::monitoring::RecommendationState::Open,
             }),
@@ -1692,4 +1696,18 @@ fn the_alerts_that_name_no_campaign_have_no_highlight() {
         .html;
         assert!(!html.contains("EEE9F6"), "{html}");
     }
+}
+
+#[test]
+fn a_quiet_week_without_any_conversion_does_not_call_conversions_normal() {
+    let mut rows = days(62);
+    for row in rows.iter_mut().filter(|row| row.day >= 50) {
+        row.metrics.conversions = Some(0.0);
+    }
+    let detection = detection(&rows, 0, true);
+    assert!(detection.quiet());
+    assert_eq!(
+        update::quiet(&detection),
+        "No conversion was recorded in the last 7 days, while spend and clicks stayed inside their normal range."
+    );
 }

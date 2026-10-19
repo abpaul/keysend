@@ -7,10 +7,10 @@
 {% block legal_kicker %}Terms{% endblock legal_kicker %}
 {% block legal_title %}The deal, in plain words.{% endblock legal_title %}
 {% block legal_lede %}You get a 14-day Trial, then a monthly Subscription. KeySend only reads your Google Ads data. You decide what to change in Google Ads.{% endblock legal_lede %}
-{% block legal_updated %}Last updated 12 October 2026.{% endblock legal_updated %}
+{% block legal_updated %}Last updated 19 October 2026.{% endblock legal_updated %}
 {% block legal_short %}
             <li>KeySend only reads your Google Ads data. It never changes a campaign, an ad, a budget, or a billing setting.</li>
-            <li>The Trial is 14 days and needs no payment card. After it, the Subscription is $49 a month for up to 3 Ad Accounts.</li>
+            <li>The Trial is 14 days and needs no payment card. After it, the Subscription is $49 a month for up to {{ limit }} Ad Accounts.</li>
             <li>Code calculates every Metric. AI writes the Updates and the Recommendations. You decide what to change in Google Ads.</li>
             <li>You can cancel the Subscription at any time.</li>
 {%- endblock legal_short %}
@@ -66,12 +66,12 @@
                 <tr>
                   <th scope="row">Trial</th>
                   <td data-label="Price">Free, for 14 days</td>
-                  <td>Everything, for up to 3 Ad Accounts. No payment card.</td>
+                  <td>Everything, for up to {{ limit }} Ad Accounts. No payment card.</td>
                 </tr>
                 <tr>
                   <th scope="row">Subscription</th>
                   <td data-label="Price">$49 a month</td>
-                  <td>Daily Updates, the Weekly email, Alerts and Exports, for up to 3 Ad Accounts.</td>
+                  <td>Daily Updates, the Weekly email, Alerts and Exports, for up to {{ limit }} Ad Accounts.</td>
                 </tr>
               </tbody>
             </table>

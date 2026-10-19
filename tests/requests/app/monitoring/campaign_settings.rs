@@ -53,6 +53,7 @@ async fn set_ad_account_target(f: &Fixture, cost: f64) {
                 goal: String::new(),
                 target_cost: Some(cost),
                 note: String::new(),
+                economics: Default::default(),
             },
         )
         .await
@@ -788,13 +789,15 @@ async fn the_note_of_a_campaign_reaches_the_recommendation_prompt_next_to_its_fi
         .resolved_settings(AD, day_number(end()))
         .await
         .unwrap();
-    let recommendations = keysend::monitoring::deep_check::recommendations(
+    let recommendations = keysend::monitoring::deep_check::review(
         &Settings::load(&f.ctx).unwrap(),
         &check,
+        &Default::default(),
         &rules,
     )
     .await
-    .unwrap();
+    .unwrap()
+    .recommendations;
     assert_eq!(recommendations.len(), 1);
     let (input, instructions) = ai_input(&f, 0).await;
     assert_eq!(

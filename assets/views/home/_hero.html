@@ -6,12 +6,16 @@
             {% if hero_for %}<p class="hero-for">{{ hero_for }}</p>{% endif %}
             <p class="lede">{{ hero_lede }}</p>
             <div class="cta">
-              <a class="btn btn-citron btn-lg" href="/sign-in?from={{ from }}">{{ t(key="home_see_update") }}</a>
-              <p>{{ t(key="home_cta_note", trial_days=trial_days) }}</p>
+              <a class="btn btn-citron btn-lg" href="/sign-in?from={{ from }}">{{ t(key="home_start_trial", trial_days=trial_days) }}</a>
+              <p><a href="/sample-report.pdf">{{ t(key="home_sample_cta") }}</a> · {{ t(key="home_sample_note") }}</p>
+              <p>{{ t(key="home_cta_note") }}</p>
+              <p>{{ t(key="home_hero_terms", price=price_text, count=limit) }}</p>
             </div>
+            <p class="fine">{{ t(key="connect_permission_note") }} <a href="/privacy#read">{{ t(key="footer_privacy") }}</a> <a href="/security">{{ t(key="footer_security") }}</a></p>
           </div>
           {% if hero_update %}<figure class="hero-shot demo">
             {% include "monitoring/_update.html" %}
+            <figcaption>{{ t(key="home_example_label") }}</figcaption>
           </figure>{% endif %}
         </div>
       </div>

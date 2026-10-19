@@ -4,6 +4,7 @@
         <h2 id="email">{{ title }}</h2>
         <p>{{ intro }}</p>
       </div>
+      <p class="fine">{{ t(key="home_example_label") }}</p>
       <div class="tiles">
         {% if "alert" in tiles %}<div class="mail{% if "weekly" in tiles %} c6{% endif %}">
           <h3>{{ t(key="home_alert_title") }}</h3>
@@ -12,14 +13,16 @@
         </div>{% endif %}
         {% if "weekly" in tiles %}<div class="mail{% if "alert" in tiles %} c6{% endif %}">
           <h3>{{ t(key="home_weekly_title") }}</h3>
-          <p>{{ t(key="home_weekly_text") }}</p>
+          <p>{{ weekly_text }}</p>
           <p class="msg"><span>{{ t(key="home_weekly_from") }}</span><b>{{ t(key="home_weekly_subject") }}</b></p>
         </div>{% endif %}
         {% if "export" in tiles %}<div class="export">
           <div>
-            <h3>{{ t(key="home_export_title") }}</h3>
-            <p>{{ t(key="home_export_text") }}</p>
+            <h3>{{ export_title }}</h3>
+            <p>{{ export_text }}</p>
             <p class="fine">{{ t(key="home_export_note") }}</p>
+            <p class="fine">{{ t(key="home_export_example") }}</p>
+            <p class="fine"><a href="/sample-report.pdf">{{ t(key="home_sample_cta") }}</a> · {{ t(key="home_sample_note") }}</p>
           </div>
           <img class="paper" src="{% if lang() == 'ro' %}{{ assets["images/home/export-ro.webp"] }}{% else %}{{ assets["images/home/export.webp"] }}{% endif %}" alt="{{ t(key="home_shot_export_alt") }}" width="420" height="594" loading="lazy" decoding="async">
         </div>{% endif %}

@@ -236,11 +236,14 @@ fn open_recommendations(
                 let action = campaigns.line(&recommendation.action);
                 json!({
                     "finding_key": recommendation.finding_key,
+                    "subject": recommendation.subject,
+                    "confidence": recommendation.confidence,
                     "action": action.text,
                     "action_english": action.english,
                     "action_parts": campaigns.parts(&recommendation.action, about),
                     "finding": finding.map(|finding| campaigns.parts(&finding.title, about)),
                     "impact": campaigns.parts(&recommendation.reason, about),
+                    "measure": if recommendation.measure.trim().is_empty() { None } else { Some(campaigns.parts(&recommendation.measure, about)) },
                     "evidence": campaigns.parts(&recommendation.evidence, about),
                 })
             },
@@ -394,6 +397,7 @@ async fn show(
         let translations = Translations::load(&store, signed.user.language, wanted).await?;
         return ended(text, &v, &store, &ad, &updates, translations).await;
     }
+    let check = store.latest_deep_check(&id).await?;
     let latest = store.latest_update(&id).await?;
     let window = window_of(query.window.as_deref());
     let clock = clock(&store, &settings, &id).await?;
@@ -416,6 +420,9 @@ async fn show(
         None => Vec::new(),
     };
     let mut wanted = Wanted::default();
+    if let Some(assessment) = check.as_ref().and_then(|check| check.assessment.as_ref()) {
+        wanted.assessment(assessment);
+    }
     if let Some(update) = &latest {
         wanted.update(update);
     }
@@ -434,7 +441,27 @@ async fn show(
         |campaign| with_window(&campaign_path(&id, campaign), window),
     )
     .translated(Translations::load(&store, signed.user.language, wanted).await?);
+    let assessment = check.as_ref().and_then(|check| check.assessment.as_ref().map(|assessment| (check.day, assessment)))
+        .map(|(day, assessment)| {
+            let shown = view::assessment_text(text, day, assessment, &Translations::english())?;
+            Ok::<_, Error>(json!({
+                "result": shown.result,
+                "period": shown.period,
+                "headline": linked.parts(&assessment.headline, None),
+                "sources": if assessment.market.as_ref().is_some_and(|market| !market.trim().is_empty()) {
+                    view::market_sources(check.as_ref().and_then(|check| check.research.as_ref()))
+                } else { Vec::new() },
+                "sections": shown.sections.into_iter().map(|(label, items)| json!({
+                    "label": label,
+                    "items": items.iter().map(|item| json!({
+                        "observation": linked.parts(&item.observation, None),
+                        "explanation": item.explanation.as_ref().map(|explanation| linked.parts(explanation, None)),
+                    })).collect::<Vec<_>>()
+                })).collect::<Vec<_>>()
+            }))
+        }).transpose()?;
     let mut data = json!({
+        "assessment": assessment,
         "ad": {"id": id, "name": ad.name},
         "settings_href": format!("{path}/settings"),
         "export": {"action": format!("{path}/export.pdf"), "window": window.days()},
@@ -447,7 +474,7 @@ async fn show(
         "recommendations": open_recommendations(recommendations, None, &linked),
         "panel_open": query.recommendations.as_deref() == Some(PANEL_OPEN),
         "panel_href": panel_href(&path, window),
-        "deep_checked": store.has_deep_check(&id).await?,
+        "deep_checked": check.is_some(),
         "reading_failed": latest.is_none()
             && history.as_ref().is_some_and(|state| state.error.is_some()),
         "return_to": {"window": if window == Window::ThirtyDays { "30" } else { "7" }},
@@ -588,7 +615,7 @@ fn campaign_rows(
                 ),
             )
         })
-        .filter(|(_, metrics)| metrics.current.serving() || metrics.previous.serving())
+        .filter(|(campaign, metrics)| view::listed(campaign, metrics))
         .collect::<Vec<_>>();
     rows.sort_by(|(a, a_metrics), (b, b_metrics)| {
         b_metrics
@@ -893,6 +920,10 @@ async fn close_recommendation(
 struct SettingsValues {
     goal: String,
     target_cost: String,
+    margin: String,
+    customer_value: String,
+    close_rate: String,
+    target_return: String,
     note: String,
     judge: Option<bool>,
     name: String,
@@ -939,6 +970,26 @@ async fn settings_page(
                     target_cost: profile
                         .target_cost
                         .map(|cost| format!("{cost:.2}"))
+                        .unwrap_or_default(),
+                    margin: profile
+                        .economics
+                        .margin
+                        .map(|value| format!("{:.2}", value * 100.0))
+                        .unwrap_or_default(),
+                    customer_value: profile
+                        .economics
+                        .customer_value
+                        .map(|value| format!("{value:.2}"))
+                        .unwrap_or_default(),
+                    close_rate: profile
+                        .economics
+                        .close_rate
+                        .map(|value| format!("{:.2}", value * 100.0))
+                        .unwrap_or_default(),
+                    target_return: profile
+                        .economics
+                        .target_return
+                        .map(|value| format!("{value:.2}"))
                         .unwrap_or_default(),
                     note: profile.note,
                     judge: Some(judged),
@@ -1031,6 +1082,10 @@ async fn save_settings(
         match name.as_deref() {
             Some("goal") => values.goal = text,
             Some("target_cost") => values.target_cost = text,
+            Some("margin") => values.margin = text,
+            Some("customer_value") => values.customer_value = text,
+            Some("close_rate") => values.close_rate = text,
+            Some("target_return") => values.target_return = text,
             Some("note") => values.note = text,
             Some("name") => values.name = text,
             Some("accent_colour") => values.accent_colour = text,
@@ -1052,12 +1107,69 @@ async fn save_settings(
             message: text.written.page_target_not_number,
         });
     }
+    let mut economics = crate::monitoring::economics::Economics::default();
+    for (key, value, destination, scale, limit) in [
+        (
+            "margin",
+            &values.margin,
+            &mut economics.margin,
+            100.0,
+            100.0,
+        ),
+        (
+            "customer_value",
+            &values.customer_value,
+            &mut economics.customer_value,
+            1.0,
+            1e9,
+        ),
+        (
+            "close_rate",
+            &values.close_rate,
+            &mut economics.close_rate,
+            100.0,
+            100.0,
+        ),
+        (
+            "target_return",
+            &values.target_return,
+            &mut economics.target_return,
+            1.0,
+            1e4,
+        ),
+    ] {
+        let parsed = TargetCost::parse(value);
+        let message = match parsed {
+            TargetCost::NotANumber => Some(text.written.page_economics_not_number),
+            TargetCost::Amount(amount)
+                if amount <= 0.0 || amount > limit || (scale == 1.0 && amount == limit) =>
+            {
+                Some(if scale == 100.0 {
+                    text.written.page_economics_share_invalid
+                } else if key == "customer_value" {
+                    text.written.page_customer_value_invalid
+                } else {
+                    text.written.page_target_return_invalid
+                })
+            }
+            _ => None,
+        };
+        if let Some(message) = message {
+            errors.push(FieldError {
+                key,
+                field: key,
+                message,
+            });
+        }
+        *destination = parsed.amount().map(|amount| amount / scale);
+    }
     let profile = Profile {
         goal: values.goal.clone(),
         target_cost: cost.amount(),
         note: values.note.clone(),
+        economics,
     };
-    if cost != TargetCost::NotANumber && !profile.valid() {
+    if errors.is_empty() && !profile.valid() {
         errors.push(FieldError {
             key: "note",
             field: "note",

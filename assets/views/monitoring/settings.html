@@ -48,6 +48,32 @@
       {% endif %}
     </div>
     <div class="field">
+      <label class="label" for="margin">{{ t(key="settings_margin_label") }}</label>
+      <span class="hint" id="margin-hint">{{ t(key="settings_margin_hint") }}</span>
+      {% if field_errors.margin %}<p class="error-message" id="margin-error">{{ t(key="error_message", message=field_errors.margin) }}</p>{% endif %}
+      <input class="input input--short num{% if field_errors.margin %} input--error{% endif %}" type="text" inputmode="decimal" id="margin" name="margin" value="{{ values.margin }}" aria-describedby="margin-hint{% if field_errors.margin %} margin-error{% endif %}"{% if field_errors.margin %} aria-invalid="true"{% endif %}>
+    </div>
+    <div class="field">
+      <label class="label" for="customer_value">{{ t(key="settings_customer_value_label") }}</label>
+      <span class="hint" id="customer_value-hint">{{ t(key="settings_customer_value_hint") }}</span>
+      {% if field_errors.customer_value %}<p class="error-message" id="customer_value-error">{{ t(key="error_message", message=field_errors.customer_value) }}</p>{% endif %}
+      {% if currency_mark %}<div class="input-prefix"><span aria-hidden="true">{{ currency_mark }}</span>{% endif %}
+      <input class="input input--short num{% if field_errors.customer_value %} input--error{% endif %}" type="text" inputmode="decimal" id="customer_value" name="customer_value" value="{{ values.customer_value }}" aria-describedby="customer_value-hint{% if field_errors.customer_value %} customer_value-error{% endif %}"{% if field_errors.customer_value %} aria-invalid="true"{% endif %}>
+      {% if currency_mark %}</div>{% endif %}
+    </div>
+    <div class="field">
+      <label class="label" for="close_rate">{{ t(key="settings_close_rate_label") }}</label>
+      <span class="hint" id="close_rate-hint">{{ t(key="settings_close_rate_hint") }}</span>
+      {% if field_errors.close_rate %}<p class="error-message" id="close_rate-error">{{ t(key="error_message", message=field_errors.close_rate) }}</p>{% endif %}
+      <input class="input input--short num{% if field_errors.close_rate %} input--error{% endif %}" type="text" inputmode="decimal" id="close_rate" name="close_rate" value="{{ values.close_rate }}" aria-describedby="close_rate-hint{% if field_errors.close_rate %} close_rate-error{% endif %}"{% if field_errors.close_rate %} aria-invalid="true"{% endif %}>
+    </div>
+    <div class="field">
+      <label class="label" for="target_return">{{ t(key="settings_target_return_label") }}</label>
+      <span class="hint" id="target_return-hint">{{ t(key="settings_target_return_hint") }}</span>
+      {% if field_errors.target_return %}<p class="error-message" id="target_return-error">{{ t(key="error_message", message=field_errors.target_return) }}</p>{% endif %}
+      <input class="input input--short num{% if field_errors.target_return %} input--error{% endif %}" type="text" inputmode="decimal" id="target_return" name="target_return" value="{{ values.target_return }}" aria-describedby="target_return-hint{% if field_errors.target_return %} target_return-error{% endif %}"{% if field_errors.target_return %} aria-invalid="true"{% endif %}>
+    </div>
+    <div class="field">
       <label class="label" for="note">{{ t(key="note_label") }}</label>
       <span class="hint" id="note-hint">{{ t(key="settings_note_hint") }}</span>
       {% if field_errors.note %}<p class="error-message" id="note-error"><span class="visually-hidden">{{ t(key="error_message", message=field_errors.note) }}</span><span aria-hidden="true">{{ field_errors.note }}</span></p>{% endif %}

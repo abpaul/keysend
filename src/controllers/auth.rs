@@ -12,34 +12,56 @@ use serde::Deserialize;
 
 use crate::{
     auth::{Authenticated, OAUTH_COOKIE, SESSION_COOKIE},
+    content::Catalog,
     google, identity,
     language::Language,
     settings::Settings,
     workspace::WorkspaceStore,
 };
 
-fn sign_up_source(query: &HashMap<String, String>) -> Option<identity::SignUpSource> {
+fn sign_up_source(
+    query: &HashMap<String, String>,
+    catalog: &Catalog,
+) -> Option<identity::SignUpSource> {
     query
         .get("from")
         .and_then(|value| identity::SignUpSource::parse(value))
+        .filter(|source| {
+            !source.is_resource()
+                || catalog
+                    .visible(crate::settings::wall_clock())
+                    .iter()
+                    .any(|entry| identity::SignUpSource::resource(&entry.path) == *source)
+        })
 }
 
 async fn sign_in(
     ViewEngine(v): ViewEngine<TeraView>,
+    Extension(catalog): Extension<Arc<Catalog>>,
     Query(query): Query<HashMap<String, String>>,
 ) -> Result<Response> {
-    let from = sign_up_source(&query).map(identity::SignUpSource::as_str);
+    let source = sign_up_source(&query, &catalog);
+    let from = source.as_ref().map(identity::SignUpSource::as_str);
     format::render().view(&v, "auth/sign_in.html", data!({"from": from}))
 }
 
 async fn start(
     State(ctx): State<AppContext>,
     Extension(settings): Extension<Arc<Settings>>,
+    Extension(catalog): Extension<Arc<Catalog>>,
     jar: CookieJar,
     Query(query): Query<HashMap<String, String>>,
     ViewEngine(v): ViewEngine<TeraView>,
 ) -> Result<Response> {
-    start_flow(&ctx, &settings, jar, &v, None, sign_up_source(&query)).await
+    start_flow(
+        &ctx,
+        &settings,
+        jar,
+        &v,
+        None,
+        sign_up_source(&query, &catalog),
+    )
+    .await
 }
 
 async fn connect(
@@ -343,4 +365,34 @@ pub fn routes() -> Routes {
         )
         .add("/connections/google/start", post(connect))
         .add("/sign-out", post(sign_out))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_a_visible_resource_can_supply_a_sign_up_source() {
+        let catalog: Catalog = serde_json::from_value(serde_json::json!({
+            "schema_version": 2,
+            "calculator_js": "",
+            "entries": [
+                {"path": "/guides/example-resource", "title": "Example", "seo_title": "Example", "updated_at": null, "intent": "commercial", "related": [], "cta": {"heading": "", "text": "", "link": null}, "description": "Example", "publish_at": "2000-01-01T00:00:00Z", "kind": "guide", "cluster": "reporting-basics", "body_html": ""},
+                {"path": "/guides/future-resource", "title": "Future", "seo_title": "Example", "updated_at": null, "intent": "commercial", "related": [], "cta": {"heading": "", "text": "", "link": null}, "description": "Future", "publish_at": "9999-01-01T00:00:00Z", "kind": "guide", "cluster": "reporting-basics", "body_html": ""}
+            ]
+        })).unwrap();
+        for (path, allowed) in [
+            ("/guides/example-resource", true),
+            ("/guides/future-resource", false),
+            ("/guides/unknown-resource", false),
+        ] {
+            let source = identity::SignUpSource::resource(path);
+            let query = HashMap::from([("from".into(), source.as_str().into())]);
+            assert_eq!(sign_up_source(&query, &catalog), allowed.then_some(source));
+        }
+        for value in ["resource", "home-hero", "home-hero-ro"] {
+            let query = HashMap::from([("from".into(), value.into())]);
+            assert_eq!(sign_up_source(&query, &catalog).unwrap().as_str(), value);
+        }
+    }
 }

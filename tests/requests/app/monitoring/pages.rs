@@ -342,6 +342,10 @@ async fn deep_check(f: &Fixture, tracked: bool) {
         action: action.into(),
         reason: "The Finding shows spend without results.".into(),
         evidence: evidence.into(),
+        measure: String::new(),
+        intent: String::new(),
+        subject: String::new(),
+        confidence: Default::default(),
         campaign_id: Some(campaign),
         state: RecommendationState::Open,
     };
@@ -776,7 +780,7 @@ async fn after_the_trial_the_page_keeps_the_updates_and_offers_the_subscription(
         .unwrap();
     let page = f.page(PAGE).await;
     assert!(page.contains(r#"<p class="lead">Your Trial ended on 11 October. We have stopped writing Updates for this Ad Account.</p>"#), "{page}");
-    assert!(page.contains("It costs $49 per month for up to 3 Ad Accounts."));
+    assert!(page.contains("It costs $49 per month for up to 5 Ad Accounts."));
     assert!(page.contains(r#"<a class="button" href="/subscription">Start the Subscription</a>"#));
     assert!(page.contains(r#"<h2 class="heading-m" id="earlier">Updates from your Trial</h2>"#));
     assert!(page.contains("<h3>Monday 12 October</h3>"));
@@ -989,7 +993,7 @@ async fn the_monitoring_pages_refuse_another_workspace_and_a_signed_out_user() {
     let empty = f.request.get("/ad-accounts").add_cookie(f.b.clone()).await;
     assert_eq!(empty.status_code(), 200);
     assert!(!empty.text().contains("Harbour Dental"));
-    assert!(empty.text().contains("You use 0 of 3 Ad Accounts."));
+    assert!(empty.text().contains("You use 0 of 5 Ad Accounts."));
     let page = f.page(PAGE).await;
     assert!(page.contains(JOBS_ACTION));
     assert!(!page.contains("You marked this Update as not useful."));
@@ -1139,7 +1143,7 @@ async fn the_ad_accounts_list_shows_the_first_sentence_and_one_ad_account_goes_t
     assert!(page.contains(&format!(
         r#"<form method="post" action="/connections/{connection}/ad-accounts"><button class="button" type="submit">Add an Ad Account</button></form>"#
     )));
-    assert!(page.contains("You use 2 of 3 Ad Accounts."));
+    assert!(page.contains("You use 2 of 5 Ad Accounts."));
     assert!(page.contains(r#"<a href="/ad-accounts" aria-current="page">Ad Accounts</a>"#));
 }
 
@@ -1505,14 +1509,14 @@ async fn a_logo_uploaded_in_the_settings_is_stored_square_and_only_for_its_works
 
 #[tokio::test]
 #[serial]
-async fn the_settings_offer_to_add_an_ad_account_until_three_are_in_use() {
+async fn the_user_can_add_five_ad_accounts_and_cannot_post_a_sixth() {
     let f = normal_day().await;
     let signed = signed(&f).await;
     let store = WorkspaceStore::new(&f.ctx.db, &signed.workspace);
     let connection = store.google_connections().await.unwrap().remove(0).id;
     let page = f.page(&format!("{PAGE}/settings")).await;
     assert!(page.contains(r#"<h2 class="heading-m" id="ad-accounts-h">Your Ad Accounts</h2>"#));
-    assert!(page.contains("You use 1 of 3 Ad Accounts."));
+    assert!(page.contains("You use 1 of 5 Ad Accounts."));
     assert!(page.contains(&format!(
         r#"<form method="post" action="/connections/{connection}/ad-accounts"><button class="button" type="submit">Add an Ad Account</button></form>"#
     )));
@@ -1520,7 +1524,7 @@ async fn the_settings_offer_to_add_an_ad_account_until_three_are_in_use() {
     let selection = store
         .create_selection(
             &connection,
-            ["6170254418", "3309581126"]
+            ["6170254418", "3309581126", "5550000001", "5550000002"]
                 .map(|id| AdAccountChoice {
                     customer_id: id.into(),
                     name: id.into(),
@@ -1531,11 +1535,19 @@ async fn the_settings_offer_to_add_an_ad_account_until_three_are_in_use() {
         .await
         .unwrap();
     assert!(store
-        .save_selected(&selection, &["6170254418".into(), "3309581126".into()])
+        .save_selected(
+            &selection,
+            &[
+                "6170254418".into(),
+                "3309581126".into(),
+                "5550000001".into(),
+                "5550000002".into()
+            ]
+        )
         .await
         .unwrap());
     let full = f.page(&format!("{PAGE}/settings")).await;
-    assert!(full.contains("You use 3 of 3 Ad Accounts."));
+    assert!(full.contains("You use 5 of 5 Ad Accounts."));
     assert!(full.contains("To add another Ad Account, remove one first."));
     assert!(!full.contains("Add an Ad Account</button>"));
     let more = store
@@ -1543,7 +1555,7 @@ async fn the_settings_offer_to_add_an_ad_account_until_three_are_in_use() {
             &connection,
             vec![AdAccountChoice {
                 customer_id: "9042276630".into(),
-                name: "Fourth".into(),
+                name: "Sixth".into(),
                 login_customer_id: None,
             }],
         )
@@ -1559,8 +1571,10 @@ async fn the_settings_offer_to_add_an_ad_account_until_three_are_in_use() {
     assert_eq!(refused.status_code(), 422);
     assert!(refused
         .text()
-        .contains("You would have 4 Ad Accounts. Choose up to 3 in all."));
-    assert_eq!(store.ad_accounts().await.unwrap().len(), 3);
+        .contains("You would have 6 Ad Accounts. Choose up to 5 in all."));
+    let after = f.page(&format!("{PAGE}/settings")).await;
+    assert!(after.contains("You use 5 of 5 Ad Accounts."));
+    assert!(!after.contains("Sixth"));
 }
 
 const BUDGET_KEY: &str = "budget-limited:2:Search - Emergency (2)";
@@ -1614,6 +1628,10 @@ async fn named_campaigns() -> Fixture {
         action: action.into(),
         reason: "The Finding shows it.".into(),
         evidence: evidence.into(),
+        measure: String::new(),
+        intent: String::new(),
+        subject: String::new(),
+        confidence: Default::default(),
         campaign_id: Some(campaign),
         state: RecommendationState::Open,
     };
@@ -1749,4 +1767,186 @@ async fn a_stored_recommendation_is_read_without_the_campaign_id_for_the_email_a
             ),
         ]
     );
+}
+
+#[tokio::test]
+#[serial]
+async fn a_user_reads_the_assessment_and_how_to_check_a_recommendation() {
+    use keysend::monitoring::assessment::{Assessment, Verdict};
+    let f = normal_day().await;
+    let signed = signed(&f).await;
+    let store = WorkspaceStore::new(&f.ctx.db, &signed.workspace);
+    let mut check = check(day_number(today()));
+    check.findings = vec![standing_finding()];
+    check.assessment = Some(Assessment {
+        verdict: Verdict::Mixed,
+        headline: "Search - Emergency has more enquiries.".into(),
+        worked: vec![keysend::monitoring::claims::Point {
+            observation: "Search - Emergency delivered 42 conversions.".into(),
+            explanation: Some("The new opening hours may have helped.".into()),
+        }],
+        attention: vec!["Review wasted searches.".into()],
+        next: vec!["Check the search terms.".into()],
+        market: Some("Demand varies in autumn.".into()),
+        written_without_ai: false,
+    });
+    check.research = Some(keysend::monitoring::business::Research {
+        day: check.day,
+        website: Some("https://example.com".into()),
+        found: true,
+        kind: keysend::monitoring::business::Kind::LocalService,
+        summary: String::new(),
+        offers: vec![],
+        areas: vec![],
+        facts: vec![keysend::monitoring::business::Fact {
+            claim: "Demand varies in autumn.".into(),
+            kind: keysend::monitoring::business::FactKind::Seasonality,
+            source: "https://example.com/season".into(),
+            verified: true,
+        }],
+    });
+    let mut recommendation = standing_recommendation();
+    recommendation.subject = "dental implants jobs".into();
+    recommendation.confidence = keysend::monitoring::recommendation::Confidence::High;
+    recommendation.measure = "Compare conversions after 30 days.".into();
+    store
+        .refresh_deep_check(AD, &check, &[recommendation])
+        .await
+        .unwrap();
+    let page = f.page(PAGE).await;
+    for words in [
+        "Assessment",
+        "Possible explanation",
+        "The new opening hours may have helped.",
+        "Sources: example.com",
+        "Confidence: high",
+        "About: dental implants jobs",
+        "Result: Mixed",
+        "What worked",
+        "Needs attention",
+        "Next 30 days",
+        "Market context",
+        "Review wasted searches.",
+        "Check the search terms.",
+        "Demand varies in autumn.",
+        "How to check",
+        "Compare conversions after 30 days.",
+    ] {
+        assert!(page.contains(words), "Missing {words}");
+    }
+    let period = format!(
+        "The 30 days to {}",
+        Language::En
+            .text()
+            .unwrap()
+            .written
+            .format
+            .date_with_year(today().pred_opt().unwrap())
+    );
+    assert!(page.contains(&period), "{period}");
+    assert!(page.contains(
+        r#"href="/ad-accounts/4829153307/campaigns/2">Search - Emergency</a> has more enquiries."#
+    ));
+    assert!(page.find("Result: Mixed").unwrap() < page.find("An Update always compares").unwrap());
+    check.assessment = None;
+    let mut recommendation = standing_recommendation();
+    recommendation.measure.clear();
+    recommendation.finding_key = "legacy-recommendation".into();
+    check.findings[0].rule.key = recommendation.finding_key.clone();
+    store
+        .refresh_deep_check(AD, &check, &[recommendation])
+        .await
+        .unwrap();
+    let page = f.page(PAGE).await;
+    assert!(!page.contains("Result: Mixed"));
+    assert!(!page.contains("How to check"));
+}
+
+#[tokio::test]
+#[serial]
+async fn a_user_saves_and_reopens_the_ad_account_economics_and_sees_invalid_values_refused() {
+    let f = normal_day().await;
+    let path = format!("{PAGE}/settings");
+    let form = || {
+        settings_form()
+            .add_text("margin", "35.5")
+            .add_text("customer_value", "250.75")
+            .add_text("close_rate", "20")
+            .add_text("target_return", "4")
+    };
+    let saved = f
+        .request
+        .post(&path)
+        .add_header("origin", ORIGIN)
+        .add_cookie(f.a.clone())
+        .multipart(form())
+        .await;
+    assert_eq!(saved.status_code(), 303);
+    let page = f.page(&path).await;
+    for value in [
+        r#"name="margin" value="35.50""#,
+        r#"name="customer_value" value="250.75""#,
+        r#"name="close_rate" value="20.00""#,
+        r#"name="target_return" value="4.00""#,
+    ] {
+        assert!(page.contains(value), "Missing {value}");
+    }
+    for (field, value) in [
+        ("margin", "0"),
+        ("margin", "101"),
+        ("margin", "-1"),
+        ("customer_value", "-1"),
+        ("customer_value", "0"),
+        ("customer_value", "1000000000"),
+        ("close_rate", "0"),
+        ("close_rate", "101"),
+        ("target_return", "-4"),
+        ("target_return", "0"),
+        ("target_return", "10000"),
+        ("margin", "cheap"),
+        ("customer_value", "NaN"),
+        ("close_rate", "cheap"),
+        ("target_return", "infinity"),
+    ] {
+        let refused = f
+            .request
+            .post(&path)
+            .add_header("origin", ORIGIN)
+            .add_cookie(f.a.clone())
+            .multipart(settings_form().add_text(field, value))
+            .await;
+        assert_eq!(refused.status_code(), 422, "{field}: {value}");
+        assert!(refused.text().contains(&format!("{field}-error")));
+        assert!(f
+            .page(&path)
+            .await
+            .contains(r#"name="margin" value="35.50""#));
+    }
+    let whole_share = f
+        .request
+        .post(&path)
+        .add_header("origin", ORIGIN)
+        .add_cookie(f.a.clone())
+        .multipart(
+            settings_form()
+                .add_text("margin", "100")
+                .add_text("close_rate", "100"),
+        )
+        .await;
+    assert_eq!(whole_share.status_code(), 303);
+    let page = f.page(&path).await;
+    assert!(page.contains(r#"name="margin" value="100.00""#));
+    assert!(page.contains(r#"name="close_rate" value="100.00""#));
+    let cleared = f
+        .request
+        .post(&path)
+        .add_header("origin", ORIGIN)
+        .add_cookie(f.a.clone())
+        .multipart(settings_form())
+        .await;
+    assert_eq!(cleared.status_code(), 303);
+    let page = f.page(&path).await;
+    for field in ["margin", "customer_value", "close_rate", "target_return"] {
+        assert!(page.contains(&format!(r#"name="{field}" value="""#)));
+    }
 }

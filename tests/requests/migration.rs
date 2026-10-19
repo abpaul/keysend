@@ -250,7 +250,7 @@ async fn the_breakdown_tables_have_no_rowid_and_go_with_their_ad_account() {
             "{table}"
         );
     }
-    Migrator::down(&db, Some(6)).await.unwrap();
+    Migrator::down(&db, Some(7)).await.unwrap();
     let remaining = tables(&db).await;
     for table in new {
         assert!(!remaining.contains(&table.to_owned()), "{table}");
@@ -309,7 +309,7 @@ async fn the_campaign_settings_table_has_no_rowid_keeps_unset_values_null_and_go
         count(&db, "SELECT COUNT(*) AS n FROM campaign_settings").await,
         0
     );
-    Migrator::down(&db, Some(5)).await.unwrap();
+    Migrator::down(&db, Some(6)).await.unwrap();
     assert!(!tables(&db).await.contains(&"campaign_settings".to_owned()));
     drop(db);
     std::fs::remove_file(path).ok();
@@ -345,7 +345,7 @@ async fn users_keep_english_and_the_language_column_refuses_other_codes() {
     ] {
         assert!(db.execute_unprepared(refused).await.is_err(), "{refused}");
     }
-    Migrator::down(&db, Some(4)).await.unwrap();
+    Migrator::down(&db, Some(5)).await.unwrap();
     assert_eq!(count(&db, "SELECT COUNT(*) AS n FROM users").await, 2);
     drop(db);
     remove_database(&path);
@@ -390,7 +390,7 @@ async fn translations_have_no_rowid_refuse_english_and_go_with_their_ad_account(
         count(&db, "SELECT COUNT(*) AS n FROM translations").await,
         0
     );
-    Migrator::down(&db, Some(3)).await.unwrap();
+    Migrator::down(&db, Some(4)).await.unwrap();
     assert!(!tables(&db).await.contains(&"translations".to_owned()));
     drop(db);
     remove_database(&path);
@@ -434,7 +434,7 @@ async fn the_sign_up_source_is_optional_short_and_goes_with_its_migration() {
     ] {
         assert!(db.execute_unprepared(&refused).await.is_err(), "{refused}");
     }
-    Migrator::down(&db, Some(2)).await.unwrap();
+    Migrator::down(&db, Some(3)).await.unwrap();
     assert_eq!(
         count(
             &db,
@@ -487,6 +487,56 @@ async fn stored_updates_lose_the_results_sentence_and_keep_the_rest_of_their_sum
             "Spend rose 2.8% to RON 251.",
             "Conversions rose from 88 to 104."
         ]
+    );
+    drop(db);
+    remove_database(&path);
+}
+
+#[tokio::test]
+async fn the_economics_of_an_ad_account_profile_are_optional_and_refuse_impossible_values() {
+    let path = std::env::temp_dir().join(format!(
+        "keysend-migration-{}.sqlite",
+        keysend::identity::random_token()
+    ));
+    let db = pool(&path, 1).await;
+    Migrator::up(&db, Some(16)).await.unwrap();
+    for sql in [
+        "INSERT INTO users(id,google_subject_id,email,name) VALUES ('u1','g1','owner@example.com','Owner')",
+        "INSERT INTO workspaces(id,user_id) VALUES ('w1','u1')",
+        "INSERT INTO google_connections(id,workspace_id,google_subject_id,email,encrypted_refresh_token) VALUES ('c1','w1','g1','owner@example.com','sealed')",
+        "INSERT INTO ad_accounts(id,workspace_id,google_connection_id,customer_id,name) VALUES ('a1','w1','c1','4829153307','Harbour Dental')",
+        "INSERT INTO ad_account_profiles(workspace_id,ad_account_customer_id,goal,note) VALUES ('w1','4829153307','sales','Garden tools.')",
+    ] {
+        db.execute_unprepared(sql).await.unwrap();
+    }
+    Migrator::up(&db, None).await.unwrap();
+    assert_eq!(
+        count(
+            &db,
+            "SELECT COUNT(*) AS n FROM ad_account_profiles WHERE note='Garden tools.' AND margin_basis_points IS NULL AND customer_value_micros IS NULL AND close_rate_basis_points IS NULL AND target_return_hundredths IS NULL"
+        )
+        .await,
+        1
+    );
+    db.execute_unprepared("UPDATE ad_account_profiles SET margin_basis_points=2500,customer_value_micros=1500000000,close_rate_basis_points=2000,target_return_hundredths=400")
+        .await
+        .unwrap();
+    for refused in [
+        "UPDATE ad_account_profiles SET margin_basis_points=0",
+        "UPDATE ad_account_profiles SET close_rate_basis_points=10001",
+        "UPDATE ad_account_profiles SET customer_value_micros=-1",
+        "UPDATE ad_account_profiles SET target_return_hundredths=0",
+    ] {
+        assert!(db.execute_unprepared(refused).await.is_err(), "{refused}");
+    }
+    Migrator::down(&db, Some(1)).await.unwrap();
+    assert_eq!(
+        count(
+            &db,
+            "SELECT COUNT(*) AS n FROM ad_account_profiles WHERE note='Garden tools.'"
+        )
+        .await,
+        1
     );
     drop(db);
     remove_database(&path);

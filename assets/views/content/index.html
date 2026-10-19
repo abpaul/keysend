@@ -14,7 +14,7 @@
 {% block main %}
 <section class="wrap lp-sec prose narrow">
   <h1 class="h-l">{{ title }}</h1>
-  <nav aria-label="{{ t(key="content_resources_label") }}"><a href="/blog">{{ t(key="content_articles") }}</a> · <a href="/thoughts">{{ t(key="content_thoughts") }}</a> · <a href="/guides">{{ t(key="content_guides") }}</a> · <a href="/tools">{{ t(key="content_tools") }}</a> · <a href="/feed.xml">{{ t(key="content_rss") }}</a></nav>
+  <nav aria-label="{{ t(key="content_resources_label") }}"><a href="/blog">{{ t(key="content_articles") }}</a> · <a href="/guides">{{ t(key="content_guides") }}</a> · <a href="/tools">{{ t(key="content_tools") }}</a> · <a href="/feed.xml">{{ t(key="content_rss") }}</a></nav>
 {% if entries %}<ul>{% for entry in entries %}<li><h2 class="h-m"><a href="{{ entry.path }}">{{ entry.title }}</a></h2><p>{{ entry.description }}</p><time datetime="{{ entry.publish_at }}">{{ entry.publish_at | truncate(length=10, end="") }}</time></li>{% endfor %}</ul>{% else %}<p>{{ t(key="content_empty") }}</p>{% endif %}
 </section>
 {% endblock main %}

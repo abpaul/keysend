@@ -21,6 +21,19 @@
 {% include "monitoring/_notice.html" %}
 
 <div class="bento">
+  {% if assessment %}
+  <section class="card cell" aria-labelledby="assessment">
+    <h2 class="heading-m" id="assessment">{{ t(key="assessment_title") }}</h2>
+    <p class="caption">{{ assessment.period }}</p>
+    <p><strong>{{ t(key="assessment_result") }}: {{ assessment.result }}</strong></p>
+    <p>{% set parts = assessment.headline %}{% include "monitoring/_parts.html" %}</p>
+    {% for section in assessment.sections %}{% if section.items | length > 0 %}
+    <h3 class="heading-s">{{ section.label }}</h3>
+    <ul>{% for item in section.items %}<li>{% set parts = item.observation %}{% include "monitoring/_parts.html" %}{% if item.explanation %}<p class="muted small">{{ t(key="assessment_explanation") }}: {% set parts = item.explanation %}{% include "monitoring/_parts.html" %}</p>{% endif %}</li>{% endfor %}</ul>
+    {% endif %}{% endfor %}
+    {% if assessment.sources %}<p class="muted small">{{ t(key="market_sources") }}: {{ assessment.sources | join(sep=", ") }}</p>{% endif %}
+  </section>
+  {% endif %}
   {% if update %}
   <div class="cell cell--8">
     {% include "monitoring/_update.html" %}

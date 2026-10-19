@@ -63,6 +63,14 @@ pub async fn shown(store: &WorkspaceStore<'_>, id: &str, now: DateTime<Utc>) -> 
         found: Vec::new(),
     };
 
+    if let Some(check) = store.latest_deep_check(id).await? {
+        if let Some(assessment) = &check.assessment {
+            for text in super::assessment_texts(assessment) {
+                items.add(text, None, &[]);
+            }
+        }
+    }
+
     let updates = store.recent_updates(id, UPDATES_SHOWN).await?;
     let detected = |update: &crate::monitoring::update::Update| {
         update
@@ -113,6 +121,7 @@ pub async fn shown(store: &WorkspaceStore<'_>, id: &str, now: DateTime<Utc>) -> 
             &found.recommendation.action,
             &found.recommendation.reason,
             &found.recommendation.evidence,
+            &found.recommendation.measure,
         ] {
             items.add(text, None, &names);
         }

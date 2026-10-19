@@ -173,6 +173,7 @@ async fn the_ad_account_page_draws_its_five_charts_with_a_sentence_and_a_text_al
                 goal: String::new(),
                 target_cost: Some(45.0),
                 note: String::new(),
+                economics: Default::default(),
             },
         )
         .await

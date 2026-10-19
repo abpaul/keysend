@@ -8,6 +8,7 @@ use super::page::AUDIENCES;
 use crate::{
     app::not_found,
     content::{self, Catalog},
+    identity::SignUpSource,
     language::request_text,
     monitoring::access,
 };
@@ -40,14 +41,31 @@ async fn page(
     let Some(entry) = catalog.find(path, now) else {
         return Ok(not_found());
     };
-    let related: Vec<_> = catalog
-        .visible(now)
+    let visible = catalog.visible(now);
+    let mut related: Vec<&content::Entry> = Vec::new();
+    let chosen = entry
+        .related
+        .iter()
+        .filter_map(|path| catalog.find(path, now));
+    let same_cluster = visible
         .iter()
         .rev()
-        .filter(|other| other.cluster == entry.cluster && other.path != entry.path)
-        .take(3)
-        .collect();
-    format::render().view(&view, "content/page.html", data!({"entry":entry,"related":related,"schema":entry.structured_data(),"trial_days":access::TRIAL_SECONDS / 86_400,"calculator_js":if entry.kind == "tool" {catalog.calculator_js.as_str()} else {""}}))
+        .filter(|other| other.cluster == entry.cluster);
+    for other in chosen.chain(same_cluster) {
+        if related.len() == 4 {
+            break;
+        }
+        if other.path != entry.path && !related.iter().any(|seen| seen.path == other.path) {
+            related.push(other);
+        }
+    }
+    let cta_link = entry
+        .cta
+        .link
+        .as_ref()
+        .filter(|link| catalog.linkable(&link.path, now));
+    let source = SignUpSource::resource(&entry.path);
+    format::render().view(&view, "content/page.html", data!({"entry":entry,"related":related,"cta_link":cta_link,"source":source.as_str(),"schema":entry.structured_data(),"trial_days":access::TRIAL_SECONDS / 86_400,"calculator_js":if entry.kind == "tool" {catalog.calculator_js.as_str()} else {""}}))
 }
 
 async fn sitemap(Extension(catalog): Extension<Arc<Catalog>>) -> Result<Response> {
@@ -63,13 +81,15 @@ async fn sitemap(Extension(catalog): Extension<Arc<Catalog>>) -> Result<Response
     pages.extend(content::INDEXES.iter().filter_map(|index| {
         visible
             .iter()
-            .rfind(|entry| index.kind.is_none_or(|kind| entry.kind == kind))
-            .map(|newest| (index.path, Some(newest.publish_at)))
+            .filter(|entry| index.kind.is_none_or(|kind| entry.kind == kind))
+            .map(content::Entry::modified_at)
+            .max()
+            .map(|newest| (index.path, Some(newest)))
     }));
     pages.extend(
         visible
             .iter()
-            .map(|entry| (entry.path.as_str(), Some(entry.publish_at))),
+            .map(|entry| (entry.path.as_str(), Some(entry.modified_at()))),
     );
     let urls = pages
         .into_iter()
@@ -97,7 +117,7 @@ async fn sitemap(Extension(catalog): Extension<Arc<Catalog>>) -> Result<Response
 }
 
 async fn feed(Extension(catalog): Extension<Arc<Catalog>>) -> Result<Response> {
-    let items = catalog.visible(crate::settings::wall_clock()).iter().rev().filter(|entry| matches!(entry.kind.as_str(), "article" | "thought")).take(30).map(|entry| format!("<item><title>{}</title><link>https://keysend.app{}</link><guid isPermaLink=\"true\">https://keysend.app{}</guid><pubDate>{}</pubDate><description>{}</description></item>",content::escape(&entry.title),content::escape(&entry.path),content::escape(&entry.path),entry.publish_at.to_rfc2822(),content::escape(&entry.description))).collect::<String>();
+    let items = catalog.visible(crate::settings::wall_clock()).iter().rev().filter(|entry| matches!(entry.kind.as_str(), "article" | "guide")).take(30).map(|entry| format!("<item><title>{}</title><link>https://keysend.app{}</link><guid isPermaLink=\"true\">https://keysend.app{}</guid><pubDate>{}</pubDate><description>{}</description></item>",content::escape(&entry.title),content::escape(&entry.path),content::escape(&entry.path),entry.publish_at.to_rfc2822(),content::escape(&entry.description))).collect::<String>();
     Ok(([(header::CONTENT_TYPE,"application/rss+xml; charset=utf-8")],format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?><rss version=\"2.0\"><channel><title>KeySend</title><link>https://keysend.app/resources</link><description>Practical Google Ads reporting</description>{items}</channel></rss>")).into_response())
 }
 
@@ -123,6 +143,20 @@ Disallow: /sign-in
 Sitemap: https://keysend.app/sitemap.xml
 ";
 
+async fn sample_report() -> Result<Response> {
+    Ok((
+        [
+            (header::CONTENT_TYPE, "application/pdf"),
+            (
+                header::CONTENT_DISPOSITION,
+                "inline; filename=\"keysend-sample-report.pdf\"",
+            ),
+        ],
+        include_bytes!("../../assets/static/sample-report.pdf").as_slice(),
+    )
+        .into_response())
+}
+
 async fn robots() -> Result<Response> {
     Ok((
         [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
@@ -139,11 +173,11 @@ fn usd(cents: i64) -> String {
     }
 }
 
-const INCLUDED: &str = "- Update: one short text each day in plain English. It says what changed in the Ad Account, why, and what to do.
+const INCLUDED: &str = "- Update: a daily overview in plain English. It shows performance changes and the available evidence, with possible causes distinguished from contributions.
 - Dashboard: what you spent, what you got and what each result cost, then charts that each state their main point.
 - Recommendations: each one names the problem, what it costs, the change to make and the numbers behind it.
 - Deep check: once a week, a review of the search terms, keywords, landing pages and ads that take the most money.
-- Alerts: an email the next morning when a Campaign stops or spend doubles, and two days later when conversions go to zero.
+- Alerts: selected problems, including Campaign stops and qualifying spend increases, can trigger an email the next morning. Zero-conversion Alerts allow two days for delayed data.
 - Weekly email: each Monday, what you spent and what you got, compared with the 7 days before.
 - Export: a PDF of the Ad Account or of one Campaign for the last 7 or 30 days, with your name, logo and accent colour.
 ";
@@ -181,12 +215,12 @@ async fn llms(Extension(catalog): Extension<Arc<Catalog>>) -> Result<Response> {
     let body = format!(
         "# KeySend
 
-> KeySend is a daily Google Ads monitoring service for business owners and marketers. It works like an analyst: it watches a Google Ads Ad Account every day and writes a short Update in plain English that says how things stand, what changed, why, and what to do.
+> KeySend is a Google Ads monitoring and reporting service for consultants and freelancers. Daily Updates show performance movements, a weekly Deep check writes an assessment with Recommendations, and branded PDF Exports are ready to send to clients. Business owners can also use it for their own Ad Accounts.
 
 KeySend works with Google Ads only. It reads the Ad Account. When a Recommendation says to change something, you make the change yourself in Google Ads.
 
 {INCLUDED}
-Price: a {trial_days}-day Trial with no payment card, then a Subscription of {price} per month for up to {limit} Ad Accounts. The price is the same if you spend more or less on ads.
+Price: a {trial_days}-day Trial with no payment card, then a voluntary Subscription of {price} per month, plus applicable tax, for up to {limit} Ad Accounts. The price is the same if you spend more or less on ads.
 
 KeySend is run by ALPLUS TECHNOLOGIES S.R.L., a company registered in Romania. Contact: hello@keysend.app.
 
@@ -210,9 +244,9 @@ KeySend is run by ALPLUS TECHNOLOGIES S.R.L., a company registered in Romania. C
 {tools}
 ## Optional
 
-- [Resources]({origin}/resources): all articles, thoughts, guides and calculators about Google Ads reporting
+- [Resources]({origin}/resources): all articles, guides and calculators about Google Ads reporting
 - [Articles]({origin}/blog): practical Google Ads reporting methods with worked examples
-- [RSS feed]({origin}/feed.xml): the newest articles and thoughts
+- [RSS feed]({origin}/feed.xml): the newest articles and guides
 ",
         guides = list("guide"),
         tools = list("tool"),
@@ -240,10 +274,12 @@ KeySend is a daily Google Ads monitoring service. It has one Trial and one Subsc
 
 ## Subscription
 
-- Price: {price} per month
+- Price: {price} per month, plus applicable tax
 - Limit: up to {limit} Ad Accounts
 - Ad spend: no limit. The price is the same if you spend more or less on ads.
 - Cancel: at any time
+- Access: until the end of the paid period after cancellation
+- First payment: email within 30 days for a full refund, under the Terms
 
 ## Included
 
@@ -268,6 +304,7 @@ The daily Updates stop until you start the Subscription. KeySend has no payment 
 
 pub fn routes() -> Routes {
     let mut routes = Routes::new()
+        .add("/sample-report.pdf", get(sample_report))
         .add("/sitemap.xml", get(sitemap))
         .add("/feed.xml", get(feed))
         .add("/robots.txt", get(robots))
@@ -276,12 +313,7 @@ pub fn routes() -> Routes {
     for index in content::INDEXES {
         routes = routes.add(index.path, get(page));
     }
-    for path in [
-        "/blog/{slug}",
-        "/thoughts/{slug}",
-        "/guides/{slug}",
-        "/tools/{slug}",
-    ] {
+    for path in ["/blog/{slug}", "/guides/{slug}", "/tools/{slug}"] {
         routes = routes.add(path, get(page));
     }
     routes

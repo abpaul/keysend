@@ -1,8 +1,8 @@
 <h1 align="center">KeySend</h1>
 
 <p align="center">
-  Know what changed in Google Ads.<br>
-  Send a report your clients can understand.
+  Know which Google Ads clients need attention.<br>
+  Monitoring and client reports for consultants.
 </p>
 
 <p align="center">
@@ -15,14 +15,14 @@
 <p align="center">
   <a href="LICENSE"><img alt="AGPL-3.0 license" src="https://img.shields.io/badge/license-AGPL--3.0-blue"></a>
   <a href="rust-toolchain.toml"><img alt="Built with Rust" src="https://img.shields.io/badge/built_with-Rust-dea584"></a>
-  <a href="https://keysend.app/security"><img alt="Read-only Google Ads access" src="https://img.shields.io/badge/Google_Ads-read--only-4b7561"></a>
+  <a href="https://keysend.app/security"><img alt="Reads Google Ads data without edits" src="https://img.shields.io/badge/Google_Ads-reads_data-4b7561"></a>
 </p>
 
 ![KeySend account overview with daily updates, performance trends, and campaign results](docs/screenshots/overview.webp)
 
-KeySend reads your Google Ads accounts each day, explains performance changes, and brings problems to your attention. It is built for independent consultants, freelancers, and small agencies who manage client accounts.
+KeySend helps Google Ads consultants and freelancers see which client accounts need attention. It reads each client's Ad Account every day, writes a weekly assessment with the evidence behind each point, and produces a branded PDF report to send to the client.
 
-Use the hosted application at [keysend.app](https://keysend.app), or run the source locally. KeySend reads your advertising data. It never changes bids, budgets, keywords, or ads.
+Use the hosted application at [keysend.app](https://keysend.app), or run the source locally. KeySend reads your advertising data. It does not send edit requests.
 
 ## What you can do
 
@@ -100,6 +100,6 @@ The checks run formatting, vendored-source validation, Clippy, and the test suit
 <details>
 <summary>About the sample content catalog</summary>
 
-The application loads `content/seo/catalog.json` at startup. This repository supplies fictional articles, thoughts, guides, and tools. Each entry contains a path, title, description, publication date, kind, cluster, and HTML body. Future entries stay hidden until their UTC publication date. The catalog also contains the tool-page script.
+The application loads `content/seo/catalog.json` at startup. This repository supplies fictional articles, guides, and tools. Each entry contains a path, title, SEO title, description, publication date, optional update date, kind, cluster, search intent, related paths, call to action, and HTML body. Future entries stay hidden until their UTC publication date. The catalog also contains the tool-page script.
 
 </details>

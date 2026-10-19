@@ -74,6 +74,8 @@ fn check(day: i64) -> DeepCheck {
         findings: vec![],
         judge_by_conversions: true,
         recommendations_generated: true,
+        assessment: None,
+        research: None,
     }
 }
 async fn signed(f: &Fixture) -> identity::SignedIn {
@@ -406,7 +408,14 @@ async fn first_session_stores_sixty_days_then_older_history_then_a_deep_check_an
             .position(|query| query.contains("FROM conversion_action"))
             .unwrap();
         assert!(last_history < first_deep);
-        assert!(calls.commentary.is_empty());
+        assert_eq!(
+            calls
+                .commentary
+                .iter()
+                .map(|call| call["text"]["format"]["name"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            ["monitoring_review"]
+        );
     }
     worker::run(&f.ctx, &job).await.unwrap();
     assert_eq!(store.updates(AD, 0, i64::MAX).await.unwrap().len(), 1);
@@ -624,6 +633,10 @@ fn standing_recommendation() -> Recommendation {
         action: "Review Search - Real.".into(),
         reason: "Its cost is high.".into(),
         evidence: "Search - Real spent EUR 600 for 1 conversion.".into(),
+        measure: String::new(),
+        intent: String::new(),
+        subject: String::new(),
+        confidence: Default::default(),
         campaign_id: Some(701),
         state: RecommendationState::Open,
     }
@@ -775,7 +788,7 @@ async fn failed_email_delivery_can_retry_without_duplicate_stored_events() {
 
 #[tokio::test]
 #[serial]
-async fn monitoring_trial_start_and_subscription_account_limit_are_checked() {
+async fn a_workspace_keeps_access_for_its_trial_and_subscription_with_up_to_five_ad_accounts() {
     let f = Fixture::monitoring().await;
     let signed = signed(&f).await;
     let store = WorkspaceStore::new(&f.ctx.db, &signed.workspace);
@@ -788,7 +801,12 @@ async fn monitoring_trial_start_and_subscription_account_limit_are_checked() {
     f.ctx.db.execute_raw(Statement::from_sql_and_values(DatabaseBackend::Sqlite,"INSERT INTO subscriptions(workspace_id,stripe_subscription_id,created_at,status,period_start,period_end) VALUES(?,'sub_monitoring',0,'active',0,?)",vec![signed.workspace.id().into(),(start+30*86_400).into()])).await.unwrap();
     assert!(store
         .monitoring_can_select_accounts(
-            &["1111111111".into(), "2222222222".into()],
+            &[
+                "1111111111".into(),
+                "2222222222".into(),
+                "3333333333".into(),
+                "4444444444".into()
+            ],
             start + 15 * 86_400
         )
         .await
@@ -798,7 +816,9 @@ async fn monitoring_trial_start_and_subscription_account_limit_are_checked() {
             &[
                 "1111111111".into(),
                 "2222222222".into(),
-                "3333333333".into()
+                "3333333333".into(),
+                "4444444444".into(),
+                "5555555555".into()
             ],
             start + 15 * 86_400
         )
@@ -849,13 +869,15 @@ async fn standing_recommendations_use_the_ai_stub_and_reject_invented_evidence()
     let f = Fixture::monitoring().await;
     let mut check = check(day_number(today()));
     check.findings.push(standing_finding());
-    let recommendations = keysend::monitoring::deep_check::recommendations(
+    let recommendations = keysend::monitoring::deep_check::review(
         &Settings::load(&f.ctx).unwrap(),
         &check,
+        &Default::default(),
         AllFollowAccount { judged: true },
     )
     .await
-    .unwrap();
+    .unwrap()
+    .recommendations;
     assert_eq!(recommendations.len(), 1);
     assert_eq!(recommendations[0].action, "Review Search - Real.");
     assert_eq!(recommendations[0].campaign_id, Some(701));
@@ -866,13 +888,15 @@ async fn standing_recommendations_use_the_ai_stub_and_reject_invented_evidence()
     f.calls.lock().unwrap().override_monitoring = Some(
         json!({"recommendations":[{"finding":"campaign-cost-high:701","intent":"investigate","action":"Review Search - Real.","reason":"Spend was 999999."}]}),
     );
-    assert!(keysend::monitoring::deep_check::recommendations(
+    assert!(keysend::monitoring::deep_check::review(
         &Settings::load(&f.ctx).unwrap(),
         &check,
-        AllFollowAccount { judged: true }
+        &Default::default(),
+        AllFollowAccount { judged: true },
     )
     .await
     .unwrap()
+    .recommendations
     .is_empty());
     assert_eq!(f.calls.lock().unwrap().commentary.len(), 2);
 }
@@ -1046,7 +1070,7 @@ async fn a_failed_recommendation_request_keeps_findings_and_the_daily_update_and
     assert!(calls
         .commentary
         .iter()
-        .all(|call| call["text"]["format"]["name"] == "monitoring_recommendations"));
+        .all(|call| call["text"]["format"]["name"] == "monitoring_review"));
     assert!(calls.google.requests.iter().all(|(_, body)| !body["query"]
         .as_str()
         .unwrap()
@@ -1403,13 +1427,15 @@ async fn without_an_ai_key_the_conversion_tracking_recommendations_are_kept() {
         },
         standing_finding(),
     ];
-    let recommendations = keysend::monitoring::deep_check::recommendations(
+    let recommendations = keysend::monitoring::deep_check::review(
         &settings,
         &check,
+        &Default::default(),
         AllFollowAccount { judged: true },
     )
     .await
-    .unwrap();
+    .unwrap()
+    .recommendations;
     assert_eq!(
         recommendations
             .iter()
@@ -1439,13 +1465,15 @@ async fn recommendations_skip_bad_entries_and_bound_spend_and_count() {
         entries.push(json!({"finding":format!("campaign-cost-high:{index}"),"intent":"investigate","action":"Overall, review Search - Real.","reason":"Its cost is high."}));
     }
     f.calls.lock().unwrap().override_recommendations = Some(json!({"recommendations":entries}));
-    let recommendations = keysend::monitoring::deep_check::recommendations(
+    let recommendations = keysend::monitoring::deep_check::review(
         &Settings::load(&f.ctx).unwrap(),
         &check,
+        &Default::default(),
         AllFollowAccount { judged: true },
     )
     .await
-    .unwrap();
+    .unwrap()
+    .recommendations;
     assert_eq!(recommendations.len(), 5);
     assert_eq!(recommendations[0].finding_key, "campaign-cost-high:19");
     assert_eq!(recommendations[4].finding_key, "campaign-cost-high:15");
@@ -1453,8 +1481,8 @@ async fn recommendations_skip_bad_entries_and_bound_spend_and_count() {
     let input: Value =
         serde_json::from_str(calls.commentary[0]["input"].as_str().unwrap()).unwrap();
     assert_eq!(input["findings"].as_array().unwrap().len(), 12);
-    assert_eq!(input["findings"][0]["spend"], 1900.0);
-    assert_eq!(input["findings"][11]["spend"], 800.0);
+    assert_eq!(input["findings"][0]["key"], "campaign-cost-high:19");
+    assert_eq!(input["findings"][11]["key"], "campaign-cost-high:8");
 }
 
 #[tokio::test]
@@ -2165,14 +2193,14 @@ async fn weekly_email_runs_only_on_monday_after_six_utc() {
 
 #[tokio::test]
 #[serial]
-async fn account_selection_enforces_three_during_the_trial() {
+async fn a_user_cannot_choose_a_sixth_ad_account_during_the_trial() {
     let f = Fixture::monitoring().await;
     let signed = signed(&f).await;
     let store = WorkspaceStore::new(&f.ctx.db, &signed.workspace);
     let connection = store.ad_accounts().await.unwrap()[0]
         .google_connection_id
         .clone();
-    let choices = (1..=3)
+    let choices = (1..=5)
         .map(|index| AdAccountChoice {
             customer_id: format!("{index:010}"),
             name: format!("Choice {index}"),
@@ -2189,10 +2217,14 @@ async fn account_selection_enforces_three_during_the_trial() {
             ("ad_account", "0000000001"),
             ("ad_account", "0000000002"),
             ("ad_account", "0000000003"),
+            ("ad_account", "0000000004"),
+            ("ad_account", "0000000005"),
         ])
         .await;
     response.assert_status(axum::http::StatusCode::UNPROCESSABLE_ENTITY);
-    assert_eq!(store.ad_accounts().await.unwrap().len(), 1);
+    assert!(response
+        .text()
+        .contains("You would have 6 Ad Accounts. Choose up to 5 in all."));
     assert!(store
         .monitoring_can_select_accounts(
             &["0000000001".into(), "0000000002".into()],
@@ -2740,7 +2772,7 @@ async fn manual_monitoring_fixture_detects_movements_and_three_deep_findings() {
         let findings = store.monitoring_findings(AD).await.unwrap();
         for rule in [
             "search-terms-no-conversions:",
-            "campaign-cost-high:",
+            "campaign-return-low:",
             "landing-page-low-rate:",
         ] {
             assert!(
@@ -2961,4 +2993,52 @@ async fn real_ai_translates_the_stored_texts_of_a_romanian_and_a_german_user() {
             );
         }
     }
+}
+
+#[tokio::test]
+#[serial]
+async fn the_business_is_researched_from_its_names_alone_and_the_research_is_kept_with_the_deep_check(
+) {
+    let f = Fixture::monitoring().await;
+    let job = f.prepare_monitoring().await;
+    let signed = signed(&f).await;
+    let store = WorkspaceStore::new(&f.ctx.db, &signed.workspace);
+    let mut check = check(day_number(today()));
+    check.recommendations_generated = false;
+    check.findings.push(standing_finding());
+    store.refresh_deep_check(AD, &check, &[]).await.unwrap();
+    worker::run(&f.ctx, &job).await.unwrap();
+    {
+        let calls = f.calls.lock().unwrap();
+        assert_eq!(calls.research.len(), 1);
+        let request = &calls.research[0];
+        assert_eq!(request["tools"], json!([{"type":"web_search"}]));
+        assert_eq!(request["max_tool_calls"], 3);
+        let input: Value = serde_json::from_str(request["input"].as_str().unwrap()).unwrap();
+        let mut keys = input
+            .as_object()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>();
+        keys.sort();
+        assert_eq!(
+            keys,
+            [
+                "campaigns",
+                "goal",
+                "locations",
+                "name",
+                "owner_note",
+                "website"
+            ]
+        );
+    }
+    assert!(store
+        .latest_deep_check(AD)
+        .await
+        .unwrap()
+        .unwrap()
+        .research
+        .is_some());
 }

@@ -21,7 +21,7 @@
     <p class="lede">{{ t(key="sign_in_lead") }}</p>
     <p>{{ t(key="sign_in_trial") }}</p>
     <p><a class="btn btn-primary btn-lg" href="/auth/google/start{% if from %}?from={{ from }}{% endif %}">{{ t(key="sign_in_with_google") }}</a></p>
-    <p class="fine">{{ t(key="sign_in_consent") }}</p>
+    <p class="fine">{{ t(key="sign_in_consent") }} <a href="/privacy#read">{{ t(key="footer_privacy") }}</a></p>
     <p class="door-links"><a href="/privacy">{{ t(key="footer_privacy") }}</a> <a href="/terms">{{ t(key="footer_terms") }}</a></p>
   </main>
 </body>

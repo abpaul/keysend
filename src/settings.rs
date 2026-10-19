@@ -171,6 +171,12 @@ impl Settings {
         })
     }
 
+    pub fn email_recipient_allowed(&self, recipient: &str) -> bool {
+        self.email_recipient
+            .as_deref()
+            .is_none_or(|allowed| allowed == recipient)
+    }
+
     pub fn credentials(&self) -> Option<(&str, &str)> {
         Some((self.client_id.as_deref()?, self.client_secret.as_deref()?))
     }

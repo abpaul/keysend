@@ -177,6 +177,10 @@ pub trait Rules {
     fn judged(&self) -> bool;
     fn campaign_judged(&self, campaign: i64) -> bool;
     fn note(&self, campaign: i64) -> Option<&str>;
+    /// The target cost per conversion of a Campaign, or of the Ad Account for `None`.
+    fn target(&self, _campaign: Option<i64>) -> Option<f64> {
+        None
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -210,6 +214,13 @@ impl Rules for Resolved {
     fn note(&self, campaign: i64) -> Option<&str> {
         self.effective(campaign).note
     }
+
+    fn target(&self, campaign: Option<i64>) -> Option<f64> {
+        match campaign {
+            Some(id) => self.effective(id).target.map(|target| target.cost),
+            None => self.account.target_cost.filter(|cost| *cost > 0.0),
+        }
+    }
 }
 
 impl<T: Rules + ?Sized> Rules for &T {
@@ -223,6 +234,10 @@ impl<T: Rules + ?Sized> Rules for &T {
 
     fn note(&self, campaign: i64) -> Option<&str> {
         (**self).note(campaign)
+    }
+
+    fn target(&self, campaign: Option<i64>) -> Option<f64> {
+        (**self).target(campaign)
     }
 }
 

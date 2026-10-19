@@ -335,7 +335,57 @@ pub(crate) fn valid_monitoring(
     Ok(())
 }
 
+const HEDGES: [&str; 9] = [
+    "may",
+    "might",
+    "could",
+    "possibly",
+    "probably",
+    "likely",
+    "perhaps",
+    "worth checking",
+    "unclear whether",
+];
+
+fn hedged(sentence: &str) -> bool {
+    HEDGES.iter().any(|hedge| holds_phrase(sentence, hedge))
+}
+
+/// A text that may give a reason only as a possibility: every sentence with a causal word also
+/// holds a hedge such as may or probably, and with `explanation` the text holds one at least.
+pub(crate) fn valid_hedged(
+    text: &str,
+    known: &[&Known],
+    length: usize,
+    names: &[&str],
+    explanation: bool,
+) -> Result<(), &'static str> {
+    check(text, known, length, true)?;
+    let lower = without_names(text, names);
+    if sentences(&lower)
+        .into_iter()
+        .any(|sentence| causal(sentence) && !hedged(sentence))
+    {
+        return Err("cause stated as a fact");
+    }
+    if explanation && !hedged(&lower) {
+        return Err("explanation not marked as possible");
+    }
+    Ok(())
+}
+
 pub(crate) async fn request(settings: &Settings, key: &str, payload: &Value) -> Option<Value> {
+    request_with_sources(settings, key, payload)
+        .await
+        .map(|(answer, _)| answer)
+}
+
+/// The answer and the URLs that a web search of the request returned or cited.
+pub(crate) async fn request_with_sources(
+    settings: &Settings,
+    key: &str,
+    payload: &Value,
+) -> Option<(Value, BTreeSet<String>)> {
     let response = settings
         .http
         .post(&settings.services.ai_url)
@@ -394,9 +444,33 @@ pub(crate) async fn request(settings: &Settings, key: &str, payload: &Value) -> 
         .filter(|item| item.get("type").and_then(Value::as_str) == Some("output_text"))
         .filter_map(|item| item.get("text").and_then(Value::as_str))
         .collect::<String>();
+    let mut sources = BTreeSet::new();
+    for item in body
+        .get("output")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let found = item
+            .pointer("/action/sources")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .chain(
+                item.get("content")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|content| content.get("annotations").and_then(Value::as_array))
+                    .flatten(),
+            )
+            .filter_map(|source| source.get("url").and_then(Value::as_str));
+        sources.extend(found.map(str::to_owned));
+    }
     serde_json::from_str(&text)
         .map_err(|_| tracing::warn!("AI answer is not the requested JSON"))
         .ok()
+        .map(|answer| (answer, sources))
 }
 
 #[cfg(test)]
@@ -608,6 +682,34 @@ mod tests {
                 Err("name that is not in the data")
             );
         }
+    }
+
+    #[test]
+    fn a_reason_may_be_given_only_as_a_possibility() {
+        let known =
+            Known::of(&[&json!({"campaigns":["Search - Real"],"changes":{"Clicks":"up 73%"}})]);
+        let hedged = |text: &str, explanation: bool| {
+            valid_hedged(text, &[&known], LENGTH, &["Search - Real"], explanation)
+        };
+        assert_eq!(
+            hedged(
+                "Clicks rose 73%, probably because broad match widened the searches.",
+                true
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            hedged(
+                "Clicks rose 73% because broad match widened the searches.",
+                true
+            ),
+            Err("cause stated as a fact")
+        );
+        assert_eq!(
+            hedged("Broad match widened the searches.", true),
+            Err("explanation not marked as possible")
+        );
+        assert_eq!(hedged("Clicks rose 73% in Search - Real.", false), Ok(()));
     }
 
     #[test]

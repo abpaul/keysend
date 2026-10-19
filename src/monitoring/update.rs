@@ -18,6 +18,7 @@ use crate::{
 pub const SUMMARY_LENGTH: usize = 320;
 pub const LINE_LENGTH: usize = 220;
 pub const QUIET:&str="Nothing notable changed in the last 7 days. Spend, clicks and conversions are inside their normal range.";
+pub const NO_CONVERSIONS: &str = "No conversion was recorded in the last 7 days, while spend and clicks stayed inside their normal range.";
 pub const RESULTS_UNJUDGED: &str = "Results cannot be judged.";
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -132,7 +133,7 @@ fn known_facts(detection: &Detection) -> Value {
     ])
 }
 
-fn numeric_tokens(text: &str) -> std::collections::BTreeSet<String> {
+pub(crate) fn numeric_tokens(text: &str) -> std::collections::BTreeSet<String> {
     let mut tokens = std::collections::BTreeSet::new();
     let chars = text.char_indices().collect::<Vec<_>>();
     let mut position = 0;
@@ -183,14 +184,22 @@ fn numeric_tokens(text: &str) -> std::collections::BTreeSet<String> {
     tokens
 }
 
-fn validate(text: &str, facts: &Value, length: usize, stated: &Stated) -> Result<()> {
-    let known = Known::of(&[facts]);
-    valid(text, &[&known], length, stated).map_err(rejected)?;
-    let supplied = numeric_tokens(&facts.to_string());
-    if !numeric_tokens(text).is_subset(&supplied) {
-        return Err(rejected("number differs from its displayed string"));
+/// A text uses only the names and numbers of `facts`, each number written as it is displayed.
+pub(crate) fn exact(
+    text: &str,
+    facts: &Value,
+    length: usize,
+    stated: &Stated,
+) -> std::result::Result<(), &'static str> {
+    valid(text, &[&Known::of(&[facts])], length, stated)?;
+    if !numeric_tokens(text).is_subset(&numeric_tokens(&facts.to_string())) {
+        return Err("number differs from its displayed string");
     }
     Ok(())
+}
+
+fn validate(text: &str, facts: &Value, length: usize, stated: &Stated) -> Result<()> {
+    exact(text, facts, length, stated).map_err(rejected)
 }
 
 fn accepted_highlight(highlight: Option<String>, summary: &str, facts: &Value) -> Option<String> {
@@ -426,6 +435,17 @@ pub fn fallback(detection: &Detection) -> Update {
     update
 }
 
+pub(super) fn quiet(detection: &Detection) -> &'static str {
+    let current = &detection.metrics.current;
+    if detection.judge_by_conversions && current.conversions == Some(0.0) && current.clicks > 0.0 {
+        NO_CONVERSIONS
+    } else if detection.judge_by_conversions {
+        QUIET
+    } else {
+        "Nothing notable changed in the last 7 days. Spend and clicks are inside their normal range."
+    }
+}
+
 fn rejected(reason: &str) -> Error {
     Error::Message(format!("Update rejected: {reason}"))
 }
@@ -451,12 +471,7 @@ pub async fn generate(
     rules: impl Rules,
 ) -> Result<Update> {
     if detection.quiet() {
-        let summary = if detection.judge_by_conversions {
-            QUIET
-        } else {
-            "Nothing notable changed in the last 7 days. Spend and clicks are inside their normal range."
-        };
-        return Ok(record(&detection, summary.into(), vec![], true));
+        return Ok(record(&detection, quiet(&detection).into(), vec![], true));
     }
     let Some(key) = settings.openai_key.as_deref() else {
         return Ok(fallback(&detection));

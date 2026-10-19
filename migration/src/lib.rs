@@ -18,6 +18,7 @@ mod m20261013_000013_user_language;
 mod m20261013_000014_translations;
 mod m20261013_000015_sign_up_source;
 mod m20261014_000016_results_sentence;
+mod m20261019_000017_profile_economics;
 
 pub struct Migrator;
 
@@ -41,6 +42,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261013_000014_translations::Migration),
             Box::new(m20261013_000015_sign_up_source::Migration),
             Box::new(m20261014_000016_results_sentence::Migration),
+            Box::new(m20261019_000017_profile_economics::Migration),
             // inject-above (do not remove this comment)
         ]
     }

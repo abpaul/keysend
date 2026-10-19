@@ -659,7 +659,7 @@ pub async fn deliver(
     text: &str,
     html: Option<&str>,
 ) -> std::result::Result<(), DeliveryError> {
-    if settings.email_recipient.as_deref() != Some(recipient) {
+    if !settings.email_recipient_allowed(recipient) {
         return Err(refused("Email recipient is not enabled"));
     }
     let (url, key) = settings

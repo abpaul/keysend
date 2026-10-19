@@ -19,6 +19,10 @@ use super::*;
 const AD: &str = example::AD;
 
 async fn harbour_dental() -> Fixture {
+    harbour_dental_with_sample(false).await
+}
+
+async fn harbour_dental_with_sample(sample: bool) -> Fixture {
     let f = Fixture::monitoring().await;
     let signed = identity::authenticate(&f.ctx.db, f.a.value())
         .await
@@ -199,7 +203,10 @@ async fn harbour_dental() -> Fixture {
         ])),
     };
     let (below, average, above) = ("BELOW_AVERAGE", "AVERAGE", "ABOVE_AVERAGE");
-    let (check, recommendations) = example::deep_check(last - 7);
+    let (mut check, mut recommendations) = example::deep_check(last - 7);
+    if sample {
+        prepare_sample_deep_check(&mut check, &mut recommendations);
+    }
     store
         .refresh_deep_check(AD, &check, &recommendations)
         .await
@@ -229,7 +236,10 @@ async fn harbour_dental() -> Fixture {
         )
         .await
         .unwrap();
-    let (check, recommendations) = example::deep_check(last);
+    let (mut check, mut recommendations) = example::deep_check(last);
+    if sample {
+        prepare_sample_deep_check(&mut check, &mut recommendations);
+    }
     store
         .save_deep_breakdowns(
             AD,
@@ -268,6 +278,138 @@ async fn harbour_dental() -> Fixture {
         .await
         .unwrap();
     f
+}
+
+fn prepare_sample_deep_check(
+    check: &mut keysend::monitoring::deep_check::DeepCheck,
+    recommendations: &mut [keysend::workspace::monitoring::Recommendation],
+) {
+    use keysend::monitoring::{
+        assessment, claims::Point, deep_check, metrics, recommendation::Confidence,
+    };
+    let days = example::days();
+    let end = check.day - 1;
+    let totals = metrics::sum(&days, end - 29, end, None);
+    check.data.reporting = Counts {
+        impressions: totals.impressions,
+        clicks: totals.clicks,
+        cost: totals.spend,
+        conversions: totals.conversions.unwrap(),
+        value: 0.0,
+    };
+    deep_check::compare(&mut check.data, &mut check.by_campaign, &days, end);
+    let judged = assessment::judge(&check.data, true, &check.findings);
+    let mut assessment = assessment::fallback(&judged);
+    let emergency = &check.by_campaign[&example::EMERGENCY].campaigns[0];
+    let emergency_cost = metrics::english_money(
+        emergency.counts.cost / emergency.counts.conversions,
+        example::CURRENCY,
+    );
+    assessment.worked = vec![Point {
+        observation: format!("Search - Emergency brought {} conversions in the 30 days, at {emergency_cost} each.", metrics::english_count(emergency.counts.conversions)),
+        explanation: Some("The move to maximize conversions may have helped reach people ready to book. The Account change alone does not prove this.".into()),
+    }];
+    assessment.attention = vec![Point {
+        observation: check.findings[1].rule.detail.clone(),
+        explanation: Some(
+            "The wording may attract people looking for work rather than dental treatment.".into(),
+        ),
+    }];
+    assessment.next = vec![
+        format!("Exclude dental implants jobs first, then test a higher daily budget for Search - Emergency and compare its cost per conversion with {emergency_cost}."),
+        "Keep watching Display - Remarketing. Its small conversion count can be chance, so avoid drawing a conclusion from one week.".into(),
+    ];
+    assessment.written_without_ai = false;
+    check.assessment = Some(assessment);
+    for (index, recommendation) in recommendations.iter_mut().enumerate() {
+        let finding = &check.findings[index];
+        recommendation.subject = finding.rule.subjects[0].clone();
+        recommendation.confidence = if index == 1 {
+            Confidence::High
+        } else {
+            Confidence::Medium
+        };
+        recommendation.measure = match index {
+            0 => format!("Compare cost per conversion with {emergency_cost} and check the share of impressions lost to budget after the test."),
+            1 => format!("Check that spend on dental implants jobs falls below {} while relevant searches keep converting.", metrics::english_money(finding.rule.spend, example::CURRENCY)),
+            _ => "Compare the home page and emergency page conversion rates after sending the ads to the emergency page.".into(),
+        };
+    }
+}
+
+#[tokio::test]
+#[serial]
+#[ignore = "writes the committed public sample PDF when KEYSEND_WRITE_SAMPLE=1"]
+async fn write_the_public_sample_report() {
+    use keysend::{controllers::export, language::Language, settings::Settings};
+    assert_eq!(std::env::var("KEYSEND_WRITE_SAMPLE").as_deref(), Ok("1"));
+    let f = harbour_dental_with_sample(true).await;
+    let response = f
+        .request
+        .get(&format!("/ad-accounts/{AD}/export.pdf"))
+        .add_cookie(f.a.clone())
+        .await;
+    assert_eq!(response.status_code(), 200);
+    assert!(response.as_bytes().starts_with(b"%PDF"));
+    let signed = identity::authenticate(&f.ctx.db, f.a.value())
+        .await
+        .unwrap()
+        .unwrap();
+    let store = WorkspaceStore::new(&f.ctx.db, &signed.workspace);
+    let settings = Settings::load(&f.ctx).unwrap();
+    let (mut document, text) = export::ad_account_export(
+        &store,
+        &settings,
+        AD,
+        &export::Params::default(),
+        Language::En,
+    )
+    .await
+    .unwrap()
+    .unwrap_or_else(|_| panic!("the sample Export was refused"));
+    document.sample = true;
+    let pdf = keysend::monitoring::export::pdf(&document, text).unwrap();
+    assert!(pdf.len() > 10_000);
+    std::fs::write("assets/static/sample-report.pdf", pdf).unwrap();
+}
+
+#[tokio::test]
+#[serial]
+async fn a_visitor_can_open_the_sample_export_without_signing_in() {
+    let f = Fixture::monitoring().await;
+    let response = f.request.get("/sample-report.pdf").await;
+    assert_eq!(response.status_code(), 200);
+    assert_eq!(response.header("content-type"), "application/pdf");
+    assert_eq!(
+        response.header("content-disposition"),
+        "inline; filename=\"keysend-sample-report.pdf\""
+    );
+    assert_eq!(
+        response.header("cache-control"),
+        "public, max-age=0, must-revalidate"
+    );
+    assert_eq!(response.header("x-content-type-options"), "nosniff");
+    assert_eq!(response.header("x-frame-options"), "DENY");
+    assert_eq!(response.header("referrer-policy"), "same-origin");
+    assert!(response
+        .header("content-security-policy")
+        .to_str()
+        .unwrap()
+        .contains("frame-ancestors 'none'"));
+    assert!(response.as_bytes().starts_with(b"%PDF"));
+    assert!(response.as_bytes().len() > 10_000);
+    assert_eq!(
+        response.as_bytes(),
+        include_bytes!("../../../assets/static/sample-report.pdf").as_slice()
+    );
+    let private = f
+        .request
+        .get("/sample-report.pdf")
+        .add_cookie(f.a.clone())
+        .await;
+    assert_eq!(private.header("cache-control"), "no-store");
+    let query = f.request.get("/sample-report.pdf?preview=1").await;
+    assert_eq!(query.header("cache-control"), "no-store");
 }
 
 fn part<'a>(page: &'a str, start: &str, end: &str) -> &'a str {
@@ -457,6 +599,7 @@ fn the_home_page_can_show_a_romanian_export() {
     let update = example::localized_update(text, &days).unwrap();
     let recommendations = example::localized_recommendations(text).unwrap();
     let document = Export {
+        sample: false,
         name: example::NAME.into(),
         accent: "#5126A6".into(),
         logo: None,
@@ -493,6 +636,9 @@ fn the_home_page_can_show_a_romanian_export() {
         recommendations: recommendations
             .into_iter()
             .map(|found| RecommendationText {
+                subject: String::new(),
+                confidence: Default::default(),
+                measure: String::new(),
                 finding: found.finding.map(|finding| finding.title),
                 action: found.recommendation.action,
                 reason: found.recommendation.reason,
@@ -500,6 +646,7 @@ fn the_home_page_can_show_a_romanian_export() {
             })
             .collect(),
         subject: Subject::AdAccount {
+            assessment: None,
             update: Some(UpdateText {
                 date: view::long_date(text, update.day).unwrap(),
                 summary: update.summary,

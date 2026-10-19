@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use super::{audit::AccountChange, deep_check::Finding};
@@ -12,11 +13,14 @@ pub const INTENTS: [&str; 7] = [
     "increase_budget",
     "keep",
 ];
-pub const ACTION_LENGTH: usize = 140;
-pub const REASON_LENGTH: usize = 260;
+pub const ACTION_LENGTH: usize = 200;
+pub const REASON_LENGTH: usize = 300;
+pub const MEASURE_LENGTH: usize = 200;
 
 pub(crate) struct Proposal {
     pub finding: String,
+    pub intent: String,
+    pub subject: String,
     pub action: String,
     pub reason: String,
     pub evidence: String,
@@ -26,16 +30,163 @@ fn contains_any(text: &str, parts: &[&str]) -> bool {
     parts.iter().any(|part| text.contains(part))
 }
 
-fn permitted(finding: &str) -> &'static [&'static str] {
-    match finding.split(':').next().unwrap_or_default() {
-        "search-terms-no-conversions" | "keywords-no-conversions" => {
-            &["exclude", "pause", "reduce_spend", "investigate"]
+/// What a Recommendation may do about each rule of Finding: the intents that it permits and
+/// the levers that a consultant usually reaches for.
+/// How strongly the evidence of its Finding supports a Recommendation.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
+pub enum Confidence {
+    Low,
+    #[default]
+    Medium,
+    High,
+}
+
+impl Confidence {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Low => "low",
+            Self::Medium => "medium",
+            Self::High => "high",
         }
-        "budget-limited" => &["increase_budget", "investigate", "keep"],
-        "landing-page-low-rate" | "ads-poor-strength" => &["improve", "investigate"],
-        "tracking-not-set-up" | "tracking-no-results" => &[],
-        _ => &["reduce_spend", "pause", "improve", "investigate"],
     }
+
+    fn lower(self) -> Self {
+        match self {
+            Self::High => Self::Medium,
+            _ => Self::Low,
+        }
+    }
+}
+
+/// What a Recommendation may do about each rule of Finding: the intents that it permits, the
+/// levers that a consultant usually reaches for, how strongly the rule's evidence supports an
+/// action, and what that evidence cannot tell.
+pub(crate) struct Rule {
+    pub intents: &'static [&'static str],
+    pub levers: &'static str,
+    pub confidence: Confidence,
+    pub uncertainty: &'static str,
+}
+
+const CUT: &[&str] = &["reduce_spend", "pause", "improve", "investigate"];
+
+pub(crate) fn rule(finding: &str) -> Rule {
+    use Confidence::{High, Low, Medium};
+    let (intents, levers, confidence, uncertainty): (&'static [&'static str], _, _, _) =
+        match finding.split(':').next().unwrap_or_default() {
+            "search-terms-no-conversions" | "keywords-no-conversions" => (
+                &["exclude", "pause", "reduce_spend", "investigate"],
+                "negative keywords, a narrower match type",
+                High,
+                "a term can still convert later, so a term close to the business deserves a look before it is excluded",
+            ),
+            "traffic-without-results" => (
+                &["exclude", "improve", "reduce_spend", "investigate"],
+                "the search terms behind the extra clicks, negative keywords, a narrower match type, the landing page of the new traffic",
+                Medium,
+                "the comparison shows that the extra clicks brought no more conversions, not which searches or pages brought them",
+            ),
+            "click-cost-rising" => (
+                &["investigate", "improve", "reduce_spend", "keep"],
+                "auction insights and impression share to see whether competition rose, the bid strategy target, a maximum cost per click",
+                Medium,
+                "the data shows that clicks cost more, not whether competition or bidding made them cost more",
+            ),
+            "location-cost-high" => (
+                &["investigate", "reduce_spend", "improve"],
+                "the quality of the leads from that location, a location bid adjustment, a separate campaign for that location",
+                Medium,
+                "Google Ads does not show whether the leads of one location are worth more than those of another",
+            ),
+            "budget-limited" => (
+                &["increase_budget", "investigate", "keep"],
+                "budget moved from a weaker campaign, a higher daily budget with a cost per conversion limit",
+                Medium,
+                "the extra clicks that a higher budget buys usually cost more than the current ones",
+            ),
+            "landing-page-low-rate" => (
+                &["improve", "investigate"],
+                "sending the traffic to a page that converts better, a test of the page against it",
+                Medium,
+                "pages can serve searches with different intent, so a lower rate is not always the page's fault",
+            ),
+            "ads-poor-strength" => (
+                &["improve", "investigate"],
+                "more distinct headlines and descriptions that match the keywords",
+                Low,
+                "ad strength is a rating of Google, not a result",
+            ),
+            "campaign-below-break-even" => (
+                CUT,
+                "a target return on ad spend at or above the break-even return, product groups split by return, budget moved to campaigns above break-even",
+                Medium,
+                "the break-even rests on the margin in the Ad Account profile",
+            ),
+            "campaign-above-break-even" => (
+                CUT,
+                "a target cost per conversion at or below the break-even cost, tighter keywords, a higher share of conversions becoming customers",
+                Medium,
+                "the break-even rests on the value, close rate and margin in the Ad Account profile",
+            ),
+            "campaign-return-low" => (
+                CUT,
+                "product groups split by return, a target return on ad spend, budget moved to campaigns with a higher return",
+                High,
+                "without a margin in the Ad Account profile, the return that pays is not known",
+            ),
+            "campaign-click-cost-high" => (
+                CUT,
+                "a maximum cost per click, the keywords with the dearest clicks",
+                Medium,
+                "results are not judged here, so a dear click may still be a good one",
+            ),
+            "tracking-not-set-up" | "tracking-no-results" | "tracking-stopped" | "tracking-spike" => {
+                (&[], "", High, "")
+            }
+            _ => (
+                CUT,
+                "budget moved to a campaign with a lower cost per conversion, the bid strategy target, the search terms",
+                High,
+                "conversions are counted the same way in every campaign, but their value may differ",
+            ),
+        };
+    Rule {
+        intents,
+        levers,
+        confidence,
+        uncertainty,
+    }
+}
+
+/// The confidence of a Recommendation: that of its rule, one level lower when the Ad Account
+/// records too few conversions to be sure or when late conversions are still missing.
+pub(crate) fn confidence(finding: &str, settled: bool) -> Confidence {
+    let base = rule(finding).confidence;
+    if settled || finding.starts_with("tracking") || finding.starts_with("ads-poor-strength") {
+        base
+    } else {
+        base.lower()
+    }
+}
+
+fn permitted(finding: &str) -> &'static [&'static str] {
+    rule(finding).intents
+}
+
+/// An action names a subject by its full name, by the path of a landing page, or by the first
+/// headline of an ad.
+fn named(action: &str, subject: &str) -> bool {
+    let subject = subject.to_lowercase();
+    let path = reqwest::Url::parse(&subject)
+        .ok()
+        .map(|url| url.path().trim_end_matches('/').to_owned())
+        .filter(|path| path.len() > 1);
+    let headline = subject.split_once(" | ").map(|(first, _)| first.to_owned());
+    std::iter::once(subject)
+        .chain(path)
+        .chain(headline)
+        .any(|form| action.contains(&form))
 }
 
 pub(crate) fn validate(
@@ -59,12 +210,12 @@ pub(crate) fn validate(
     valid(action, &[account, &known], ACTION_LENGTH)?;
     valid(reason, &[account, &known], REASON_LENGTH)?;
     let lower = action.to_lowercase();
-    if !finding.subjects.is_empty()
-        && !finding
-            .subjects
-            .iter()
-            .any(|subject| lower.contains(&subject.to_lowercase()))
-    {
+    let subject = finding
+        .subjects
+        .iter()
+        .find(|subject| named(&lower, subject))
+        .cloned();
+    if !finding.subjects.is_empty() && subject.is_none() {
         return Err("it does not name a subject of its Finding");
     }
     for (required, wording) in [
@@ -139,6 +290,8 @@ pub(crate) fn validate(
     }
     Ok(Proposal {
         finding: finding.key.clone(),
+        intent: intent.into(),
+        subject: subject.unwrap_or_default(),
         action: action.into(),
         reason: reason.into(),
         evidence: finding.detail.clone(),
@@ -357,5 +510,19 @@ mod tests {
             ),
             Ok("Porta lost 22% of its search impressions to budget.".into())
         );
+    }
+
+    #[test]
+    fn an_action_names_a_landing_page_by_its_path_and_an_ad_by_its_first_headline() {
+        assert!(named(
+            "send emergency clicks from /offers back to /emergency.",
+            "https://northsideplumbing.example/offers"
+        ));
+        assert!(named(
+            "rewrite the spring offer ad around emergency call outs.",
+            "Spring Offer | 20% Off Plumbing | Book Online"
+        ));
+        assert!(!named("improve the home page.", "https://example.com/"));
+        assert!(!named("rewrite the offer ad.", "Spring Offer | 20% Off"));
     }
 }

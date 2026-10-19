@@ -3,10 +3,12 @@
       <li>
         <dl class="parts">
           {% if recommendation.finding %}<div><dt>{{ t(key="recommendation_finding") }}</dt><dd>{% set parts = recommendation.finding %}{% include "monitoring/_parts.html" %}</dd></div>{% endif %}
-          <div><dt>{{ t(key="recommendation_impact") }}</dt><dd>{% set parts = recommendation.impact %}{% include "monitoring/_parts.html" %}</dd></div>
+          <div><dt>{{ t(key="recommendation_impact") }}</dt><dd>{% set parts = recommendation.impact %}{% include "monitoring/_parts.html" %}{% if recommendation.measure %}<p class="parts__measure"><b>{{ t(key="recommendation_measure") }}</b><br>{% set parts = recommendation.measure %}{% include "monitoring/_parts.html" %}</p>{% endif %}</dd></div>
           <div class="parts__action"><dt>{{ t(key="recommendation_action") }}</dt><dd>{% set parts = recommendation.action_parts %}{% include "monitoring/_parts.html" %}</dd></div>
           <div><dt>{{ t(key="recommendation_evidence") }}</dt><dd>{% set parts = recommendation.evidence %}{% include "monitoring/_parts.html" %}</dd></div>
         </dl>
+        {% if recommendation.confidence %}<p class="muted small">{% if recommendation.confidence == "high" %}{{ t(key="confidence_high") }}{% elif recommendation.confidence == "low" %}{{ t(key="confidence_low") }}{% else %}{{ t(key="confidence_medium") }}{% endif %}</p>{% endif %}
+        {% if recommendation.subject %}<p class="muted small">{{ t(key="recommendation_subject") }}: {{ recommendation.subject }}</p>{% endif %}
         {% if not example %}
         <form class="actions small" method="post" action="/ad-accounts/{{ ad.id }}/recommendations">
           <input type="hidden" name="finding_key" value="{{ recommendation.finding_key }}">

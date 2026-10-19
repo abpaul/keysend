@@ -56,6 +56,22 @@ _Avoid_: Finding, driver, cause
 The reason that an Update gives for a movement of a Metric, with a level (Confirmed or Likely) and the evidence that code wrote from the Account history. Code finds every Cause; AI only chooses one for a text and words it. A Confirmed Cause is a recorded fact that the numbers support (for a budget change, the spend reached the budget); a Likely Cause is a probable reason and the sentence that gives it says so. A sentence that gives a Cause also names it with a word that code lists for it, such as the date of the Account change.
 _Avoid_: Reason, driver, root cause, insight, explanation
 
+**Assessment**:
+The reading of the 30 days of a Deep check against the 30 days before them: a Result, a headline, what worked, what needs attention, and the priorities for the next 30 days. Code sets the Result and computes every number; AI words the rest from that evidence and never creates a number, a Finding or a Cause.
+_Avoid_: Executive summary, insight, audit, analysis
+
+**Result**:
+The outcome of an Assessment that code sets from conversions and their cost, or from conversion value and return on ad spend for an Ad Account judged by value: improved, steady, mixed, worse, seasonal (a fall that the same days of last year also had) or unclear (too few conversions, or Conversion tracking to check first).
+_Avoid_: Verdict, score, grade, rating
+
+**Business context**:
+What KeySend knows about the business behind an Ad Account for its Assessment: the name, the website of its landing pages, the goal and note of the Ad Account profile, its kind of business, and a short web research of what it sells and where. A research note counts as verified only when the search reached the website of the business and returned the page that states it.
+_Avoid_: Brief, persona, profile, research
+
+**Recommendation history**:
+The Recommendations that earlier Deep checks of an Ad Account made, with their state and, after 14 settled days, what followed each one in its Campaign. What followed is what came after, never proof that the Recommendation caused it.
+_Avoid_: Impact, result, attribution, track record
+
 **Recommendation**:
 An action that AI proposes for the Ad Account, with a Finding as evidence. The user cannot edit it; the user can mark it as not useful.
 _Avoid_: Next step, tip, suggestion, insight
@@ -85,7 +101,7 @@ The weekly collection of search terms, keywords, landing pages, and ads, from wh
 _Avoid_: Audit, scan, sync
 
 **Ad Account profile**:
-What the user tells KeySend about an Ad Account for a long time: its goal, its target cost per conversion, and a note. All parts are optional.
+What the user tells KeySend about an Ad Account for a long time: its goal, its target cost per conversion, a note, and its economics (margin, value of a customer, share of conversions that become customers, target return on ad spend). All parts are optional.
 _Avoid_: Settings, preferences, brief
 
 **Campaign activity**:
@@ -105,7 +121,7 @@ The 14 days in which a new Workspace has everything without a Subscription and w
 _Avoid_: Free plan, free tier, demo
 
 **Subscription**:
-The monthly payment that keeps KeySend open for a Workspace after the Trial, for up to 3 Ad Accounts.
+The monthly payment that keeps KeySend open for a Workspace after the Trial, for up to 5 Ad Accounts.
 _Avoid_: Plan, tier, membership, Unlock
 
 **Access**:

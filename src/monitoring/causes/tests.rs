@@ -350,6 +350,28 @@ fn conversions_that_stop_while_clicks_hold_are_a_likely_tracking_problem() {
 }
 
 #[test]
+fn conversions_that_jump_while_clicks_hold_are_a_likely_tracking_problem_too() {
+    let days = series(701, |day| {
+        if day <= "2026-10-03" {
+            metrics(10.0, 20.0, 2.0)
+        } else {
+            metrics(10.0, 20.0, 5.0)
+        }
+    });
+    let found = found(&days, &[]);
+    let causes = of_kind(&found, Kind::Tracking, None);
+    assert_eq!(causes.len(), 1);
+    assert_eq!(
+        causes[0].evidence,
+        "Conversions rose from 14 to 35 in the 7 days that ended 2 days ago, while Clicks stayed inside their normal range at 140 in the last 7 days."
+    );
+    assert_eq!(
+        statement(causes[0], Some(true)).unwrap(),
+        "Conversions rose, most likely because conversion tracking counts some of them twice."
+    );
+}
+
+#[test]
 fn a_small_count_or_falling_clicks_or_few_clicks_are_no_tracking_problem() {
     assert!(
         of_kind(&conversions_stop(1.0, 20.0, 20.0), Kind::Tracking, None).is_empty(),

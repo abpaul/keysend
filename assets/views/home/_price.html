@@ -6,12 +6,21 @@
       </div>
       <div class="price">
         <dl>
-          <div><dt>{{ t(key="home_price_trial") }}</dt><dd class="kpi">{{ t(key="home_price_trial_days", trial_days=trial_days) }}</dd><dd>{{ t(key="home_price_trial_note") }}</dd></div>
-          <div><dt>{{ t(key="subscription") }}</dt><dd class="kpi">{{ price_text }}</dd><dd>{{ t(key="home_price_per_month", count=limit) }}</dd></div>
+          <div><dt>{{ t(key="home_price_trial") }}</dt><dd class="kpi">{{ t(key="home_price_trial_days", trial_days=trial_days) }}</dd><dd>{{ t(key="home_price_trial_note") }}</dd><dd><a href="/sample-report.pdf">{{ t(key="home_sample_cta") }}</a> · {{ t(key="home_sample_note") }}</dd></div>
+          <div><dt>{{ t(key="subscription") }}</dt><dd class="kpi">{{ price_text }}</dd><dd>{{ t(key="home_price_per_month", count=limit) }}</dd>
+            <dd><ul class="ticks">
+              <li>{{ t(key="home_price_include_accounts", count=limit) }}</li>
+              <li>{{ t(key="home_price_include_alerts") }}</li>
+              <li>{{ t(key="home_price_include_assessment") }}</li>
+              <li>{{ t(key="home_price_include_reports") }}</li>
+              <li>{{ t(key="home_price_include_comparisons") }}</li>
+              <li>{{ t(key="home_price_include_website") }}</li>
+            </ul></dd>
+            <dd>{% set email %}<a href="mailto:{{ contact }}">{{ contact }}</a>{% endset %}{{ t(key="home_price_more", count=limit, email=email) }}</dd></div>
         </dl>
         <div class="cta">
           <a class="btn btn-primary btn-lg" href="/sign-in?from={{ from }}">{{ t(key="home_start_trial", trial_days=trial_days) }}</a>
-          <p>{% set link %}<a href="/terms">{{ t(key="home_price_terms_link") }}</a>{% endset %}{{ t(key="home_price_after", link=link) }}</p>
+          <p>{% set link %}<a href="/terms#refunds">{{ t(key="home_price_terms_link") }}</a>{% endset %}{{ t(key="home_price_after", link=link) }} <a href="/security">{{ t(key="footer_security") }}</a> · <a href="mailto:{{ contact }}">{{ contact }}</a></p>
         </div>
       </div>
     </section>

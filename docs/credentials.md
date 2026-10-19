@@ -57,6 +57,9 @@ Unknown fields are rejected.
 | `report_email_recipient` | `REPORT_EMAIL_RECIPIENT` |
 | `postdeploy_ingest_key` | `POSTDEPLOY_INGEST_KEY` |
 
+An empty or missing recipient restriction permits normal User delivery. A configured
+value permits only that exact email address.
+
 The same flat file also accepts these operator credentials. They are not
 application settings. The operator helper passes them only to the selected
 command scope.

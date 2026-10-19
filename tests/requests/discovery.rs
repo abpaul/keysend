@@ -48,24 +48,30 @@ async fn llms_txt_describes_keysend_with_the_current_price_and_the_public_pages(
         let mut lines = body.lines();
         assert_eq!(lines.next(), Some("# KeySend"));
         assert_eq!(lines.next(), Some(""));
-        assert_eq!(
-            lines.next(),
-            Some("> KeySend is a daily Google Ads monitoring service for business owners and marketers. It works like an analyst: it watches a Google Ads Ad Account every day and writes a short Update in plain English that says how things stand, what changed, why, and what to do.")
-        );
+        assert!(lines.next().unwrap().starts_with("> KeySend is a Google Ads monitoring and reporting service for consultants and freelancers."));
+        assert!(body.contains("It reads the Ad Account."));
+        assert!(body.contains("you make the change yourself in Google Ads."));
         for line in [
-            "Price: a 14-day Trial with no payment card, then a Subscription of $49 per month for up to 3 Ad Accounts. The price is the same if you spend more or less on ads.",
-            "- Alerts: an email the next morning when a Campaign stops or spend doubles, and two days later when conversions go to zero.",
+            "Price: a 14-day Trial with no payment card, then a voluntary Subscription of $49 per month, plus applicable tax, for up to 5 Ad Accounts. The price is the same if you spend more or less on ads.",
+            "- Alerts: selected problems, including Campaign stops and qualifying spend increases, can trigger an email the next morning. Zero-conversion Alerts allow two days for delayed data.",
             "## Product",
             "- [Pricing](https://keysend.app/pricing.md): the Trial, the Subscription and the limits, as Markdown",
             "## Who it is for",
-            "- [Google Ads monitoring for business owners](https://keysend.app/for/business-owners): KeySend watches your Google Ads every day and writes you one plain-English Update each morning. An Alert the next morning when a Campaign stops. Free 14-day Trial, no payment card.",
-            "- [A second pair of eyes on your agency's Google Ads](https://keysend.app/for/agency-clients): See what your agency's Google Ads did, in plain English. KeySend only reads the Ad Account. Free 14-day Trial, no payment card.",
-            "- [Google Ads Updates for marketing managers](https://keysend.app/for/marketing-managers): A plain-English Update every morning, a Weekly email each Monday and a branded PDF Export. KeySend only reads your Google Ads. Free 14-day Trial.",
             "## Guides",
             "## Tools",
             "## Optional",
         ] {
             assert!(body.lines().any(|found| found == line), "{line}");
+        }
+        for link in [
+            "[Start the Trial](https://keysend.app/sign-in)",
+            "[Google Ads monitoring for business owners](https://keysend.app/for/business-owners)",
+            "[A second pair of eyes on your agency's Google Ads](https://keysend.app/for/agency-clients)",
+            "[Google Ads Updates for marketing managers](https://keysend.app/for/marketing-managers)",
+            "[Privacy](https://keysend.app/privacy)",
+            "[Terms](https://keysend.app/terms)",
+        ] {
+            assert!(body.contains(link), "{link}");
         }
         assert_eq!(
             body.lines().filter(|line| line.starts_with("## ")).count(),
@@ -129,21 +135,24 @@ async fn pricing_md_states_the_trial_the_price_and_the_limit() {
                 "- Price: $0",
                 "- Length: 14 days",
                 "- Payment card: not required",
-                "- Limit: up to 3 Ad Accounts",
+                "- Limit: up to 5 Ad Accounts",
                 "- Includes: everything in the Subscription",
             ]
         );
         assert_eq!(
             section("## Subscription"),
             [
-                "- Price: $49 per month",
-                "- Limit: up to 3 Ad Accounts",
+                "- Price: $49 per month, plus applicable tax",
+                "- Limit: up to 5 Ad Accounts",
                 "- Ad spend: no limit. The price is the same if you spend more or less on ads.",
                 "- Cancel: at any time",
+                "- Access: until the end of the paid period after cancellation",
+                "- First payment: email within 30 days for a full refund, under the Terms",
             ]
         );
         assert_eq!(section("## Included").len(), 7);
         assert!(body.contains("- Start the Trial: https://keysend.app/sign-in\n"));
+        assert!(body.contains("- Terms, with payment and refunds: https://keysend.app/terms\n"));
         assert_eq!(
             request
                 .get("/pricing.md")
@@ -198,19 +207,25 @@ async fn sitemap_dates_each_resource_and_each_index_with_its_newest_entry() {
             format!("<url><loc>https://keysend.app{path}</loc><lastmod>{at}</lastmod></url>")
         };
         for entry in catalog.published() {
-            let url = dated(&entry.path, entry.published_at());
+            let url = dated(&entry.path, entry.modified_at());
             assert!(body.contains(&url), "{url}");
         }
+        let newest = |entries: Vec<&super::catalog::Entry>| {
+            entries
+                .iter()
+                .map(|entry| entry.modified_at())
+                .max()
+                .unwrap()
+        };
         for (index, kind) in [
             ("/blog", "article"),
             ("/guides", "guide"),
             ("/tools", "tool"),
         ] {
-            let newest = catalog.published_kind(kind).last().unwrap().published_at();
-            let url = dated(index, newest);
+            let url = dated(index, newest(catalog.published_kind(kind)));
             assert!(body.contains(&url), "{url}");
         }
-        let newest = catalog.published().last().unwrap().published_at();
+        let newest = newest(catalog.published());
         let url = dated("/resources", newest);
         assert!(body.contains(&url), "{url}");
         for entry in catalog.scheduled() {
@@ -257,8 +272,12 @@ async fn each_kind_of_resource_page_has_structured_data_and_open_graph_tags() {
             assert_eq!(graph[1]["@type"], page_type, "{path}");
             assert_eq!(graph[1]["headline"], title, "{path}");
             assert_eq!(graph[1]["url"], url.as_str(), "{path}");
-            assert_eq!(graph[1]["datePublished"], graph[1]["dateModified"]);
             assert_eq!(graph[1]["datePublished"], published.as_str(), "{path}");
+            assert_eq!(
+                graph[1]["dateModified"],
+                entry.modified_at().as_str(),
+                "{path}"
+            );
             assert_eq!(graph[2]["@type"], "BreadcrumbList", "{path}");
             assert_eq!(graph[2]["itemListElement"][1]["name"], index_name);
             assert_eq!(graph[2]["itemListElement"][2]["item"], url.as_str());
@@ -295,6 +314,30 @@ async fn each_kind_of_resource_page_has_structured_data_and_open_graph_tags() {
         assert!(
             index.contains("<meta property=\"og:url\" content=\"https://keysend.app/resources\">")
         );
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+async fn a_user_reads_the_five_ad_account_allowance_in_the_guides_and_terms() {
+    request::<App, _, _>(|request, _ctx| async move {
+        let terms = request.get("/terms").await;
+        assert_eq!(terms.status_code(), 200);
+        assert!(terms.text().contains("up to 5 Ad Accounts"));
+        for entry in Catalog::load().published() {
+            if !entry.body_html.contains("{ad_account_limit}") {
+                continue;
+            }
+            let response = request.get(&entry.path).await;
+            assert_eq!(response.status_code(), 200, "{}", entry.path);
+            assert!(response.text().contains("5 Ad Accounts"), "{}", entry.path);
+            assert!(
+                !response.text().contains("{ad_account_limit}"),
+                "{}",
+                entry.path
+            );
+        }
     })
     .await;
 }

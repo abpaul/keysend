@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     alerts,
+    business::{self, Business},
     campaign_settings::{self, Resolved},
     causes, deep_check, detection, email, follow_up,
     metrics::{first_active_day, Window},
@@ -270,25 +271,88 @@ async fn refresh_check(
 ) -> Result<()> {
     let mut check = match store.latest_deep_check(id).await? {
         Some(check) if day - check.day < 7 => check,
-        _ => {
-            let check = deep_check::collect(settings, store, id, day).await?;
+        previous => {
+            let mut check = deep_check::collect(settings, store, id, day).await?;
+            check.research = previous.and_then(|previous| previous.research);
             store.refresh_deep_check(id, &check, &[]).await?;
             check
         }
     };
     if !check.recommendations_generated {
-        let blocked = store.recommendation_blocked_keys(id, day).await?;
-        let mut new_findings = check.clone();
-        new_findings
-            .findings
-            .retain(|finding| !blocked.contains(&finding.rule.key));
-        let recommendations = deep_check::recommendations(settings, &new_findings, rules).await?;
+        let campaigns = store.campaigns(id).await?;
+        let mut business = business(store, id, &check).await?;
+        business.research = match check
+            .research
+            .take()
+            .filter(|research| research.fresh(day, business.website.as_deref()))
+        {
+            Some(research) => Some(research),
+            None => {
+                let names = campaigns
+                    .iter()
+                    .map(|campaign| campaign.name.clone())
+                    .collect::<Vec<_>>();
+                let places = check
+                    .data
+                    .audit
+                    .locations
+                    .iter()
+                    .take(5)
+                    .map(|location| location.name.clone())
+                    .collect::<Vec<_>>();
+                business::research(settings, &business, &names, &places, day).await
+            }
+        };
+        check.research = business.research.clone();
+        let context = deep_check::Context {
+            business,
+            campaigns,
+            history: store.recommendation_history(id).await?,
+            days: store.monitoring_days(id, day - 151, day - 1).await?,
+            blocked: store
+                .recommendation_blocked_keys(id, day)
+                .await?
+                .into_iter()
+                .collect(),
+        };
+        let review = deep_check::review(settings, &check, &context, rules).await?;
         check.recommendations_generated = true;
+        check.assessment = Some(review.assessment);
         store
-            .refresh_deep_check(id, &check, &recommendations)
+            .refresh_deep_check(id, &check, &review.recommendations)
             .await?;
     }
     Ok(())
+}
+
+async fn business(
+    store: &WorkspaceStore<'_>,
+    id: &str,
+    check: &deep_check::DeepCheck,
+) -> Result<Business> {
+    let profile = store.profile(id).await?;
+    let branded = store
+        .branding(id)
+        .await?
+        .map(|branding| branding.name)
+        .filter(|name| !name.trim().is_empty());
+    let name = match branded {
+        Some(name) => name,
+        None => store
+            .ad_accounts()
+            .await?
+            .into_iter()
+            .find(|ad| ad.customer_id == id)
+            .map(|ad| ad.name)
+            .unwrap_or_default(),
+    };
+    Ok(Business {
+        name,
+        website: business::website(&check.data.audit.landing_pages),
+        goal: profile.goal,
+        note: profile.note,
+        research: None,
+    })
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -426,7 +490,7 @@ pub async fn send(ctx: &AppContext, job: &EmailJob) -> Result<()> {
         return Ok(());
     };
     let language = store.user_language().await?;
-    if settings.email_recipient.as_deref() != Some(&recipient)
+    if !settings.email_recipient_allowed(&recipient)
         || settings.services.email_url.is_none()
         || settings.email_key.is_none()
     {

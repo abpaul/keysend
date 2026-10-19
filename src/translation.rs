@@ -19,6 +19,23 @@ use crate::{
 
 use mask::{Account, Masked};
 
+pub fn assessment_texts(assessment: &crate::monitoring::assessment::Assessment) -> Vec<&str> {
+    std::iter::once(assessment.headline.as_str())
+        .chain(
+            assessment
+                .worked
+                .iter()
+                .chain(&assessment.attention)
+                .flat_map(|point| {
+                    std::iter::once(point.observation.as_str()).chain(point.explanation.as_deref())
+                }),
+        )
+        .chain(assessment.next.iter().map(String::as_str))
+        .chain(assessment.market.as_deref())
+        .filter(|text| !text.trim().is_empty())
+        .collect()
+}
+
 pub const MAX_TEXTS: usize = 240;
 
 pub fn hash(english: &str) -> String {
@@ -57,10 +74,21 @@ impl Wanted {
         self
     }
 
+    pub fn assessment(
+        &mut self,
+        assessment: &crate::monitoring::assessment::Assessment,
+    ) -> &mut Self {
+        for text in assessment_texts(assessment) {
+            self.text(text);
+        }
+        self
+    }
+
     pub fn recommendation(&mut self, recommendation: &Recommendation) -> &mut Self {
         self.text(&recommendation.action)
             .text(&recommendation.reason)
             .text(&recommendation.evidence)
+            .text(&recommendation.measure)
     }
 
     pub fn found(&mut self, found: &RecommendationWithFinding) -> &mut Self {

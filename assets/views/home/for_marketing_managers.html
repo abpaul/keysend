@@ -3,8 +3,8 @@
 {% set hl %}<mark class="hl">{% endset %}{% set endhl %}</mark>{% endset %}
 {% set hero_for = "" %}{% set hero_update = true %}{% set hero_title = t(key="for_managers_h1", hl=hl, endhl=endhl) %}{% set hero_lede = t(key="for_managers_lede") %}{% include "home/_hero.html" %}
 {% set definition = t(key="for_managers_definition") %}{% set title = t(key="for_managers_problem_title") %}{% set intro = t(key="for_managers_problem_text") %}{% set month = false %}{% include "home/_problem.html" %}
-{% set title = t(key="for_managers_update_title") %}{% include "home/_update_points.html" %}
-{% set tiles = ["weekly", "export"] %}{% set title = t(key="for_managers_inbox_title") %}{% set intro = t(key="for_managers_inbox_intro") %}{% include "home/_inbox.html" %}
+{% set title = t(key="for_managers_update_title") %}{% set intro = t(key="for_update_intro") %}{% set morning_title = t(key="for_point_morning_title") %}{% include "home/_update_points.html" %}
+{% set tiles = ["weekly", "export"] %}{% set title = t(key="for_managers_inbox_title") %}{% set intro = t(key="for_managers_inbox_intro") %}{% set weekly_text = t(key="for_weekly_text") %}{% set export_title = t(key="for_export_title") %}{% set export_text = t(key="for_export_text") %}{% include "home/_inbox.html" %}
 {% include "home/_trust.html" %}
 {% include "home/_price.html" %}
 {% include "home/_faq.html" %}

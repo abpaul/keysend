@@ -12,6 +12,7 @@ use super::*;
 #[derive(Default)]
 pub(super) struct Calls {
     pub monitoring_days: Option<Vec<Value>>,
+    pub monitoring_campaigns: Option<Vec<Value>>,
     pub monitoring_audit_rows: HashMap<String, Vec<Value>>,
     pub monitoring_changes: Vec<Value>,
     pub monitoring_zone: Option<String>,
@@ -136,6 +137,11 @@ async fn search(
     }
     for (resource, rows) in &calls.google.monitoring_audit_rows {
         if query.contains(&format!("FROM {resource} ")) {
+            return Json(json!({"results":rows})).into_response();
+        }
+    }
+    if query.contains("campaign_budget.amount_micros") {
+        if let Some(rows) = &calls.google.monitoring_campaigns {
             return Json(json!({"results":rows})).into_response();
         }
     }

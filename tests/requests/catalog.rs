@@ -5,13 +5,21 @@ pub struct Entry {
     pub path: String,
     pub title: String,
     pub description: String,
+    pub body_html: String,
     pub kind: String,
     pub publish_at: DateTime<Utc>,
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 impl Entry {
     pub fn published_at(&self) -> String {
         self.publish_at.to_rfc3339_opts(SecondsFormat::Secs, true)
+    }
+
+    pub fn modified_at(&self) -> String {
+        self.updated_at
+            .unwrap_or(self.publish_at)
+            .to_rfc3339_opts(SecondsFormat::Secs, true)
     }
 }
 

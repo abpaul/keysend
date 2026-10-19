@@ -50,9 +50,12 @@ pub struct CampaignRow {
 }
 
 pub struct RecommendationText {
+    pub subject: String,
+    pub confidence: super::recommendation::Confidence,
     pub finding: Option<String>,
     pub action: String,
     pub reason: String,
+    pub measure: String,
     pub evidence: String,
 }
 
@@ -100,6 +103,7 @@ pub struct CampaignDeepCheck {
 
 pub enum Subject {
     AdAccount {
+        assessment: Option<Box<view::AssessmentText>>,
         update: Option<UpdateText>,
         earlier: Vec<EarlierUpdate>,
         campaign_headers: Vec<&'static str>,
@@ -115,6 +119,7 @@ pub enum Subject {
 }
 
 pub struct Export {
+    pub sample: bool,
     pub name: String,
     pub accent: String,
     pub logo: Option<Vec<u8>>,
@@ -497,21 +502,29 @@ fn preamble(out: &mut String, export: &Export, text: &Text) {
 }})
 #let campaign(name) = highlight(fill: rgb("#{CHIP_FILL}"), extent: 1.5pt, radius: 2pt)[#text(fill: rgb("#{CHIP_TEXT}"), weight: "bold")[#name]]
 #let labelled(label, body) = grid(columns: (24mm, 1fr), column-gutter: 8pt, text(size: 8pt, fill: muted)[#label], body)
-#let recommendation(finding, impact, action, evidence) = block(width: 100%, breakable: false, below: 10pt, stroke: (left: 2pt + accent), inset: (left: 10pt, y: 3pt))[
+#let recommendation(finding, impact, action, evidence, measure: none, metadata: []) = block(width: 100%, breakable: false, below: 10pt, stroke: (left: 2pt + accent), inset: (left: 10pt, y: 3pt))[
   #text(size: 10.5pt, weight: "bold")[#action]
   #v(3pt)
   #if finding != none {{ labelled({finding_label}, finding); v(2pt) }}
   #labelled({impact_label}, impact)
+  #if measure != none {{ v(2pt); labelled({measure_label}, measure) }}
   #v(2pt)
   #labelled({evidence_label}, text(fill: muted)[#evidence])
+  #v(2pt)
+  #metadata
 ]
 "##,
         accent = ts(&export.accent),
         title = ts(&export.name),
-        footer = ts(text.written.export_footer),
+        footer = ts(if export.sample {
+            text.written.export_sample_footer
+        } else {
+            text.written.export_footer
+        }),
         lang = text.written.format.locale,
         finding_label = ts(text.recommendation_finding),
         impact_label = ts(text.recommendation_impact),
+        measure_label = ts(text.written.recommendation_measure),
         evidence_label = ts(text.recommendation_evidence),
     );
 }
@@ -545,6 +558,13 @@ fn header(out: &mut String, export: &Export, text: &Text) -> Result<()> {
     } else {
         let _ = writeln!(out, "{title}");
     }
+    if export.sample {
+        let _ = writeln!(
+            out,
+            "#v(6pt)\n#text(weight: \"bold\", fill: accent)[#({})]",
+            ts(text.written.export_sample_label)
+        );
+    }
     if let Some(notice) = &export.notice {
         let _ = writeln!(
             out,
@@ -554,6 +574,67 @@ fn header(out: &mut String, export: &Export, text: &Text) -> Result<()> {
         );
     }
     Ok(())
+}
+
+fn assessment_section(
+    out: &mut String,
+    text: &Text,
+    finder: &Campaigns,
+    assessment: &view::AssessmentText,
+) {
+    let _ = writeln!(out, "#section({})", ts(text.written.assessment_title));
+    let _ = writeln!(
+        out,
+        "{}\n",
+        muted(8.0, &format!("#({})", ts(&assessment.period)))
+    );
+    let _ = writeln!(
+        out,
+        "#strong[#({})]\n\n{}\n",
+        ts(&format!(
+            "{}: {}",
+            text.written.assessment_result, assessment.result
+        )),
+        markup(finder, &assessment.headline)
+    );
+    for (label, items) in &assessment.sections {
+        let _ = writeln!(out, "#strong[#({})]", ts(label));
+        for item in items {
+            let _ = writeln!(out, "- {}", markup(finder, &item.observation));
+            if let Some(explanation) = &item.explanation {
+                let _ = writeln!(
+                    out,
+                    "  #linebreak() {}",
+                    muted(
+                        9.0,
+                        &format!(
+                            "#({}): {}",
+                            ts(text.written.assessment_explanation),
+                            markup(finder, explanation)
+                        )
+                    )
+                );
+            }
+        }
+        out.push('\n');
+    }
+    if !assessment.sources.is_empty() {
+        let _ = writeln!(
+            out,
+            "{}",
+            muted(
+                8.0,
+                &format!(
+                    "#({})",
+                    ts(&format!(
+                        "{}: {}",
+                        text.market_sources,
+                        assessment.sources.join(", ")
+                    ))
+                )
+            )
+        );
+    }
 }
 
 fn update_section(
@@ -687,14 +768,37 @@ fn recommendations_section(out: &mut String, export: &Export, text: &Text, finde
     for recommendation in &export.recommendations {
         let _ = writeln!(
             out,
-            "#recommendation({}, [{}], [{}], [{}])",
+            "#recommendation({}, [{}], [{}], [{}]{}, metadata: [{}])",
             recommendation.finding.as_ref().map_or_else(
                 || "none".to_owned(),
                 |finding| format!("[{}]", markup(finder, finding))
             ),
             markup(finder, &recommendation.reason),
             markup(finder, &recommendation.action),
-            markup(finder, &recommendation.evidence)
+            markup(finder, &recommendation.evidence),
+            if recommendation.measure.trim().is_empty() {
+                String::new()
+            } else {
+                format!(", measure: [{}]", markup(finder, &recommendation.measure))
+            },
+            muted(
+                8.0,
+                &format!(
+                    "#({}){}",
+                    ts(view::confidence(text, recommendation.confidence)),
+                    if recommendation.subject.trim().is_empty() {
+                        String::new()
+                    } else {
+                        format!(
+                            " #linebreak() #({})",
+                            ts(&format!(
+                                "{}: {}",
+                                text.recommendation_subject, recommendation.subject
+                            ))
+                        )
+                    }
+                )
+            )
         );
     }
 }
@@ -776,7 +880,12 @@ pub fn source(export: &Export, text: &Text) -> Result<String> {
     header(&mut out, export, text)?;
 
     match &export.subject {
-        Subject::AdAccount { update, .. } => {
+        Subject::AdAccount {
+            assessment, update, ..
+        } => {
+            if let Some(assessment) = assessment {
+                assessment_section(&mut out, text, &finder, assessment);
+            }
             update_section(&mut out, text, &finder, update.as_ref())?;
         }
         Subject::Campaign { lines, .. } => {
@@ -1023,6 +1132,7 @@ mod tests {
         }
         headers.extend(["Clicks", "Impressions"]);
         Export {
+            sample: false,
             name: "Harbour \"Dental\"".into(),
             accent: "#5126A6".into(),
             logo: None,
@@ -1038,12 +1148,16 @@ mod tests {
             sparklines: Vec::new(),
             charts: Vec::new(),
             recommendations: vec![RecommendationText {
+                subject: String::new(),
+                confidence: Default::default(),
+                measure: String::new(),
                 finding: None,
                 action: "Add jobs as a negative keyword.".into(),
                 reason: "Job seekers are not patients.".into(),
                 evidence: "jobs: $186 spend, 74 clicks.".into(),
             }],
             subject: Subject::AdAccount {
+                assessment: None,
                 update: Some(UpdateText {
                     date: "Monday 12 October".into(),
                     summary: "Spend was steady at $2,765.".into(),
@@ -1064,6 +1178,57 @@ mod tests {
                 },
             },
         }
+    }
+
+    #[test]
+    fn a_user_reads_the_assessment_before_the_update_and_the_recommendation_measure() {
+        let mut export = export(true);
+        export.notice = Some(
+            view::tracking_notice(
+                english(),
+                super::super::tracking::ConversionTracking::NotSetUp,
+                None,
+                false,
+            )
+            .unwrap(),
+        );
+        if let Subject::AdAccount { assessment, .. } = &mut export.subject {
+            *assessment = Some(Box::new(view::AssessmentText {
+                result: "Mixed",
+                period: "The 30 days to 11 October 2026".into(),
+                sources: Vec::new(),
+                headline: "Search - Emergency delivered more enquiries.".into(),
+                sections: vec![
+                    ("What worked", vec!["42 conversions.".into()]),
+                    ("Next 30 days", vec!["Review search terms.".into()]),
+                ],
+            }));
+        }
+        export.recommendations[0].measure = "Compare conversions after 30 days.".into();
+        let source = source(&export, english()).unwrap();
+        let notice = source.find("#section(\"Assessment\")").unwrap();
+        assert!(source.find("Conversion tracking is not set up").unwrap() < notice);
+        assert!(notice < source.find("#section(\"Update\")").unwrap());
+        assert!(source.contains("The 30 days to 11 October 2026"));
+        assert!(source.contains("#campaign(\"Search - Emergency\")"));
+        assert!(source.contains("#strong[#(\"What worked\")]"));
+        assert!(source.contains("measure: [#(\"Compare conversions after 30 days.\")]"));
+        compiles(&export);
+    }
+
+    #[test]
+    fn an_ad_account_export_labels_fictional_data_only_when_it_is_a_sample() {
+        let text = crate::language::Language::En.text().unwrap();
+        let mut document = export(true);
+        let real = source(&document, text).unwrap();
+        assert!(!real.contains("Sample report"));
+        assert!(!real.contains("Fictional data"));
+        assert!(real.contains(text.written.export_footer));
+        document.sample = true;
+        let sample = source(&document, text).unwrap();
+        assert!(sample.contains("Sample report. Fictional data."));
+        assert!(sample.contains("Sample report · Fictional data · keysend.app"));
+        assert!(!sample.contains(text.written.export_footer));
     }
 
     fn campaign_export() -> Export {
@@ -1110,6 +1275,9 @@ mod tests {
     fn a_campaign_name_is_a_chip_in_every_text_and_a_heading_stays_plain() {
         let mut with = export(true);
         with.recommendations = vec![RecommendationText {
+            subject: String::new(),
+            confidence: Default::default(),
+            measure: String::new(),
             finding: Some("Search - Brand has a high cost per conversion".into()),
             action: "Pause Tom & <b>Jerry</b> today.".into(),
             reason: "Search - Brand has the same clicks.".into(),
@@ -1140,7 +1308,7 @@ mod tests {
             r##"#text(size: 12pt)[#campaign("Search - Emergency")#(" and ")#campaign("Tom & <b>Jerry</b>")#(" moved.")]"##,
             r##"#list([#campaign("Search - Emergency")#(": ")#("210 clicks.")])"##,
             r##"  [#campaign("Tom & <b>Jerry</b>")], [], was("$560", "was $540"), was("42", "was 40"), was("280", "was 270"), was("2,800", "was 2,700"),"##,
-            r##"#recommendation([#campaign("Search - Brand")#(" has a high cost per conversion")], [#campaign("Search - Brand")#(" has the same clicks.")], [#("Pause ")#campaign("Tom & <b>Jerry</b>")#(" today.")], [#campaign("Search - Emergency")#(": $186 spend.")])"##,
+            r##"#recommendation([#campaign("Search - Brand")#(" has a high cost per conversion")], [#campaign("Search - Brand")#(" has the same clicks.")], [#("Pause ")#campaign("Tom & <b>Jerry</b>")#(" today.")], [#campaign("Search - Emergency")#(": $186 spend.")],"##,
             r##"#chart("Spend and conversions by Campaign, last 7 days", [#campaign("Search - Emergency")#(" takes 30% of spend.")])"##,
             r##"#text(size: 8.5pt, fill: muted)[#("Note on ")#campaign("Search - Brand")#(".")]"##,
             r##"#list([#("5 October: Budget of ")#campaign("Search - Brand")#(" changed.")])"##,

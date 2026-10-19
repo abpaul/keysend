@@ -210,7 +210,8 @@ li > .cause { margin-top: var(--s1); }
 .recommendations > li + li { margin-top: var(--s5); padding-top: var(--s5); border-top: 1px solid var(--line); }
 .recommendations > li > * + * { margin-top: var(--s2); }
 .parts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: var(--s4) var(--s5); font-size: 1rem; line-height: 1.5; }
-.parts dt { color: var(--ink-2); font-size: 0.8125rem; line-height: 1.5; font-weight: 700; }
+.parts dt, .parts__measure > b { color: var(--ink-2); font-size: 0.8125rem; line-height: 1.5; font-weight: 700; }
+.parts__measure { margin-top: var(--s3); }
 .parts__action dd { font-weight: 700; }
 .campaign-name { padding: 0.05em 0.18em; border-radius: var(--r-s); background: var(--name); color: var(--plum-dark); font-weight: 700; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 a.campaign-name:hover { background: var(--plum); color: var(--surface); }

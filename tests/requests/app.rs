@@ -60,6 +60,7 @@ async fn boot(mode: StartMode, config: Config, statements: Arc<Mutex<Vec<String>
 struct Calls {
     errors: Vec<Value>,
     commentary: Vec<Value>,
+    research: Vec<Value>,
     translations: Vec<Value>,
     translation_answer: Option<fn(&str, &str) -> String>,
     emails: Vec<Value>,
@@ -243,10 +244,16 @@ impl Fixture {
                     json!({"output":[{"type":"message","content":[{"type":"output_text","text":json!({"items":items}).to_string()}]}]}),
                 );
             }
-            if format_name == "monitoring_update" || format_name == "monitoring_recommendations" {
+            if format_name == "business_research" {
+                calls.research.push(body);
+                return Json(
+                    json!({"output":[{"type":"message","content":[{"type":"output_text","text":json!({"found":false,"kind":"other","summary":"","offers":[],"areas":[],"facts":[]}).to_string()}]}]}),
+                );
+            }
+            if format_name == "monitoring_update" || format_name == "monitoring_review" {
                 let input: Value = serde_json::from_str(body["input"].as_str().unwrap()).unwrap();
                 calls.commentary.push(body);
-                let override_answer = if format_name == "monitoring_recommendations" {
+                let override_answer = if format_name == "monitoring_review" {
                     calls
                         .override_recommendations
                         .as_ref()
@@ -269,7 +276,7 @@ impl Fixture {
                     let lines=input["campaigns"].as_array().unwrap().iter().map(|campaign|json!({"campaign_id":campaign["campaign_id"],"text":format!("Overall, {} spent {} against {}.",campaign["name"].as_str().unwrap(),campaign["metrics"]["current"]["Spend"].as_str().unwrap(),campaign["metrics"]["previous"]["Spend"].as_str().unwrap())})).collect::<Vec<_>>();
                     json!({"summary":summary,"lines":lines})
                 } else {
-                    let recommendations=input["findings"].as_array().unwrap().iter().map(|finding|json!({"finding":finding["key"],"intent":"investigate","action":format!("Review {}.",finding["subjects"][0].as_str().unwrap()),"reason":"Its cost is high compared with the Ad Account."})).collect::<Vec<_>>();
+                    let recommendations=input["findings"].as_array().unwrap().iter().filter(|finding|finding["recommendation_allowed"]==true).map(|finding|json!({"finding":finding["key"],"intent":"investigate","action":format!("Review {}.",finding["subjects"][0].as_str().unwrap()),"reason":"Its cost is high compared with the Ad Account."})).collect::<Vec<_>>();
                     json!({"recommendations":recommendations})
                 };
                 return Json(

@@ -7,6 +7,8 @@ use crate::database::begin_write;
 use crate::monitoring::{
     campaign_text::without_campaign_id,
     deep_check::{DeepCheck, Finding},
+    earlier::Earlier,
+    recommendation::Confidence,
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -35,6 +37,16 @@ pub struct Recommendation {
     pub action: String,
     pub reason: String,
     pub evidence: String,
+    #[serde(default)]
+    pub measure: String,
+    /// What the action does, from `recommendation::INTENTS`.
+    #[serde(default)]
+    pub intent: String,
+    /// The campaign, search term, page or location that the action names.
+    #[serde(default)]
+    pub subject: String,
+    #[serde(default)]
+    pub confidence: Confidence,
     pub campaign_id: Option<i64>,
     pub state: RecommendationState,
 }
@@ -86,6 +98,16 @@ impl WorkspaceStore<'_> {
         self.db.query_all_raw(sql("SELECT data,state FROM monitoring_recommendations WHERE workspace_id=? AND ad_account_customer_id=? ORDER BY opened_day,finding_key",self.monitoring_account(id))).await?.into_iter().map(|row| {
             let mut recommendation:Recommendation=serde_json::from_str(&row.try_get::<String>("","data")?)?;
             recommendation.state=serde_json::from_value(serde_json::Value::String(row.try_get("","state")?))?;Ok(recommendation.name_only())
+        }).collect()
+    }
+
+    /// Every Recommendation of the Ad Account with the days it opened and closed and whether
+    /// its Finding is still detected.
+    pub async fn recommendation_history(&self, id: &str) -> Result<Vec<Earlier>> {
+        self.db.query_all_raw(sql("SELECT r.data,r.state,r.opened_day,r.closed_day,EXISTS(SELECT 1 FROM monitoring_findings f WHERE f.workspace_id=r.workspace_id AND f.ad_account_customer_id=r.ad_account_customer_id AND f.finding_key=r.finding_key AND f.active=1) AS detected FROM monitoring_recommendations r WHERE r.workspace_id=? AND r.ad_account_customer_id=? ORDER BY r.opened_day,r.finding_key",self.monitoring_account(id))).await?.into_iter().map(|row| {
+            let mut recommendation:Recommendation=serde_json::from_str(&row.try_get::<String>("","data")?)?;
+            recommendation.state=serde_json::from_value(serde_json::Value::String(row.try_get("","state")?))?;
+            Ok(Earlier{recommendation:recommendation.name_only(),opened_day:row.try_get("","opened_day")?,closed_day:row.try_get("","closed_day")?,still_detected:row.try_get::<i64>("","detected")?==1})
         }).collect()
     }
 

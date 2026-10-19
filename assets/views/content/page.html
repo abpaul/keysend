@@ -1,5 +1,5 @@
 {% extends "home/base.html" %}
-{% block title %}{{ entry.title }} | KeySend{% endblock title %}
+{% block title %}{{ entry.seo_title }}{% endblock title %}
 {% block description %}{{ entry.description }}{% endblock description %}
 {% block head_extra %}
   <link rel="canonical" href="https://keysend.app{{ entry.path }}">
@@ -9,12 +9,13 @@
   <meta property="og:title" content="{{ entry.title }}">
   <meta property="og:description" content="{{ entry.description }}">
 {% if entry.kind != "tool" %}  <meta property="article:published_time" content="{{ entry.publish_at }}">
-{% endif %}  <link rel="alternate" type="application/rss+xml" title="KeySend" href="/feed.xml">
+{% if entry.updated_at %}  <meta property="article:modified_time" content="{{ entry.updated_at }}">
+{% endif %}{% endif %}  <link rel="alternate" type="application/rss+xml" title="KeySend" href="/feed.xml">
   <script type="application/ld+json">{{ schema | safe }}</script>
 {% endblock head_extra %}
 {% block main %}
 {{ entry.body_html | safe }}
-<aside class="wrap lp-sec prose try" aria-labelledby="try-keysend"><div class="box"><h2 class="h-m" id="try-keysend">{{ t(key="content_cta_title") }}</h2><p>{{ t(key="content_cta_text") }}</p><div class="cta"><a class="btn btn-primary btn-lg" href="/sign-in?from=resource">{{ t(key="home_see_update") }}</a><p>{{ t(key="home_cta_note", trial_days=trial_days) }}</p></div></div></aside>
+<aside class="wrap lp-sec prose try" aria-labelledby="try-keysend"><div class="box"><h2 class="h-m" id="try-keysend">{{ entry.cta.heading }}</h2><p>{{ entry.cta.text }}</p><div class="cta">{% if entry.intent == "commercial" or not cta_link %}<a class="btn btn-primary btn-lg" href="/sign-in?from={{ source }}">{{ t(key="home_start_trial", trial_days=trial_days) }}</a><p>{{ t(key="home_cta_note") }}</p>{% if cta_link %}<p><a href="{{ cta_link.path }}">{{ cta_link.label }}</a></p>{% endif %}{% else %}<a class="btn btn-primary btn-lg" href="{{ cta_link.path }}">{{ cta_link.label }}</a><p><a href="/sign-in?from={{ source }}">{{ t(key="home_start_trial", trial_days=trial_days) }}</a></p><p>{{ t(key="home_cta_note") }}</p>{% endif %}</div></div></aside>
 {% if related %}<nav class="wrap lp-sec prose" aria-label="{{ t(key="content_related") }}"><h2 class="h-m">{{ t(key="content_related") }}</h2><ul>{% for item in related %}<li><a href="{{ item.path }}">{{ item.title }}</a></li>{% endfor %}</ul></nav>{% endif %}
 {% if calculator_js %}<script>{{ calculator_js | safe }}</script>{% endif %}
 {% endblock main %}

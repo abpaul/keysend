@@ -1522,9 +1522,11 @@ async fn a_new_user_sees_the_explanation_before_the_google_ads_consent() {
     let text = page.text();
     assert!(text.contains(r#"<span class="caption">Step 2 of 4</span>Connect Google Ads"#));
     assert!(text.contains("Google now asks if KeySend can see your Google Ads. Choose Allow."));
-    assert!(text.contains(
-        "Google has no narrower permission to offer. We only read. We never change the Ad Account."
-    ));
+    assert!(text.contains(r#"href="/privacy#read""#));
+    assert!(
+        text.find(r#"href="/privacy#read""#).unwrap()
+            < text.find(r#"action="/connections/google/start""#).unwrap()
+    );
     assert!(text.contains(r#"action="/connections/google/start""#));
     assert!(!text.contains("cannot change"));
 
@@ -1705,4 +1707,72 @@ async fn a_sign_in_without_a_known_button_stores_no_source() {
     assert_eq!(fixture.sign_up_source("a@example.com").await, None);
     fixture.sign_in_from("user-b", "home-hero\"><script>").await;
     assert_eq!(fixture.sign_up_source("b@example.com").await, None);
+}
+
+#[tokio::test]
+#[serial]
+async fn a_new_workspace_keeps_the_visible_resource_that_led_to_sign_in() {
+    let fixture = Fixture::new().await;
+    let catalog = super::catalog::Catalog::load();
+    let path = &catalog.published_kind("guide")[0].path;
+    let body = fixture.request.get(path).await.text();
+    let source = body
+        .split("href=\"/sign-in?from=resource-")
+        .nth(1)
+        .unwrap()
+        .split('"')
+        .next()
+        .unwrap();
+    let source = format!("resource-{source}");
+    assert_eq!(source.len(), 36);
+    let sign_in = fixture
+        .request
+        .get("/sign-in")
+        .add_query_param("from", &source)
+        .await;
+    assert_eq!(sign_in.status_code(), 200);
+    assert!(sign_in
+        .text()
+        .contains(&format!("/auth/google/start?from={source}")));
+    let url = fixture.sign_in_from("user-a", &source).await;
+    assert!(!url.query_pairs().any(|(key, _)| key == "from"));
+    assert!(!url.as_str().contains(&source));
+    assert_eq!(
+        fixture.sign_up_source("a@example.com").await,
+        Some(source.clone())
+    );
+    fixture.sign_in_from("user-a", "home-hero-ro").await;
+    assert_eq!(fixture.sign_up_source("a@example.com").await, Some(source));
+}
+
+#[tokio::test]
+#[serial]
+async fn unknown_and_future_resources_do_not_stop_sign_in_or_store_a_source() {
+    let unknown = identity::SignUpSource::resource("/guides/unknown-resource");
+    let catalog = super::catalog::Catalog::load();
+    let future = catalog.scheduled();
+    let sources = std::iter::once(unknown).chain(
+        future
+            .iter()
+            .map(|entry| identity::SignUpSource::resource(&entry.path)),
+    );
+    for source in sources {
+        let fixture = Fixture::new().await;
+        let response = fixture
+            .request
+            .get("/sign-in")
+            .add_query_param("from", source.as_str())
+            .await;
+        assert_eq!(response.status_code(), 200);
+        assert!(response.text().contains("href=\"/auth/google/start\""));
+        assert!(!response.text().contains(source.as_str()));
+        fixture.sign_in_from("user-a", source.as_str()).await;
+        assert_eq!(fixture.sign_up_source("a@example.com").await, None);
+    }
+    let fixture = Fixture::new().await;
+    fixture.sign_in_from("user-b", "home-hero-ro").await;
+    assert_eq!(
+        fixture.sign_up_source("b@example.com").await.as_deref(),
+        Some("home-hero-ro")
+    );
 }

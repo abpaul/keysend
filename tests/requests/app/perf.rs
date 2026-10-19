@@ -36,11 +36,11 @@ const REQUESTS: usize = 5;
 const TOLERANCE_PERCENT: usize = 10;
 
 const BUDGET: [(&str, usize, usize); 13] = [
-    ("/ad-accounts", 5, 3504),
+    ("/ad-accounts", 8, 3873),
     ("/ad-accounts/4829153307", 19, 108573),
     ("/ad-accounts/4829153307?window=30", 19, 110155),
     ("/ad-accounts/4829153307/campaigns/701", 22, 82189),
-    ("/ad-accounts/4829153307/settings", 11, 6693),
+    ("/ad-accounts/4829153307/settings", 14, 8731),
     ("/ad-accounts/4829153307/campaigns/701/settings", 9, 5665),
     ("/subscription", 4, 3258),
     ("/ad-accounts/4829153307/export.pdf?window=7", 25, 187503),
@@ -52,7 +52,7 @@ const BUDGET: [(&str, usize, usize); 13] = [
     ("/", 0, 83432),
     ("/for/business-owners", 0, 23406),
     ("/for/agency-clients", 0, 62488),
-    ("/for/marketing-managers", 0, 14825),
+    ("/for/marketing-managers", 0, 16682),
 ];
 
 fn end_date() -> NaiveDate {
@@ -198,7 +198,7 @@ fn deep_check(day: i64) -> (DeepCheck, Vec<Recommendation>) {
                     keywords: audit_rows("keyword"),
                     landing_pages: audit_rows("page"),
                     ads: ads(),
-                    changes: vec![],
+                    ..Default::default()
                 },
             )
         })
@@ -237,6 +237,10 @@ fn deep_check(day: i64) -> (DeepCheck, Vec<Recommendation>) {
             },
             reason: "It spends without conversions.".into(),
             evidence: finding.rule.detail.clone(),
+            measure: String::new(),
+            intent: String::new(),
+            subject: finding.rule.subjects[0].clone(),
+            confidence: keysend::monitoring::recommendation::Confidence::High,
             campaign_id: finding.campaign_id,
             state: RecommendationState::Open,
         })
@@ -263,6 +267,8 @@ fn deep_check(day: i64) -> (DeepCheck, Vec<Recommendation>) {
             findings,
             judge_by_conversions: true,
             recommendations_generated: true,
+            assessment: None,
+            research: None,
         },
         recommendations,
     )
@@ -785,6 +791,73 @@ async fn serve_the_seeded_pages_to_a_browser() {
     let directory = std::path::PathBuf::from(std::env::var("KEYSEND_BROWSER_CHECK_DIR").unwrap());
     let f = seeded().await;
     seed_breakdowns(&f).await;
+    let signed = identity::authenticate(&f.ctx.db, f.a.value())
+        .await
+        .unwrap()
+        .unwrap();
+    let store = WorkspaceStore::new(&f.ctx.db, &signed.workspace);
+    let mut check = store.latest_deep_check(ACCOUNTS[0]).await.unwrap().unwrap();
+    check.assessment = Some(keysend::monitoring::assessment::Assessment {
+        verdict: keysend::monitoring::assessment::Verdict::Mixed,
+        headline: "Search - Campaign 01 is bringing in more enquiries. Some searches still spend without a result.".into(),
+        worked: vec![keysend::monitoring::claims::Point {
+            observation: "Search - Campaign 01 delivered 42 conversions.".into(),
+            explanation: Some("The longer opening hours may have helped more people enquire.".into()),
+        }],
+        attention: vec!["Search - Campaign 02 spent $186 on searches without conversions.".into()],
+        next: vec!["Review the search terms in Search - Campaign 02.".into()],
+        market: Some("Demand can vary through the autumn.".into()),
+        written_without_ai: false,
+    });
+    check.research = Some(keysend::monitoring::business::Research {
+        day: check.day,
+        website: Some("https://example.com".into()),
+        found: true,
+        kind: keysend::monitoring::business::Kind::LocalService,
+        summary: String::new(),
+        offers: vec![],
+        areas: vec![],
+        facts: vec![keysend::monitoring::business::Fact {
+            claim: "Demand can vary through the autumn.".into(),
+            kind: keysend::monitoring::business::FactKind::Seasonality,
+            source: "https://example.com/season".into(),
+            verified: true,
+        }],
+    });
+    store
+        .save_profile(
+            ACCOUNTS[0],
+            &keysend::workspace::profile::Profile {
+                economics: keysend::monitoring::economics::Economics {
+                    margin: Some(0.35),
+                    customer_value: Some(250.0),
+                    close_rate: Some(0.2),
+                    target_return: Some(4.0),
+                },
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    let mut recommendations = store
+        .recommendations_with_findings(ACCOUNTS[0])
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|found| found.recommendation)
+        .collect::<Vec<_>>();
+    for recommendation in &mut recommendations {
+        recommendation.measure = "Check spend and conversions over the next 30 days.".into();
+    }
+    f.ctx.db.execute_raw(sea_orm::Statement::from_sql_and_values(
+        sea_orm::DatabaseBackend::Sqlite,
+        "DELETE FROM monitoring_recommendations WHERE workspace_id=? AND ad_account_customer_id=?",
+        vec![signed.workspace.id().into(), ACCOUNTS[0].into()],
+    )).await.unwrap();
+    store
+        .refresh_deep_check(ACCOUNTS[0], &check, &recommendations)
+        .await
+        .unwrap();
     f.ctx
         .db
         .execute_unprepared("DELETE FROM updates WHERE ad_account_customer_id='4829153309'")

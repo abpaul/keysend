@@ -278,7 +278,7 @@ pub fn audits() -> BTreeMap<i64, Audit> {
         keywords,
         landing_pages: pages,
         ads,
-        changes: vec![],
+        ..Default::default()
     };
     BTreeMap::from([
         (
@@ -446,6 +446,10 @@ pub fn deep_check(day: i64) -> (DeepCheck, Vec<Recommendation>) {
             action: action.into(),
             reason: reason.into(),
             evidence: finding.rule.detail.clone(),
+            measure: String::new(),
+            intent: String::new(),
+            subject: String::new(),
+            confidence: Default::default(),
             campaign_id: finding.campaign_id,
             state: RecommendationState::Open,
         })
@@ -475,6 +479,8 @@ pub fn deep_check(day: i64) -> (DeepCheck, Vec<Recommendation>) {
             findings,
             judge_by_conversions: true,
             recommendations_generated: true,
+            assessment: None,
+            research: None,
         },
         recommendations,
     )

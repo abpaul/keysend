@@ -195,6 +195,38 @@ async fn in_a_test_language_no_page_export_or_email_keeps_an_english_fixed_word(
 
     let signed = signed(&f).await;
     let store = WorkspaceStore::new(&f.ctx.db, &signed.workspace);
+    let mut check = store.latest_deep_check(AD).await.unwrap().unwrap();
+    check.assessment = Some(keysend::monitoring::assessment::Assessment {
+        verdict: keysend::monitoring::assessment::Verdict::Mixed,
+        headline: "The results are mixed.".into(),
+        worked: vec![keysend::monitoring::claims::Point {
+            observation: "Search - Emergency delivered 42 conversions.".into(),
+            explanation: Some("Longer opening hours may have helped.".into()),
+        }],
+        attention: vec!["Review wasted searches.".into()],
+        next: vec!["Check the search terms.".into()],
+        market: Some("Demand varies in autumn.".into()),
+        written_without_ai: false,
+    });
+    let mut recommendations = store
+        .recommendations_with_findings(AD)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|found| found.recommendation)
+        .collect::<Vec<_>>();
+    for recommendation in &mut recommendations {
+        recommendation.measure = "Compare conversions after 30 days.".into();
+        recommendation.subject = "dental implants jobs".into();
+        recommendation.confidence = keysend::monitoring::recommendation::Confidence::High;
+    }
+    f.ctx.db.execute_raw(Statement::from_sql_and_values(DatabaseBackend::Sqlite,
+        "DELETE FROM monitoring_recommendations WHERE workspace_id=? AND ad_account_customer_id=?",
+        vec![signed.workspace.id().into(), AD.into()])).await.unwrap();
+    store
+        .refresh_deep_check(AD, &check, &recommendations)
+        .await
+        .unwrap();
     let mut shown: Vec<(String, String)> = Vec::new();
     for path in [
         PAGE.to_owned(),
@@ -267,6 +299,7 @@ async fn in_a_test_language_no_page_export_or_email_keeps_an_english_fixed_word(
             .await
             .unwrap();
     let export = |subject: Subject, charts, recommendations| Export {
+        sample: false,
         name: "Harbour Dental".into(),
         accent: "#5126A6".into(),
         logo: None,
@@ -291,6 +324,9 @@ async fn in_a_test_language_no_page_export_or_email_keeps_an_english_fixed_word(
         subject,
     };
     let advice = export::RecommendationText {
+        subject: "dental implants jobs".into(),
+        confidence: Default::default(),
+        measure: "Compare conversions after 30 days.".into(),
         finding: Some("dental implants jobs wastes spend".into()),
         action: "Add dental implants jobs as a negative keyword in Search - Implants.".into(),
         reason: "People who search for jobs are not patients.".into(),
@@ -298,6 +334,15 @@ async fn in_a_test_language_no_page_export_or_email_keeps_an_english_fixed_word(
     };
     let account = export(
         Subject::AdAccount {
+            assessment: Some(Box::new(
+                keysend::monitoring::view::assessment_text(
+                    text,
+                    check.day,
+                    check.assessment.as_ref().unwrap(),
+                    &keysend::translation::Translations::english(),
+                )
+                .unwrap(),
+            )),
             update: Some(export::UpdateText {
                 date: format::long_date(text, today()),
                 summary: "Spend was steady at $2,765.".into(),
@@ -468,6 +513,7 @@ async fn in_a_test_language_no_page_export_or_email_keeps_an_english_fixed_word(
     ));
     let without_deep = export(
         Subject::AdAccount {
+            assessment: None,
             update: None,
             earlier: Vec::new(),
             campaign_headers: Vec::new(),
@@ -503,6 +549,10 @@ async fn in_a_test_language_no_page_export_or_email_keeps_an_english_fixed_word(
         action: "Add dental implants jobs as a negative keyword in Search - Implants.".into(),
         reason: "People who search for jobs are not patients.".into(),
         evidence: "dental implants jobs: $186 spend, 74 clicks, 0 conversions.".into(),
+        measure: String::new(),
+        intent: String::new(),
+        subject: String::new(),
+        confidence: Default::default(),
         campaign_id: Some(3),
         state: RecommendationState::Open,
     };
@@ -572,6 +622,8 @@ async fn in_a_test_language_no_page_export_or_email_keeps_an_english_fixed_word(
     }
 
     let own = [
+        "dental implants jobs",
+        "Compare conversions after 30 days.",
         "Add dental implants jobs as a negative keyword in Search - Implants.",
         "People who search for jobs are not patients.",
         "dental implants jobs: $186 spend, 74 clicks, 0 conversions.",

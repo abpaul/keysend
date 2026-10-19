@@ -51,6 +51,8 @@ impl NewUser {
             ("6170254418", "Northgate Physio"),
             ("3309581126", "Tidewater Vets"),
             ("9042276630", "Harbour Dental (old)"),
+            ("5550000001", "Fifth Practice"),
+            ("5550000002", "Sixth Practice"),
         ]
         .map(|(id, name)| AdAccountChoice {
             customer_id: id.into(),
@@ -93,9 +95,9 @@ async fn step_one_invites_the_user_to_sign_in_with_google() {
     assert!(
         page.contains(r#"<h1><span class="caption">Step 1 of 4</span>Sign in with Google</h1>"#)
     );
-    assert!(page.contains(
-        "We read your Google Ads every day and tell you what changed, why, and what to do."
-    ));
+    assert!(page.contains("Google's Ads permission includes reading and editing."));
+    assert!(page.contains("does not send edit requests."));
+    assert!(page.contains("You can remove access in your Google account."));
     assert!(page.contains(
         "Your Trial starts when you sign in. It lasts 14 days and needs no payment card."
     ));
@@ -106,6 +108,7 @@ async fn step_one_invites_the_user_to_sign_in_with_google() {
     assert!(page.contains(r#"<link rel="stylesheet" href="/static/"#));
     assert!(!page.contains("site-nav"));
     assert!(page.contains(r#"href="/privacy""#));
+    assert!(page.contains(r#"href="/privacy#read""#));
     assert!(!page.contains("turbo"));
 }
 
@@ -118,9 +121,13 @@ async fn step_two_tells_the_user_what_the_google_question_means() {
         r#"<h1 class="heading-xl"><span class="caption">Step 2 of 4</span>Connect Google Ads</h1>"#
     ));
     assert!(page.contains("Google now asks if KeySend can see your Google Ads. Choose Allow."));
-    assert!(page.contains(
-        "Google has no narrower permission to offer. We only read. We never change the Ad Account."
-    ));
+    assert!(page.contains("Google's Ads permission includes reading and editing."));
+    assert!(page.contains("does not send edit requests."));
+    assert!(page.contains("You can remove access in your Google account."));
+    assert!(
+        page.find(r#"href="/privacy#read""#).unwrap()
+            < page.find(r#"action="/connections/google/start""#).unwrap()
+    );
     assert!(
         page.contains(r#"<form class="actions" method="post" action="/connections/google/start">"#)
     );
@@ -143,7 +150,7 @@ async fn step_three_lists_the_ad_accounts_with_their_google_ads_ids() {
         r#"<h1 class="heading-xl"><span class="caption">Step 3 of 4</span>Choose your Ad Accounts</h1>"#
     ));
     assert!(page
-        .contains("Choose up to 3 Ad Accounts. We found 4 Ad Accounts in your Google Connection."));
+        .contains("Choose up to 5 Ad Accounts. We found 6 Ad Accounts in your Google Connection."));
     assert!(page.contains(r#"<label class="choice"><input type="checkbox" name="ad_account" value="4829153307" id="account-1"><span>Harbour Dental <small class="num">482-915-3307</small></span></label>"#));
     assert!(page.contains(r#"<small class="num">617-025-4418</small>"#));
     assert!(page.contains(r#"<button class="button" type="submit">Continue</button>"#));
@@ -162,26 +169,59 @@ async fn step_three_lists_the_ad_accounts_with_their_google_ads_ids() {
 
 #[tokio::test]
 #[serial]
-async fn choosing_four_or_none_shows_the_error_at_the_top_and_at_the_field() {
+async fn a_user_is_refused_six_ad_accounts_or_none() {
     let user = NewUser::new("2026-10-12T12:00:00Z").await;
     let response = user
-        .choose(&[HARBOUR, "6170254418", "3309581126", "9042276630"])
+        .choose(&[
+            HARBOUR,
+            "6170254418",
+            "3309581126",
+            "9042276630",
+            "5550000001",
+            "5550000002",
+        ])
         .await;
     assert_eq!(response.status_code(), 422);
     let page = response.text();
     assert!(page.contains("<title>Error: Choose your Ad Accounts | KeySend</title>"));
     assert!(page.contains(
-        r##"<li><a href="#account-1">You chose 4 Ad Accounts. Choose up to 3.</a></li>"##
+        r##"<li><a href="#account-1">You chose 6 Ad Accounts. Choose up to 5.</a></li>"##
     ));
-    assert!(page.contains(r#"<p class="error-message" id="choose-error"><span class="visually-hidden">Error: You chose 4 Ad Accounts. Choose up to 3.</span><span aria-hidden="true">You chose 4 Ad Accounts. Choose up to 3.</span></p>"#));
+    assert!(page.contains(r#"<p class="error-message" id="choose-error"><span class="visually-hidden">Error: You chose 6 Ad Accounts. Choose up to 5.</span><span aria-hidden="true">You chose 6 Ad Accounts. Choose up to 5.</span></p>"#));
     assert!(page.contains(r#"aria-describedby="choose-hint choose-error""#));
-    assert_eq!(page.matches("checked>").count(), 4);
     let none = user.choose(&[]).await;
     assert_eq!(none.status_code(), 422);
     assert!(none.text().contains("Choose at least one Ad Account."));
     let b = signed_as(&user.f, &user.f.b).await;
     let store = WorkspaceStore::new(&user.f.ctx.db, &b.workspace);
     assert!(store.ad_accounts().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+#[serial]
+async fn a_user_can_choose_five_ad_accounts() {
+    let user = NewUser::new("2026-10-12T02:00:00Z").await;
+    let chosen = user
+        .choose(&[
+            HARBOUR,
+            "6170254418",
+            "3309581126",
+            "9042276630",
+            "5550000001",
+        ])
+        .await;
+    assert_eq!(chosen.status_code(), 303, "{}", chosen.text());
+    assert_eq!(chosen.header("location"), "/ad-accounts");
+    let page = user.get("/ad-accounts").await.text();
+    for name in [
+        "Harbour Dental",
+        "Northgate Physio",
+        "Tidewater Vets",
+        "Harbour Dental (old)",
+        "Fifth Practice",
+    ] {
+        assert!(page.contains(name), "{page}");
+    }
 }
 
 #[tokio::test]

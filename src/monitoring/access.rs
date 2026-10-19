@@ -1,7 +1,7 @@
 use crate::billing::{Subscription, SubscriptionStatus};
 
 pub const TRIAL_SECONDS: i64 = 14 * 86_400;
-pub const AD_ACCOUNT_LIMIT: usize = 3;
+pub const AD_ACCOUNT_LIMIT: usize = 5;
 
 pub const HISTORY_GRACE_SECONDS: i64 = 30 * 86_400;
 

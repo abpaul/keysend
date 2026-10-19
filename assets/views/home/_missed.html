@@ -5,8 +5,8 @@
         <p>{{ t(key="home_missed_intro") }}</p>
       </div>
       {% set heading = "h3" %}
-      <section class="card demo" aria-labelledby="search-share">
+      <figure class="demo"><section class="card" aria-labelledby="search-share">
         {% set chart = search_share %}{% set chart_id = "search-share" %}{% set chart_kind = "stack" %}{% include "monitoring/_chart.html" %}
-      </section>
+      </section><figcaption>{{ t(key="home_example_label") }}</figcaption></figure>
     </section>
     </div>
