@@ -60,6 +60,8 @@ pub struct Subscription {
     pub status: SubscriptionStatus,
     pub period_start: i64,
     pub period_end: i64,
+    pub cancel_at_period_end: bool,
+    pub canceled_at: Option<i64>,
 }
 
 pub struct VerifiedEvent {
@@ -286,6 +288,8 @@ pub fn subscription(
         return Err(unavailable());
     }
     Ok(Subscription {
+        cancel_at_period_end: value["cancel_at_period_end"].as_bool().unwrap_or(false),
+        canceled_at: value["canceled_at"].as_i64(),
         id: id.into(),
         created_at: value["created"].as_i64().ok_or_else(unavailable)?,
         status: value["status"]

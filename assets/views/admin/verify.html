@@ -1,0 +1,16 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<h1 class="heading-xl">{{ t(key="admin_enter_code") }}</h1>
+<p>{{ t(key="admin_code_sent") }}</p>
+{% if error %}<p role="alert">{{ t(key="admin_code_refused") }}</p>{% endif %}
+<form class="form" method="post" action="/admin/verify">
+  <div class="field">
+    <label class="label" for="code">{{ t(key="admin_code") }}</label>
+    <input class="input" id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+  </div>
+  <div class="actions">
+    <button class="button" type="submit">{{ t(key="admin_verify") }}</button>
+  </div>
+</form>
+<p><a href="/admin">{{ t(key="admin_request_code") }}</a></p>
+{% endblock content %}

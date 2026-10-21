@@ -1,4 +1,10 @@
-use crate::settings::Settings;
+use crate::{
+    settings::Settings,
+    workspace::{
+        measurement::{Operation, Usage},
+        WorkspaceStore,
+    },
+};
 use serde_json::Value;
 use std::collections::BTreeSet;
 
@@ -374,8 +380,13 @@ pub(crate) fn valid_hedged(
     Ok(())
 }
 
-pub(crate) async fn request(settings: &Settings, key: &str, payload: &Value) -> Option<Value> {
-    request_with_sources(settings, key, payload)
+pub(crate) async fn request(
+    settings: &Settings,
+    store: Option<&WorkspaceStore<'_>>,
+    key: &str,
+    payload: &Value,
+) -> Option<Value> {
+    request_with_sources(settings, store, key, payload)
         .await
         .map(|(answer, _)| answer)
 }
@@ -383,8 +394,50 @@ pub(crate) async fn request(settings: &Settings, key: &str, payload: &Value) -> 
 /// The answer and the URLs that a web search of the request returned or cited.
 pub(crate) async fn request_with_sources(
     settings: &Settings,
+    store: Option<&WorkspaceStore<'_>>,
     key: &str,
     payload: &Value,
+) -> Option<(Value, BTreeSet<String>)> {
+    request_measured(settings, store, key, payload).await.0
+}
+
+/// The answer with the tokens that the request used, for a caller that keeps its own budget.
+pub(crate) async fn request_measured(
+    settings: &Settings,
+    store: Option<&WorkspaceStore<'_>>,
+    key: &str,
+    payload: &Value,
+) -> (Option<(Value, BTreeSet<String>)>, Usage) {
+    let started = std::time::Instant::now();
+    let mut usage = Usage::default();
+    let outcome = read_response(settings, key, payload, &mut usage).await;
+    if let Some(store) = store {
+        if let Some(op) = payload
+            .pointer("/text/format/name")
+            .and_then(Value::as_str)
+            .and_then(Operation::from_schema)
+        {
+            store
+                .record_operation(
+                    op,
+                    payload["model"].as_str().unwrap_or_default(),
+                    outcome.is_some(),
+                    started.elapsed(),
+                    usage,
+                )
+                .await;
+        } else {
+            tracing::warn!("AI request has no measurement kind");
+        }
+    }
+    (outcome, usage)
+}
+
+async fn read_response(
+    settings: &Settings,
+    key: &str,
+    payload: &Value,
+    usage: &mut Usage,
 ) -> Option<(Value, BTreeSet<String>)> {
     let response = settings
         .http
@@ -418,17 +471,15 @@ pub(crate) async fn request_with_sources(
             );
         })
         .ok()?;
-    let usage = |name: &str| {
+    let tokens = |name: &str| {
         body.pointer(&format!("/usage/{name}"))
-            .and_then(serde_json::Value::as_u64)
-            .unwrap_or_default()
+            .and_then(Value::as_i64)
+            .filter(|tokens| *tokens >= 0)
     };
-    tracing::info!(
-        model = %payload["model"],
-        input_tokens = usage("input_tokens"),
-        output_tokens = usage("output_tokens"),
-        "AI request finished"
-    );
+    usage.input_tokens = tokens("input_tokens");
+    usage.output_tokens = tokens("output_tokens");
+    let cached_tokens = tokens("input_tokens_details/cached_tokens");
+    tracing::info!(model = %payload["model"], input_tokens = ?usage.input_tokens, ?cached_tokens, output_tokens = ?usage.output_tokens, "AI request finished");
     let text = body
         .get("output")
         .and_then(Value::as_array)

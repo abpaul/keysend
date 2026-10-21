@@ -22,6 +22,14 @@ impl MasterKey {
         Ok(Self(key))
     }
 
+    pub fn derive(&self, purpose: &[u8]) -> [u8; 32] {
+        use hmac::{Hmac, Mac};
+        let mut mac = <Hmac<sha2::Sha256> as Mac>::new_from_slice(&self.0)
+            .expect("HMAC accepts a 32-byte key");
+        mac.update(purpose);
+        mac.finalize().into_bytes().into()
+    }
+
     pub fn encrypt(&self, workspace_id: &str, connection_id: &str, value: &str) -> Result<String> {
         let cipher = Aes256Gcm::new_from_slice(&self.0).map_err(|_| invalid())?;
         let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
@@ -73,4 +81,21 @@ fn associated_data(workspace_id: &str, connection_id: &str) -> String {
 
 fn invalid() -> Error {
     Error::Message("Cannot open the encrypted Google Connection".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn administrators_use_a_key_derived_for_its_purpose() {
+        let key = MasterKey([0; 32]);
+        assert_eq!(
+            key.derive(b"admin-code"),
+            [
+                235, 65, 26, 23, 225, 50, 177, 23, 33, 184, 44, 15, 223, 47, 190, 127, 245, 131,
+                77, 222, 146, 144, 212, 57, 136, 37, 26, 159, 39, 4, 239, 60
+            ]
+        );
+        assert_ne!(key.derive(b"admin-code"), key.derive(b"another-purpose"));
+    }
 }

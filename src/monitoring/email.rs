@@ -662,6 +662,16 @@ pub async fn deliver(
     if !settings.email_recipient_allowed(recipient) {
         return Err(refused("Email recipient is not enabled"));
     }
+    send(settings, recipient, subject, text, html).await
+}
+
+pub(crate) async fn send(
+    settings: &Settings,
+    recipient: &str,
+    subject: &str,
+    text: &str,
+    html: Option<&str>,
+) -> std::result::Result<(), DeliveryError> {
     let (url, key) = settings
         .services
         .email_url

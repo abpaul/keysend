@@ -1,0 +1,7 @@
+{% if refused %}
+<div class="notice">
+  <h2 class="notice__title">{{ t(key="refused_title") }}</h2>
+  <p>{{ t(key="refused_text") }}</p>
+  <form method="post" action="/connections/google/start"><button class="button" type="submit">{{ t(key="refused_button") }}</button></form>
+</div>
+{% endif %}

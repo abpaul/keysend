@@ -90,6 +90,7 @@ The checks run formatting, vendored-source validation, Clippy, and the test suit
 | Read | For |
 | --- | --- |
 | [Features](docs/features.md) | Application behavior, routes, and tests |
+| [Agent](docs/agent.md) | Investigations: operations, evidence, checks, limits |
 | [Architecture](docs/architecture.md) | Modules, data flow, and background jobs |
 | [Database](docs/database.md) | Tables and relationships |
 | [Credentials](docs/credentials.md) | Environment settings and encrypted configuration |

@@ -179,6 +179,9 @@ async fn save(
     let refuse = |message: String| Some(Refusal { message });
     let limit = access::AD_ACCOUNT_LIMIT.to_string();
     let existing = store.ad_accounts().await?;
+    if selected.is_empty() && !existing.is_empty() {
+        return Ok(Redirect::to("/ad-accounts").into_response());
+    }
     let total = existing
         .iter()
         .map(|ad| ad.customer_id.clone())

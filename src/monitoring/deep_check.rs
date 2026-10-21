@@ -537,6 +537,7 @@ Rules:
 
 pub async fn review(
     settings: &Settings,
+    store: Option<&crate::workspace::WorkspaceStore<'_>>,
     check: &DeepCheck,
     context: &Context,
     rules: impl Rules,
@@ -677,7 +678,7 @@ pub async fn review(
     let payload = json!({"model":settings.services.ai_model,"store":false,"max_output_tokens":8000,
         "instructions":INSTRUCTIONS,"input":input.to_string(),
         "text":{"format":{"type":"json_schema","name":"monitoring_review","strict":true,"schema":{"type":"object","required":required,"additionalProperties":false,"properties":properties}}}});
-    let body = request(settings, key, &payload)
+    let body = request(settings, store, key, &payload)
         .await
         .ok_or_else(|| Error::Message("Review AI request failed".into()))?;
     let unjudged = |text: &str| !check.judge_by_conversions && mentions_conversions(text);

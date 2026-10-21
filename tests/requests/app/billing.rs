@@ -40,7 +40,7 @@ impl Fixture {
         response
     }
 
-    pub(super) async fn subscribe(&self) -> Value {
+    pub(in crate::requests) async fn subscribe(&self) -> Value {
         self.subscribe_as("sub_fixture", 1700000000).await
     }
 
@@ -642,4 +642,53 @@ async fn a_failed_payment_asks_for_another_card_and_starts_no_second_subscriptio
             .len(),
         1
     );
+}
+
+#[tokio::test]
+#[serial]
+async fn a_subscription_that_schedules_cancellation_and_ends_records_each_change() {
+    let f = Fixture::new(false).await;
+    f.subscribe().await;
+    for (id, status, scheduled) in [
+        ("evt_scheduled", "active", true),
+        ("evt_ended", "canceled", false),
+    ] {
+        let object = {
+            let mut calls = f.calls.lock().unwrap();
+            calls
+                .stripe
+                .cancellation("sub_fixture", scheduled, Some(1700000100));
+            let value = calls.stripe.subscriptions.get_mut("sub_fixture").unwrap();
+            value["status"] = json!(status);
+            value.clone()
+        };
+        assert_eq!(
+            f.event(
+                id,
+                "customer.subscription.updated",
+                object,
+                chrono::Utc::now().timestamp()
+            )
+            .await
+            .status_code(),
+            200
+        );
+    }
+    let signed = identity::authenticate(&f.ctx.db, f.a.value())
+        .await
+        .unwrap()
+        .unwrap();
+    let store = WorkspaceStore::new(&f.ctx.db, &signed.workspace);
+    let rows = store.subscription_changes().await.unwrap();
+    let changes: Vec<_> = rows
+        .iter()
+        .map(|row| (row.status.as_str(), row.cancel_at_period_end))
+        .collect();
+    assert_eq!(
+        changes,
+        [("active", false), ("active", true), ("canceled", false)]
+    );
+    let subscription = store.subscription().await.unwrap().unwrap();
+    assert_eq!(subscription.canceled_at, Some(1700000100));
+    assert!(!store.subscription_active().await.unwrap());
 }

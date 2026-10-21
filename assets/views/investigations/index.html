@@ -1,0 +1,45 @@
+{% extends "app/base.html" %}
+{% block title %}{{ t(key="investigations") }}{% endblock title %}
+{% block nav_investigations %} aria-current="page"{% endblock nav_investigations %}
+{% block content %}
+<h1 class="heading-xl">{{ t(key="investigations") }}</h1>
+<p class="lede">{{ t(key="inv_intro") }}</p>
+{% if errors | length > 0 %}
+<div class="error-summary" role="alert" aria-labelledby="error-title">
+  <h2 class="heading-s" id="error-title">{{ t(key="error_summary_title") }}</h2>
+  <ul class="plain-list">{% for error in errors %}<li><a href="#{{ error.field }}">{{ error.message }}</a></li>{% endfor %}</ul>
+</div>
+{% endif %}
+{% if not access %}
+<div class="notice"><p>{{ t(key="inv_access") }}</p><a href="/subscription">{{ t(key="subscription") }}</a></div>
+{% elif accounts | length == 0 %}
+<div class="notice"><p>{{ t(key="inv_no_accounts") }}</p><a href="/connect">{{ t(key="inv_connect") }}</a></div>
+{% elif reopens %}
+<div class="notice" role="status"><p>{{ t(key="inv_daily", date=reopens) }}</p></div>
+{% else %}
+<form class="form card" action="{{ action }}" method="post">
+  <fieldset class="field" id="accounts"{% if follow_up %} disabled{% endif %}><legend class="label">{{ t(key="ad_accounts") }}</legend>
+    <p class="hint" id="accounts-hint">{{ t(key="inv_accounts_hint") }}</p>
+    <div class="choices">{% for ad in accounts %}<label class="choice"><input type="checkbox" name="accounts" value="{{ ad.id }}"{% if ad.checked %} checked{% endif %} aria-describedby="accounts-hint"><span>{{ ad.name }}</span></label>{% endfor %}</div>
+  </fieldset>
+  <div class="field"><label class="label" for="period">{{ t(key="inv_period") }}</label>
+    <select class="input" name="period" id="period"{% if follow_up %} disabled{% endif %}><option value="last_30_days"{% if period == "last_30_days" %} selected{% endif %}>{{ t(key="inv_30") }}</option><option value="last_7_days"{% if period == "last_7_days" %} selected{% endif %}>{{ t(key="inv_7") }}</option></select>
+  </div>
+  <div class="field"><label class="label" for="question">{{ t(key="inv_question") }}</label><textarea class="input" id="question" name="question" rows="3" maxlength="500" required>{{ question }}</textarea></div>
+  <button class="button" type="submit">{{ t(key="inv_ask") }}</button>
+  <fieldset class="field investigation-shortcuts"><legend class="label">{{ t(key="inv_shortcuts") }}</legend>
+    <button class="link-button" type="submit" name="question" value="{{ t(key="inv_drop") }}" formnovalidate>{{ t(key="inv_drop") }}</button>
+    <button class="link-button" type="submit" name="question" value="{{ t(key="inv_attention") }}" formnovalidate>{{ t(key="inv_attention") }}</button>
+    <button class="link-button" type="submit" name="question" value="{{ t(key="inv_campaigns") }}" formnovalidate>{{ t(key="inv_campaigns") }}</button>
+    <button class="link-button" type="submit" name="question" value="{{ t(key="inv_waste") }}" formnovalidate>{{ t(key="inv_waste") }}</button>
+    <button class="link-button" type="submit" name="question" value="{{ t(key="inv_next") }}" formnovalidate>{{ t(key="inv_next") }}</button>
+
+  </fieldset>
+</form>
+{% endif %}
+<section aria-labelledby="recent-title"><h2 class="heading-m" id="recent-title">{{ t(key="inv_recent") }}</h2>
+  {% if recent | length == 0 %}<p class="muted">{{ t(key="inv_empty") }}</p>{% else %}
+  <ul class="plain-list investigation-recent">{% for row in recent %}<li><h3 class="heading-s"><a href="/investigations/{{ row.id }}">{{ row.question }}</a></h3><p class="small muted">{{ row.accounts | join(sep=" · ") }} · {{ row.state }} · {{ row.date }}</p></li>{% endfor %}</ul>
+  {% endif %}
+</section>
+{% endblock content %}

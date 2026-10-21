@@ -1,3 +1,4 @@
+pub mod agent;
 mod ai;
 pub mod app;
 mod assets;
@@ -14,6 +15,7 @@ pub mod identity;
 pub mod initializers;
 pub mod language;
 pub mod monitoring;
+pub mod optimize;
 pub mod removal;
 mod security;
 pub mod settings;

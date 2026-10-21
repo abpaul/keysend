@@ -1,0 +1,13 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<h1 class="heading-xl">{{ t(key="admin_sign_in") }}</h1>
+<form class="form" method="post" action="/admin/code">
+  <div class="field">
+    <label class="label" for="email">{{ t(key="admin_email") }}</label>
+    <input class="input" id="email" name="email" type="email" autocomplete="email" required>
+  </div>
+  <div class="actions">
+    <button class="button" type="submit">{{ t(key="admin_send_code") }}</button>
+  </div>
+</form>
+{% endblock content %}

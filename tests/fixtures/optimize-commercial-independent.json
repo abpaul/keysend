@@ -1,0 +1,2023 @@
+{
+  "schema_version": 1,
+  "title": "Independent adversarial commercial judgments for KeySend",
+  "authored_on": "2026-10-21",
+  "expectations_status": "Provisional domain judgments, not ground truth. Human adjudication is required before treating disagreement as a product defect.",
+  "independence": {
+    "implementation_read": false,
+    "internal_thresholds_read": false,
+    "existing_evaluation_cases_read": false,
+    "project_material_read": [
+      "AGENTS.md",
+      "CONTEXT.md"
+    ],
+    "implementation_executed": false,
+    "labels_tuned_against_code": false
+  },
+  "interpretation": {
+    "scope": "Each case concerns one Campaign unless its facts explicitly include other Campaigns. Recommendations are judgments only, never authorization to execute a Proposal.",
+    "input_defaults": "No unlisted operational failure, tracking defect, protected objective, shared budget, funding emergency or manual change may be assumed. Explicit unknowns stay unknown. Facts in each case override these defaults.",
+    "abstain": "Do not recommend review, budget reduction or pause from the stated facts now. This includes healthy trading, an approved immature experiment, and an already completed protective action. It does not certify future performance.",
+    "recommend_review": "Recommend a concrete data, configuration, objective or commercial-scope investigation before selecting a spend mutation. Do not encode a budget reduction or pause as the review.",
+    "recommend_budget_reduction": "Recommend lower funding for the stated commercial reason while retaining activity. No exact percentage is implied or authorized.",
+    "recommend_pause": "Recommend stopping further acquisition exposure for this Campaign, potentially temporarily. No execution or Approval is implied.",
+    "high_risk": "A mistaken intervention or missed intervention can materially damage revenue, cash, protected objectives or measurement. False does not imply permission. Risk is a qualitative author judgment.",
+    "economics": "Contribution before ads means revenue minus the stated nonadvertising variable costs. Contribution after ads subtracts ad spend. Revenue ROAS alone does not establish profit.",
+    "evidence": "URLs support the general reasoning principle, not the fictional inputs or the action label. Exact spend, counts, margins and limits are invented scenario facts, never product thresholds."
+  },
+  "source_catalog": [
+    {
+      "key": "lag",
+      "title": "About conversion delay estimates",
+      "url": "https://support.google.com/google-ads/answer/14545572?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "Recent conversions can arrive later and change apparent CPA and ROAS."
+    },
+    {
+      "key": "evaluation",
+      "title": "Tips on measuring Smart Bidding performance",
+      "url": "https://support.google.com/google-ads/answer/6268633?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "Evaluate across conversion cycles and account for uncertainty and business goals."
+    },
+    {
+      "key": "value",
+      "title": "About conversion values",
+      "url": "https://support.google.com/google-ads/answer/13064207?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "Conversion values distinguish business value from conversion counts."
+    },
+    {
+      "key": "shared",
+      "title": "About shared budgets",
+      "url": "https://support.google.com/google-ads/answer/10487241?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "One budget can fund multiple Campaigns and reallocate spend between them."
+    },
+    {
+      "key": "leads",
+      "title": "About qualified leads and converted leads",
+      "url": "https://support.google.com/google-ads/answer/11459091?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "Lead qualification and closed sales describe different funnel stages."
+    },
+    {
+      "key": "learning",
+      "title": "About Smart Bidding learning",
+      "url": "https://support.google.com/google-ads/answer/13020501?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "Structural changes and conversion cycles matter. Absence of a Learning label does not establish settled performance."
+    },
+    {
+      "key": "outage",
+      "title": "About data exclusions",
+      "url": "https://support.google.com/google-ads/answer/10370710?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "Tag, website and import failures can corrupt conversion evidence."
+    },
+    {
+      "key": "goals",
+      "title": "About primary and secondary conversion actions",
+      "url": "https://support.google.com/google-ads/answer/11461796?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "Reporting and bidding depend on conversion goal configuration, including custom goals."
+    },
+    {
+      "key": "season",
+      "title": "About seasonality adjustments",
+      "url": "https://support.google.com/google-ads/answer/10369906?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "Temporary promotional conversion-rate shifts differ from lasting performance changes."
+    },
+    {
+      "key": "returns",
+      "title": "About conversion adjustments",
+      "url": "https://support.google.com/google-ads/answer/7686447?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "Returns, cancellations and changed customer value can require conversion adjustments."
+    },
+    {
+      "key": "freshness",
+      "title": "About data freshness",
+      "url": "https://support.google.com/google-ads/answer/2544985?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "Metrics become available on different schedules and recent reporting can be incomplete."
+    },
+    {
+      "key": "cpa_target",
+      "title": "Fix low traffic or conversion rate for Target CPA bidding",
+      "url": "https://support.google.com/google-ads/answer/6385155?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "An unattainably low CPA target can restrict traffic."
+    },
+    {
+      "key": "lift",
+      "title": "About Conversion Lift",
+      "url": "https://support.google.com/google-ads/answer/12003020?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "Controlled exposure comparisons measure incremental conversions."
+    },
+    {
+      "key": "budget",
+      "title": "About overdelivery and your average daily budget",
+      "url": "https://support.google.com/google-ads/answer/1704443?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "Average daily budgets differ from daily spend and served cost can differ from billed cost."
+    },
+    {
+      "key": "changes",
+      "title": "About change history",
+      "url": "https://support.google.com/google-ads/answer/19888?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "Account history records changes and their timing for comparison with performance."
+    },
+    {
+      "key": "invalid",
+      "title": "Invalid clicks: Definition",
+      "url": "https://support.google.com/google-ads/answer/42995?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "Detected invalid interactions are filtered or credited, so gross traffic alone does not establish a loss."
+    },
+    {
+      "key": "roas",
+      "title": "About Target ROAS bidding",
+      "url": "https://support.google.com/google-ads/answer/6268637?hl=en",
+      "accessed_on": "2026-10-21",
+      "principle": "Value-based bidding pursues return goals using reported conversion values."
+    },
+    {
+      "key": "uncertainty",
+      "title": "NIST confidence intervals for proportions",
+      "url": "https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm",
+      "accessed_on": "2026-10-21",
+      "principle": "An observed proportion is an estimate with uncertainty, including when few outcomes are observed."
+    }
+  ],
+  "cases": [
+    {
+      "id": "commercial-independent-001-weekly-crm-import",
+      "category": "conversion_lag",
+      "input_facts": [
+        "Lead Campaign spent USD 1400 over the latest 7 days and reports zero sales.",
+        "CRM imports run every Monday and the next batch is due tomorrow.",
+        "Earlier settled cohorts achieved USD 70 CPA against an approved USD 100 target."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The unimported cohort cannot support a loss judgment. Wait for the scheduled batch.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/14545572?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-002-long-consideration",
+      "category": "conversion_lag",
+      "input_facts": [
+        "Equipment Campaign spent USD 6000 in 30 days with 2 purchases.",
+        "Typical click-to-purchase delay is 45 days.",
+        "Settled prior cohorts achieved USD 400 CPA against a USD 600 target."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The current purchases cannot yet represent the acquisition cohort.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/14545572?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-003-weekend-appointments",
+      "category": "conversion_lag",
+      "input_facts": [
+        "Dental Campaign spent USD 600 Friday through Sunday and reports no booked treatments.",
+        "Staff qualify enquiries on Monday.",
+        "Thirty earlier settled weeks met the approved acquisition economics."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Weekend reporting precedes the known qualification process.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/11459091?hl=en",
+        "https://support.google.com/google-ads/answer/14545572?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-004-mixed-maturity",
+      "category": "conversion_lag",
+      "input_facts": [
+        "Campaign shows USD 300 CPA over 30 days against USD 150 target.",
+        "Fully matured first 20 days show USD 110 CPA on 60 sales.",
+        "The final 10 days account for USD 12000 spend and have a 14-day sales delay."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The settled subset meets the target. The blended CPA mixes unequal maturity.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/14545572?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-005-late-value",
+      "category": "conversion_lag",
+      "input_facts": [
+        "Campaign spent USD 10000 and reports USD 12000 revenue.",
+        "Purchase counts are complete but final contract values arrive 21 days later.",
+        "Historically final values triple provisional deposits. Current deposits are only 5 days old."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Deposit values cannot establish final return for this cohort.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/14545572?hl=en",
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-006-settled-loss",
+      "category": "conversion_lag",
+      "input_facts": [
+        "Campaign spent USD 18000 for 60 sales over 90 fully matured days.",
+        "Verified contribution before ads is USD 150 per sale.",
+        "Losses recur in each of three months. User wants some acquisition presence with lower exposure."
+      ],
+      "expected_action": "recommend_budget_reduction",
+      "rationale": "USD 9000 contribution cannot fund USD 18000 advertising. Lower exposure while retaining the requested presence.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en",
+        "https://support.google.com/google-ads/answer/6268633?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-007-unknown-delay",
+      "category": "conversion_lag",
+      "input_facts": [
+        "Campaign spent USD 5000 with 8 conversions over 7 days versus a USD 100 CPA target.",
+        "Conversion delay distribution and offline upload schedule are unknown.",
+        "No earlier settled cohort is available."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Establish maturity before deciding whether the Campaign is uneconomic.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/14545572?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-008-delay-not-infinite",
+      "category": "conversion_lag",
+      "input_facts": [
+        "Campaign spent USD 9000 over 90 settled days with zero qualified enquiries.",
+        "Verified delay never exceeds 3 days and tracking reconciles with CRM.",
+        "The User has ended testing and has no awareness objective."
+      ],
+      "expected_action": "recommend_pause",
+      "rationale": "A short documented delay cannot excuse three settled months without the sole required outcome.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/14545572?hl=en",
+        "https://support.google.com/google-ads/answer/11459091?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-009-removed-tag",
+      "category": "tracking_integrity",
+      "input_facts": [
+        "Campaign reports zero conversions after a site release.",
+        "Checkout records 80 paid orders from tagged ad sessions in the same 7 days.",
+        "The conversion tag was removed during release."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Repair the missing measurement before assigning acquisition failure.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10370710?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-010-double-fire",
+      "category": "tracking_integrity",
+      "input_facts": [
+        "Campaign reports 200 purchases at USD 20 CPA.",
+        "Transaction logs show 100 orders and each transaction fires the purchase tag twice.",
+        "No deduplication is active."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "The apparent efficiency relies on duplicate purchases. Reconcile transactions first.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10370710?hl=en",
+        "https://support.google.com/google-ads/answer/11461796?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-011-primary-pageviews",
+      "category": "tracking_integrity",
+      "input_facts": [
+        "Campaign has USD 5 reported CPA and USD 5000 spend.",
+        "Page views are primary conversions.",
+        "There are 2 actual sales and the Ad Account goal is profitable purchases."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "The reported denominator does not represent the purchase goal.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/11461796?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-012-secondary-purchases",
+      "category": "tracking_integrity",
+      "input_facts": [
+        "Campaign has zero primary conversions and USD 2500 spend.",
+        "Fifty verified purchases are secondary and appear in All conversions.",
+        "Purchase revenue is USD 15000 and contribution is USD 6000."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Goal configuration hides profitable purchases from the selected column.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/11461796?hl=en",
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-013-custom-goal-exception",
+      "category": "tracking_integrity",
+      "input_facts": [
+        "Campaign uses a custom goal containing a secondary newsletter action and a primary purchase action.",
+        "Reported aggregate CPA is USD 10.",
+        "Purchase-only CPA is USD 400 against USD 100 acceptable CPA."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "The secondary label alone does not exclude an action from this custom bidding goal.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/11461796?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-014-device-tag-gap",
+      "category": "tracking_integrity",
+      "input_facts": [
+        "Mobile CPA rose from USD 40 to USD 400 after consent changes.",
+        "Desktop CPA is stable at USD 40.",
+        "Mobile checkout records remain stable and mobile conversion coverage dropped."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "A device-specific measurement gap precedes any decision to cut mobile acquisition.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10370710?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-015-no-setup",
+      "category": "tracking_integrity",
+      "input_facts": [
+        "Campaign spent USD 1800 with no recorded conversions.",
+        "Conversion tracking has never been configured.",
+        "The business sells by telephone and has no call reconciliation."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Zero recorded outcomes cannot describe sales when no sales measurement exists.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/11461796?hl=en",
+        "https://support.google.com/google-ads/answer/10370710?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-016-real-site-failure",
+      "category": "tracking_integrity",
+      "input_facts": [
+        "Campaign currently spends USD 500 per day.",
+        "Checkout is independently confirmed broken for all users and no telephone or store route exists.",
+        "Repair is expected in 4 days. Prior purchases were profitable."
+      ],
+      "expected_action": "recommend_pause",
+      "rationale": "Stop buying visits that currently cannot complete the sole commercial outcome.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10370710?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-017-premium-orders",
+      "category": "value_despite_cpa",
+      "input_facts": [
+        "Campaign CPA rose from USD 50 to USD 100 across two settled 30-day Windows.",
+        "Purchases fell from 100 to 80.",
+        "Verified contribution before ads rose from USD 100 to USD 300 per purchase. Current spend is USD 8000."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Current USD 24000 contribution covers spend despite the higher CPA.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-018-qualified-enterprise",
+      "category": "value_despite_cpa",
+      "input_facts": [
+        "Campaign generates 20 sales at USD 1000 CPA.",
+        "Verified contribution per sale is USD 8000 with a completed sales cycle.",
+        "Generic Ad Account CPA target is USD 100 and applies to consumer products."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The consumer target would reject profitable enterprise sales with different economics.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en",
+        "https://support.google.com/google-ads/answer/11459091?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-019-lifetime-validated",
+      "category": "value_despite_cpa",
+      "input_facts": [
+        "Subscription Campaign CPA is USD 250 against an old USD 100 target.",
+        "Cohort-backed retained contribution per customer is USD 900.",
+        "Payback is 3 months within the approved 6-month limit. Eighty settled customers are observed."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The validated retention economics and payback satisfy the stated acquisition objective.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en",
+        "https://support.google.com/google-ads/answer/7686447?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-020-lifetime-speculative",
+      "category": "value_despite_cpa",
+      "input_facts": [
+        "Subscription Campaign CPA is USD 250 with first-order contribution USD 40.",
+        "A sales presentation claims USD 2000 lifetime revenue without retention or margin evidence.",
+        "User has not approved a payback horizon."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Unverified lifetime revenue does not establish recoverable contribution or acceptable cash exposure.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-021-profit-value",
+      "category": "value_despite_cpa",
+      "input_facts": [
+        "Campaign spent USD 4000 on 20 sales.",
+        "Reported conversion value USD 12000 represents contribution before ads, not revenue.",
+        "The User wants positive contribution after ads and permits this volume."
+      ],
+      "expected_action": "abstain",
+      "rationale": "USD 8000 remains after advertising. The USD 200 CPA does not justify a cut.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en",
+        "https://support.google.com/google-ads/answer/6268637?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-022-high-revenue-low-margin",
+      "category": "value_despite_cpa",
+      "input_facts": [
+        "Campaign spent USD 10000 for USD 100000 revenue on 1000 orders.",
+        "Contribution margin after fulfillment is 5 percent.",
+        "Losses persist for three settled months. User requires immediate positive contribution and wants lower ongoing exposure."
+      ],
+      "expected_action": "recommend_budget_reduction",
+      "rationale": "Revenue yields only USD 5000 contribution before USD 10000 advertising.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-023-customer-mix",
+      "category": "value_despite_cpa",
+      "input_facts": [
+        "Campaign CPA rose from USD 80 to USD 120.",
+        "Verified new-customer share rose from 10 to 80 percent across 200 settled sales.",
+        "New customers have USD 600 retained contribution versus USD 100 for existing customers. Payback is approved."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The changed customer mix supports the increased acquisition cost.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-024-unknown-value",
+      "category": "value_despite_cpa",
+      "input_facts": [
+        "Campaign CPA rose from USD 80 to USD 160 with 100 settled purchases.",
+        "Order values, margins and customer mix are unavailable.",
+        "User mentions premium products but provides no verified economics."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "The premium explanation needs commercial evidence before a destructive recommendation.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-025-after-black-friday",
+      "category": "seasonality",
+      "input_facts": [
+        "Campaign CPA doubled to USD 80 after a 3-day sale ended.",
+        "The sale CPA was USD 40.",
+        "Before the sale and on matching ordinary weeks last year, CPA was USD 85. Current contribution per sale is USD 180."
+      ],
+      "expected_action": "abstain",
+      "rationale": "An exceptional sale is the wrong baseline for ordinary profitable trading.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10369906?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-026-summer-closure",
+      "category": "seasonality",
+      "input_facts": [
+        "School-course Campaign has no sales during the 2-week registration closure.",
+        "Registration opens next month.",
+        "The Campaign only links to a closed registration page and cannot capture enquiries. User confirms no visibility objective."
+      ],
+      "expected_action": "recommend_pause",
+      "rationale": "The closed purchase route makes current acquisition spend commercially unusable.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10369906?hl=en",
+        "https://support.google.com/google-ads/answer/10370710?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-027-weather-demand",
+      "category": "seasonality",
+      "input_facts": [
+        "Heating Campaign has 20 percent fewer conversions in a mild week.",
+        "CPA remains USD 60 below USD 100 approved target.",
+        "Similar mild weeks in three years had the same volume decline."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Lower weather-related volume does not establish wasted spend at acceptable CPA.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10369906?hl=en",
+        "https://support.google.com/google-ads/answer/6268633?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-028-holiday-weekdays",
+      "category": "seasonality",
+      "input_facts": [
+        "Lead Campaign has 8 conversions in a holiday week versus 20 in the prior ordinary week.",
+        "Spend fell proportionally and CPA remains USD 50 against USD 80 acceptable CPA.",
+        "Sales staff were closed for 3 days."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The volume comparison ignores fewer trading days and unchanged acquisition economics.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10369906?hl=en",
+        "https://support.google.com/google-ads/answer/11459091?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-029-sale-calendar-unknown",
+      "category": "seasonality",
+      "input_facts": [
+        "Campaign spend is USD 5000 with CPA USD 150 versus USD 60 in the prior Window.",
+        "A promotion ended but its dates and product discounts are unavailable.",
+        "Contribution data are also missing."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Resolve the promotional baseline and margins before choosing a spend cut.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10369906?hl=en",
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-030-annual-loss",
+      "category": "seasonality",
+      "input_facts": [
+        "Campaign spent USD 24000 for 80 sales over three fully settled ordinary months.",
+        "Contribution per sale is USD 100.",
+        "Matching prior-year months were profitable. No promotion, closure or seasonal shift is recorded. User wants minimal continued presence."
+      ],
+      "expected_action": "recommend_budget_reduction",
+      "rationale": "The ordinary-month loss lacks the proposed seasonal explanation and warrants lower exposure.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10369906?hl=en",
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-031-before-peak",
+      "category": "seasonality",
+      "input_facts": [
+        "Campaign CPA is USD 130 on 40 settled pre-season sales versus USD 100 annual average.",
+        "Contribution is USD 250 per sale.",
+        "A verified annual peak starts next week and User approved acquisition through it."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Profitable pre-season acquisition does not justify withdrawing before the approved peak.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10369906?hl=en",
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-032-ended-ticket-sales",
+      "category": "seasonality",
+      "input_facts": [
+        "Campaign still spends USD 200 per day advertising tickets for yesterday's event.",
+        "Event is over, ticket sales are closed and no replay exists.",
+        "User confirms no future event or brand objective for this Campaign."
+      ],
+      "expected_action": "recommend_pause",
+      "rationale": "Past-event ticket traffic cannot produce an available commercial outcome.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10369906?hl=en",
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-033-new-three-days",
+      "category": "new_and_learning",
+      "input_facts": [
+        "New Campaign spent USD 300 over 3 days with no purchases.",
+        "Typical purchase delay is 10 days.",
+        "User approved a USD 2000 exploration budget and tracking is verified."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The approved experiment has neither matured nor exhausted its budget.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13020501?hl=en",
+        "https://support.google.com/google-ads/answer/14545572?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-034-new-high-ticket",
+      "category": "new_and_learning",
+      "input_facts": [
+        "New machinery Campaign spent USD 2500 with zero sales in its first week.",
+        "Verified sales cycle is 60 days and contribution per sale USD 15000.",
+        "Test budget is USD 10000 with approved 90-day review."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The planned sales experiment cannot be judged at one week.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13020501?hl=en",
+        "https://support.google.com/google-ads/answer/14545572?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-035-strategy-transition",
+      "category": "new_and_learning",
+      "input_facts": [
+        "Campaign moved from Manual CPC to value bidding 2 days ago.",
+        "CPA increased from USD 70 to USD 110 on 4 recent sales.",
+        "Historical conversion cycle is 14 days and no cash limit is breached."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The recent sales do not yet characterize the changed strategy.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13020501?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-036-composition-change",
+      "category": "new_and_learning",
+      "input_facts": [
+        "Campaign added a new product group 4 days ago.",
+        "Legacy products remain profitable and new products have 2 purchases.",
+        "The new group has a 12-day conversion cycle and approved test funds."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Allow the new product cohort to mature without discarding profitable legacy activity.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13020501?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-037-no-learning-label",
+      "category": "new_and_learning",
+      "input_facts": [
+        "Target changed yesterday from USD 70 to USD 100 CPA.",
+        "Dashboard has no Learning label.",
+        "A single day shows USD 180 CPA and conversions usually take 8 days."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The absent status label does not make yesterday a settled test.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13020501?hl=en",
+        "https://support.google.com/google-ads/answer/14545572?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-038-learning-budget-breach",
+      "category": "new_and_learning",
+      "input_facts": [
+        "New Campaign spent USD 4500 in 3 days.",
+        "User approved a total test budget of USD 3000 and no further expenditure.",
+        "There are no sales yet and the next sale may arrive next month."
+      ],
+      "expected_action": "recommend_pause",
+      "rationale": "The explicit funding limit overrides waiting for the experiment to mature.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/1704443?hl=en",
+        "https://support.google.com/google-ads/answer/13020501?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-039-new-but-impossible",
+      "category": "new_and_learning",
+      "input_facts": [
+        "Campaign launched today for a discontinued product.",
+        "Warehouse confirms no stock and no future supply or substitutes.",
+        "The only goal is immediate product purchases and ads remain active."
+      ],
+      "expected_action": "recommend_pause",
+      "rationale": "Novelty cannot justify advertising an unavailable product with no purchase path.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-040-old-test-label",
+      "category": "new_and_learning",
+      "input_facts": [
+        "Campaign is 120 days old but a note still calls it a test.",
+        "It spent USD 20000 for 10 settled sales worth USD 200 contribution each.",
+        "User ended the test at day 90 and approved no further exploration."
+      ],
+      "expected_action": "recommend_pause",
+      "rationale": "An obsolete test note cannot authorize continued settled losses.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/6268633?hl=en",
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-041-budget-just-cut",
+      "category": "manual_changes",
+      "input_facts": [
+        "User reduced Campaign daily budget from USD 500 to USD 200 yesterday.",
+        "A 30-day average still reflects USD 450 daily spend and USD 180 CPA.",
+        "Current budget and performance have only one day of observation."
+      ],
+      "expected_action": "abstain",
+      "rationale": "A second immediate cut would respond mainly to the superseded budget.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/19888?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-042-landing-page-fixed",
+      "category": "manual_changes",
+      "input_facts": [
+        "User repaired a broken enquiry form today.",
+        "The preceding 14 days show USD 3000 spend and no leads.",
+        "Form tests now succeed and no post-repair cohort has matured."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Pre-repair failure cannot establish the economics of the repaired Campaign.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/19888?hl=en",
+        "https://support.google.com/google-ads/answer/10370710?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-043-multiple-concurrent-edits",
+      "category": "manual_changes",
+      "input_facts": [
+        "User changed targeting, landing page and bid target on the same day.",
+        "After 7 days CPA is USD 120 versus USD 60 previously.",
+        "Conversion cycle is 10 days and economics are unchanged."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Separate configuration checks from an unsupported attribution to one edit.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/19888?hl=en",
+        "https://support.google.com/google-ads/answer/14545572?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-044-user-raised-for-capacity",
+      "category": "manual_changes",
+      "input_facts": [
+        "User doubled budget to fill newly available appointments.",
+        "Settled CPA rose from USD 50 to USD 70 on 100 bookings.",
+        "Contribution is USD 200 each and the bookings filled the desired capacity."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The intentional expansion remains profitable and fulfills the stated capacity goal.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/19888?hl=en",
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-045-stale-proposed-value",
+      "category": "manual_changes",
+      "input_facts": [
+        "Evaluation snapshot says daily budget USD 400.",
+        "Current Account history confirms User changed it to USD 150 this morning.",
+        "Historical settled CPA was USD 220 against USD 100 acceptable CPA."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Refresh the actual budget before recommending any exact reduction.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/19888?hl=en",
+        "https://support.google.com/google-ads/answer/2544985?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-046-scheduled-experiment",
+      "category": "manual_changes",
+      "input_facts": [
+        "User is running a pre-registered 28-day creative test with USD 4000 approved spend.",
+        "Day 4 shows zero conversions on USD 500 spend.",
+        "Conversion cycle is 7 days and no operational fault is present."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The early snapshot cannot settle the approved experiment.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/19888?hl=en",
+        "https://support.google.com/google-ads/answer/6268633?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-047-manual-cpc-mature-loss",
+      "category": "manual_changes",
+      "input_facts": [
+        "Manual CPC Campaign spent USD 12000 for 40 sales across 90 settled days.",
+        "Contribution is USD 100 per sale. No settings changed in that period.",
+        "User requests reduced exposure while retaining a small presence."
+      ],
+      "expected_action": "recommend_budget_reduction",
+      "rationale": "The sustained contribution deficit supports a cut without invoking Smart Bidding learning.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en",
+        "https://support.google.com/google-ads/answer/6268633?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-048-owner-paused-already",
+      "category": "manual_changes",
+      "input_facts": [
+        "Snapshot shows an active loss-making Campaign.",
+        "Current Account history confirms User paused it 2 hours ago.",
+        "No new cost has accrued since the pause."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The requested spend protection is already in place.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/19888?hl=en"
+      ],
+      "high_risk": false
+    },
+    {
+      "id": "commercial-independent-049-profitable-sibling",
+      "category": "shared_budgets",
+      "input_facts": [
+        "Campaign A spends USD 2000 for 5 sales worth USD 100 contribution each.",
+        "A shares USD 300 daily budget with B, which spends USD 7000 for USD 20000 contribution.",
+        "No evidence isolates the effect of reducing the shared budget."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "A budget cut would also constrain the profitable sibling.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10487241?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-050-unknown-members",
+      "category": "shared_budgets",
+      "input_facts": [
+        "Campaign CPA is USD 200 against USD 80 acceptable CPA over 60 settled days.",
+        "Budget is marked shared.",
+        "Other members, spend and objectives are unavailable."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "The affected commercial scope is unknown. Inspect the other funded Campaigns.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10487241?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-051-reallocated-success",
+      "category": "shared_budgets",
+      "input_facts": [
+        "Campaign A spend doubled after Campaign B demand fell.",
+        "Both share one budget.",
+        "A generated USD 12000 contribution on USD 4000 spend and combined contribution improved."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Reallocation increased profitable output within the shared funding arrangement.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10487241?hl=en",
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-052-wrong-local-budget",
+      "category": "shared_budgets",
+      "input_facts": [
+        "Campaign screen shows USD 100 daily budget.",
+        "It is one member of a shared USD 100 budget with three profitable Campaigns.",
+        "A proposal assumes USD 100 is exclusive to the weak Campaign."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "The proposed change misunderstands ownership of the budget.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10487241?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-053-bad-member-no-reason",
+      "category": "shared_budgets",
+      "input_facts": [
+        "A shares a budget with profitable B.",
+        "A has 90 settled days, USD 15000 spend and zero qualified enquiries with verified tracking.",
+        "A has no brand or other objective and User ended its test."
+      ],
+      "expected_action": "recommend_pause",
+      "rationale": "Pause the proven unproductive member while preserving funding for B.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10487241?hl=en",
+        "https://support.google.com/google-ads/answer/11459091?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-054-portfolio-healthy",
+      "category": "shared_budgets",
+      "input_facts": [
+        "One shared-budget Campaign CPA is USD 180 versus a nominal USD 100 target.",
+        "Other members average USD 60.",
+        "Portfolio CPA is USD 80 on 500 settled sales, all have identical USD 200 contribution and User judges the portfolio jointly."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The agreed joint objective is met. A member deviation alone does not justify disruption.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10487241?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-055-all-members-lose",
+      "category": "shared_budgets",
+      "input_facts": [
+        "Three Campaigns share USD 500 daily funding.",
+        "Each has 90 settled days with contribution less than half spend.",
+        "User wants continuing minimal presence but no shared-budget amount or allocation has been approved."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Review one coordinated shared-budget reduction rather than issuing conflicting per-Campaign changes.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10487241?hl=en",
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-056-brand-protected-member",
+      "category": "shared_budgets",
+      "input_facts": [
+        "A weak prospecting Campaign shares funding with a protected brand Campaign.",
+        "Prospecting CPA is USD 250 against USD 100 acceptable CPA.",
+        "No evidence establishes how a shared-budget cut would affect protected brand coverage."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Protected coverage needs explicit consideration before reducing the common budget.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10487241?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-057-brand-not-measured-by-sales",
+      "category": "brand_and_incrementality",
+      "input_facts": [
+        "Brand Campaign spent USD 2000 with zero tracked purchases.",
+        "User's approved goal is branded search coverage during a store launch.",
+        "Target impression share is met within its USD 2500 launch budget."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Purchase CPA is not the approved success measure for this Campaign.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/6268633?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-058-brand-high-cpa-unknown-purpose",
+      "category": "brand_and_incrementality",
+      "input_facts": [
+        "Brand Campaign CPA is USD 300 on 40 settled purchases.",
+        "Generic acceptable CPA is USD 100.",
+        "Defensive coverage, store sales and User's brand objective are undocumented."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Clarify the brand objective before treating its purchase CPA as the sole criterion.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/6268633?hl=en",
+        "https://support.google.com/google-ads/answer/12003020?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-059-cheap-brand-no-incrementality",
+      "category": "brand_and_incrementality",
+      "input_facts": [
+        "Brand Campaign reports USD 5 CPA and USD 500 spend.",
+        "Organic brand results also lead directly to checkout.",
+        "No holdout or incremental evidence exists. User asks whether this proves additional sales."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Attributed sales do not answer the User's incremental-sales question.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/12003020?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-060-brand-controlled-loss",
+      "category": "brand_and_incrementality",
+      "input_facts": [
+        "A completed randomized brand holdout measured USD 1000 incremental contribution from USD 6000 spend.",
+        "Result is stable across two adequately powered studies with matching inventory.",
+        "User requires incremental profit and confirms no defensive or visibility objective."
+      ],
+      "expected_action": "recommend_pause",
+      "rationale": "The completed commercial experiments contradict continued funding under the stated objective.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/12003020?hl=en",
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-061-brand-holdout-profitable",
+      "category": "brand_and_incrementality",
+      "input_facts": [
+        "Brand Campaign CPA is USD 180 versus USD 100 generic target.",
+        "Completed controlled experiment estimates USD 30000 incremental contribution on USD 12000 spend.",
+        "User's goal is incremental profit and capacity is available."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Positive incremental contribution supports retention despite the generic CPA.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/12003020?hl=en",
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-062-upper-funnel-short-window",
+      "category": "brand_and_incrementality",
+      "input_facts": [
+        "Video Campaign spent USD 3000 and recorded 3 immediate purchases.",
+        "User approved a reach campaign with a 90-day brand study and USD 10000 budget.",
+        "Only 5 days have elapsed and reach delivery meets the agreed plan."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Immediate purchase CPA cannot settle the approved brand study.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/6268633?hl=en",
+        "https://support.google.com/google-ads/answer/12003020?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-063-brand-protection",
+      "category": "brand_and_incrementality",
+      "input_facts": [
+        "Brand Campaign has USD 250 settled CPA against USD 100 nominal target.",
+        "User explicitly protects it from spend reductions pending a competitor-defense review.",
+        "The review has not happened and no funding emergency exists."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Resolve the explicit protection before recommending withdrawal.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/6268633?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-064-unpowered-lift",
+      "category": "brand_and_incrementality",
+      "input_facts": [
+        "Brand holdout estimate is negative but interval includes large gains and losses.",
+        "Only 8 total purchases occurred.",
+        "Spend is within approved experiment funds and User has no hard stop today."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The inconclusive study does not establish commercial harm.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/12003020?hl=en",
+        "https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-065-fewer-better-leads",
+      "category": "lead_quality",
+      "input_facts": [
+        "Campaign lead CPA rose from USD 20 to USD 60.",
+        "Across 300 settled leads, close rate rose from 2 to 30 percent.",
+        "Contribution per sale is USD 1000 and sales capacity is available."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Higher lead cost accompanies much better validated sales economics.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/11459091?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-066-cheap-spam",
+      "category": "lead_quality",
+      "input_facts": [
+        "Campaign generated 400 form submissions on USD 4000 spend.",
+        "Staff reviewed every submission and none was contactable or commercially eligible.",
+        "This persisted for 90 settled days with verified capture. User ended testing and has no other objective."
+      ],
+      "expected_action": "recommend_pause",
+      "rationale": "The inexpensive submissions produce no usable commercial outcomes.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/11459091?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-067-quality-not-sampled",
+      "category": "lead_quality",
+      "input_facts": [
+        "Campaign has 1000 leads at USD 10 each.",
+        "One salesperson says they are all bad but reviewed only 3.",
+        "No qualification records or representative sample exists."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Anecdotal inspection cannot establish the quality of the entire lead population.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/11459091?hl=en",
+        "https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-068-sales-followup-failed",
+      "category": "lead_quality",
+      "input_facts": [
+        "Campaign generated 80 verified eligible enquiries for USD 4000.",
+        "Sales staff contacted none because a routing integration failed.",
+        "No qualification outcome has matured and routing is now repaired."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Sales routing failure prevents a defensible acquisition-quality judgment.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/11459091?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-069-call-duration-proxy",
+      "category": "lead_quality",
+      "input_facts": [
+        "Campaign reports 200 call conversions for USD 6000.",
+        "Calls qualify after 10 seconds.",
+        "Only 8 actual appointments are confirmed and call purpose has not been audited."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "A duration proxy needs reconciliation with the appointment goal.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/11459091?hl=en",
+        "https://support.google.com/google-ads/answer/11461796?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-070-capacity-full",
+      "category": "lead_quality",
+      "input_facts": [
+        "Campaign generates profitable qualified enquiries at USD 40 each.",
+        "Business has no appointments for 8 weeks, no waitlist and no referral revenue.",
+        "User confirms more enquiries cannot be served and wants spending stopped until capacity returns."
+      ],
+      "expected_action": "recommend_pause",
+      "rationale": "Profitable historical leads cannot earn value when the business cannot serve new demand.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/11459091?hl=en",
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-071-long-cycle-mature",
+      "category": "lead_quality",
+      "input_facts": [
+        "Campaign spent USD 30000 for 300 enquiries from cohorts at least 180 days old.",
+        "CRM confirms 3 sales and contribution USD 3000 per sale.",
+        "User wants lower continued exposure. Tracking and 120-day close cycles are complete."
+      ],
+      "expected_action": "recommend_budget_reduction",
+      "rationale": "USD 9000 settled contribution cannot fund USD 30000 acquisition.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/11459091?hl=en",
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-072-qualification-unknown",
+      "category": "lead_quality",
+      "input_facts": [
+        "Campaign has USD 200 lead CPA on 40 leads.",
+        "Ad Account profile records USD 50 target but no customer value or close rate.",
+        "Leads are awaiting qualification within the normal sales cycle."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The cohort has not reached the stage needed to judge its commercial return.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/11459091?hl=en",
+        "https://support.google.com/google-ads/answer/14545572?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-073-returns-reverse-win",
+      "category": "ecommerce_economics",
+      "input_facts": [
+        "Campaign spent USD 10000 for USD 60000 gross revenue.",
+        "Settled returns leave USD 15000 net revenue at 30 percent contribution margin.",
+        "Each of three months lost money. User requires lower exposure but wants continued trading."
+      ],
+      "expected_action": "recommend_budget_reduction",
+      "rationale": "Returns leave USD 4500 contribution against USD 10000 advertising.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/7686447?hl=en",
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-074-cancelled-whale",
+      "category": "ecommerce_economics",
+      "input_facts": [
+        "Campaign spent USD 5000 with USD 100000 attributed revenue.",
+        "USD 95000 came from one canceled order and the remaining revenue yields USD 2000 contribution.",
+        "Cancellation is verified but has not reached the Ads report."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Reconcile the cancellation before relying on the apparent return or choosing a durable spend change.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/7686447?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-075-gross-margin-not-contribution",
+      "category": "ecommerce_economics",
+      "input_facts": [
+        "Campaign spent USD 8000 on USD 40000 revenue.",
+        "Gross product margin is 40 percent but shipping, payment and fulfillment cost USD 12000.",
+        "The User has not reviewed these costs and full contribution reporting is absent."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "The attractive gross margin omits costs that reverse acquisition profitability.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-076-profitable-mix",
+      "category": "ecommerce_economics",
+      "input_facts": [
+        "Campaign CPA doubled to USD 100 on 100 settled purchases.",
+        "Verified net contribution per order rose from USD 80 to USD 350.",
+        "Spend is USD 10000 and no stock or cash constraint exists."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The product mix leaves USD 25000 after advertising.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-077-currency-mismatch",
+      "category": "ecommerce_economics",
+      "input_facts": [
+        "Campaign cost is GBP 5000.",
+        "Revenue field is numeric 20000 but combines EUR and JPY orders without currency conversion.",
+        "Apparent ROAS is presented as 4 and margins are unknown."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "The mixed-currency numerator cannot establish return on GBP spend.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-078-out-of-stock-all",
+      "category": "ecommerce_economics",
+      "input_facts": [
+        "Campaign advertises only one SKU at USD 300 daily spend.",
+        "Stock is zero, purchase is disabled and restock is canceled.",
+        "There is no preorder or substitute and the sole goal is sales."
+      ],
+      "expected_action": "recommend_pause",
+      "rationale": "The advertised SKU cannot generate an available sale.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-079-partial-stock",
+      "category": "ecommerce_economics",
+      "input_facts": [
+        "Campaign contains 50 products and reports poor aggregate CPA.",
+        "Five products are out of stock, but product-level spend and sales are unavailable.",
+        "Remaining 45 products are available and business margins vary."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Inspect product-level exposure before withdrawing funding from available inventory.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en",
+        "https://support.google.com/google-ads/answer/6268633?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-080-loss-leader-approved",
+      "category": "ecommerce_economics",
+      "input_facts": [
+        "Campaign spends USD 6000 selling introductory bundles with USD 3000 immediate contribution.",
+        "Settled matched cohorts earn USD 18000 retained contribution within 60 days.",
+        "User explicitly approves that 60-day payback and inventory is available."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Approved and validated repeat contribution supports the introductory offer.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en",
+        "https://support.google.com/google-ads/answer/7686447?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-081-impossible-low-cpa",
+      "category": "bad_targets",
+      "input_facts": [
+        "Campaign historical settled CPA is USD 80 on 500 sales with USD 250 contribution each.",
+        "User entered USD 5 target CPA yesterday and traffic collapsed.",
+        "Current spend is well below budget."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Review the unrealistic target rather than cutting an already constrained profitable Campaign.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/6385155?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-082-roas-unit-error",
+      "category": "bad_targets",
+      "input_facts": [
+        "Campaign revenue is USD 30000 on USD 5000 spend and verified contribution USD 12000.",
+        "Ad Account profile target field says 50000 percent.",
+        "User says they intended five times return."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Correct the target units before interpreting the large apparent target miss.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/6268637?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-083-stale-cpa-target",
+      "category": "bad_targets",
+      "input_facts": [
+        "Campaign CPA is USD 90 on 200 settled sales.",
+        "Ad Account profile target USD 40 predates a product price doubling.",
+        "Current verified contribution is USD 220 per sale and User wants positive contribution."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Current economics meet the stated objective despite the obsolete target.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en",
+        "https://support.google.com/google-ads/answer/6385155?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-084-target-is-not-break-even",
+      "category": "bad_targets",
+      "input_facts": [
+        "Campaign CPA is USD 70, beating the stored USD 100 target.",
+        "Verified contribution per purchase is USD 30.",
+        "Losses persisted for 90 settled days. User requests lower exposure while retaining some presence."
+      ],
+      "expected_action": "recommend_budget_reduction",
+      "rationale": "Meeting a permissive target does not recover the actual advertising cost.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-085-wrong-business-target",
+      "category": "bad_targets",
+      "input_facts": [
+        "Emergency dental Campaign CPA is USD 150 on 80 settled new patients.",
+        "Ad Account target USD 30 belongs to a separate low-price product Campaign.",
+        "Verified contribution per dental patient is USD 600."
+      ],
+      "expected_action": "abstain",
+      "rationale": "A different product's target should not reject profitable patient acquisition.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-086-lead-sale-denominator",
+      "category": "bad_targets",
+      "input_facts": [
+        "Campaign lead CPA is USD 80 on 200 leads with no qualification data.",
+        "User entered USD 100 target intended for a closed sale.",
+        "The dashboard compares the USD 80 lead cost to that sale target."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Align the target and measured funnel stage before judging success or failure.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/11459091?hl=en",
+        "https://support.google.com/google-ads/answer/11461796?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-087-missing-economics",
+      "category": "bad_targets",
+      "input_facts": [
+        "Campaign has 100 settled conversions at USD 140 each versus USD 100 in a prior Window.",
+        "No target, value, margin or User objective is available.",
+        "Tracking is healthy."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "A cost increase alone does not specify commercial acceptability.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en",
+        "https://support.google.com/google-ads/answer/6268633?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-088-roas-too-demanding",
+      "category": "bad_targets",
+      "input_facts": [
+        "Campaign had settled revenue ROAS 6 with contribution margin 40 percent.",
+        "Target was raised from 5 to 30 yesterday and spend collapsed.",
+        "User wants profitable volume, not a return of 30. No new data have matured."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Review the target conflict before treating constrained traffic as budget waste.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/6268637?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-089-week-old-sync",
+      "category": "stale_incomplete_data",
+      "input_facts": [
+        "Latest Ad Account snapshot is 9 days old and shows USD 250 CPA.",
+        "Campaign budget, status and intervening sales are unknown.",
+        "No current snapshot or current Account history is available."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Refresh the evidence before making a current spend recommendation.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/2544985?hl=en",
+        "https://support.google.com/google-ads/answer/19888?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-090-partial-day",
+      "category": "stale_incomplete_data",
+      "input_facts": [
+        "At 09:00 Campaign shows USD 200 spend and zero conversions today.",
+        "Purchases usually arrive after 18:00.",
+        "Previous 30 settled days meet the approved CPA and no funding cap is threatened."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The incomplete day cannot establish a performance deterioration.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/2544985?hl=en",
+        "https://support.google.com/google-ads/answer/14545572?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-091-missing-days-zero-filled",
+      "category": "stale_incomplete_data",
+      "input_facts": [
+        "Export shows USD 10000 spend and 5 purchases in a 30-day Window.",
+        "Ten days failed to load and purchase counts were filled with zeros while spend came from a separate complete feed.",
+        "No reconciled total is available."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "The numerator and denominator cover different observations. Repair the incomplete report.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/2544985?hl=en",
+        "https://support.google.com/google-ads/answer/10370710?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-092-cost-feed-stale",
+      "category": "stale_incomplete_data",
+      "input_facts": [
+        "Purchase feed refreshed today but cost last refreshed 6 days ago.",
+        "Apparent ROAS rose from 2 to 12.",
+        "The Campaign remains active and actual intervening spend is unknown."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "The apparent improvement joins purchases to obsolete spend.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/2544985?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-093-goal-change-in-window",
+      "category": "stale_incomplete_data",
+      "input_facts": [
+        "Campaign CPA rose from USD 20 to USD 100.",
+        "Primary conversion definition changed halfway through the Window from page view to purchase.",
+        "No purchase-only historical series has been reconstructed."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "The two CPA values measure different outcomes.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/11461796?hl=en",
+        "https://support.google.com/google-ads/answer/19888?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-094-time-zone-boundary",
+      "category": "stale_incomplete_data",
+      "input_facts": [
+        "Report compares 7 UTC days with 7 Ad Account local days including different weekend hours.",
+        "Campaign sells only during staffed local hours.",
+        "Apparent conversion decline is 40 percent on 10 reported conversions."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Align business-day boundaries before interpreting the comparison.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/2544985?hl=en",
+        "https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-095-historical-only",
+      "category": "stale_incomplete_data",
+      "input_facts": [
+        "Campaign shows USD 20000 spend and no sales in a Window ending 6 months ago.",
+        "No recent budget, status or sales data exist.",
+        "User requests a current recommendation."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "The historical failure does not establish what is currently running.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/2544985?hl=en",
+        "https://support.google.com/google-ads/answer/19888?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-096-pending-adjustments",
+      "category": "stale_incomplete_data",
+      "input_facts": [
+        "Campaign appears unprofitable at USD 200 CPA.",
+        "A verified import correction for the same settled cohort is scheduled tonight.",
+        "The correction doubles confirmed sales and no funding limit is threatened."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Wait for the known correction before choosing a spend reduction.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10370710?hl=en",
+        "https://support.google.com/google-ads/answer/14545572?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-097-one-large-real-order",
+      "category": "outliers_conflicts",
+      "input_facts": [
+        "Campaign spent USD 8000 on 20 purchases with USD 24000 contribution.",
+        "One verified nonrepeatable wholesale order accounts for USD 22000 contribution.",
+        "Remaining purchases are individually loss-making and future wholesale demand is unknown."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "The realized gain is real but does not establish repeatable acquisition economics.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en",
+        "https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-098-one-bad-day",
+      "category": "outliers_conflicts",
+      "input_facts": [
+        "Campaign spent USD 9000 for 150 settled sales over 30 days.",
+        "One day had USD 600 spend and no purchases.",
+        "Total contribution is USD 30000 and daily cohorts are otherwise ordinary."
+      ],
+      "expected_action": "abstain",
+      "rationale": "One weak day does not overturn the profitable settled whole.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/6268633?hl=en",
+        "https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-099-simpson-mix",
+      "category": "outliers_conflicts",
+      "input_facts": [
+        "Campaign aggregate CPA rose from USD 50 to USD 90.",
+        "In each of two product segments CPA improved.",
+        "Spend shifted toward products with USD 500 contribution, away from products with USD 80 contribution. Current total contribution exceeds spend."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The aggregate CPA reflects a profitable mix shift rather than worse segment acquisition.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-100-crm-ads-disagree",
+      "category": "outliers_conflicts",
+      "input_facts": [
+        "Ads reports 100 purchases for USD 5000 spend.",
+        "CRM identifies only 10 matching orders and payment ledger identifies 30.",
+        "Identifiers, refunds and attribution windows have not been reconciled."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Conflicting commercial records require reconciliation before a destructive judgment.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/10370710?hl=en",
+        "https://support.google.com/google-ads/answer/7686447?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-101-invalid-click-spike",
+      "category": "outliers_conflicts",
+      "input_facts": [
+        "Invalid click count rose from 5 to 500.",
+        "Google filtered those interactions and billed cost remained USD 1000.",
+        "Verified settled contribution remains USD 4000 and valid sales are stable."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Filtered interactions did not create the alleged increase in acquisition cost.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/42995?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-102-served-not-billed",
+      "category": "outliers_conflicts",
+      "input_facts": [
+        "Campaign served cost was USD 1300 on one day.",
+        "Billed cost is USD 1000 after confirmed overdelivery credit.",
+        "The loss claim uses served cost while verified contribution is USD 1200."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Actual billed cost leaves a positive contribution for the cited day.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/1704443?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-103-healthy-total-bad-device",
+      "category": "outliers_conflicts",
+      "input_facts": [
+        "Campaign total contribution is USD 20000 on USD 5000 spend.",
+        "One device shows zero sales but has only 4 clicks and USD 20 spend.",
+        "No technical device failure is observed."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The tiny device subset cannot justify cutting the profitable Campaign.",
+      "evidence_urls": [
+        "https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm",
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-104-extreme-spend-with-unknown-cause",
+      "category": "outliers_conflicts",
+      "input_facts": [
+        "Campaign billed spend jumped from USD 100 to USD 5000 per day.",
+        "Last complete conversion cohort is profitable, but recent sales are delayed and budget-change records are missing.",
+        "User's cash limit is unknown."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Investigate exposure and current settings urgently without inventing a loss explanation.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/19888?hl=en",
+        "https://support.google.com/google-ads/answer/14545572?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-105-three-clicks",
+      "category": "small_samples",
+      "input_facts": [
+        "Campaign has 3 clicks costing USD 15 and no purchases.",
+        "It is a new independently budgeted test with USD 1000 approved funds.",
+        "Purchases have a 7-day cycle."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Three early visits cannot settle the approved acquisition experiment.",
+      "evidence_urls": [
+        "https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm",
+        "https://support.google.com/google-ads/answer/14545572?hl=en"
+      ],
+      "high_risk": false
+    },
+    {
+      "id": "commercial-independent-106-one-sale-cpa",
+      "category": "small_samples",
+      "input_facts": [
+        "Campaign spent USD 300 with 1 settled sale versus a USD 100 target.",
+        "No prior comparable Campaign exists.",
+        "Contribution per sale is USD 500 and the approved test budget is USD 2000."
+      ],
+      "expected_action": "abstain",
+      "rationale": "One profitable sale gives too little evidence for a durable spend reduction.",
+      "evidence_urls": [
+        "https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-107-two-versus-one",
+      "category": "small_samples",
+      "input_facts": [
+        "Campaign converted 2 purchases last week and 1 this week.",
+        "Spend was USD 100 each week and contribution is USD 300 per purchase.",
+        "No operational fault or approved spending limit is breached."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The percentage decline exaggerates a one-purchase difference in a profitable small sample.",
+      "evidence_urls": [
+        "https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm"
+      ],
+      "high_risk": false
+    },
+    {
+      "id": "commercial-independent-108-zero-low-probability",
+      "category": "small_samples",
+      "input_facts": [
+        "Campaign has 40 settled clicks costing USD 200 and no sales.",
+        "Comparable verified traffic converts at about 1 percent.",
+        "User approved USD 2000 for testing and no cash emergency exists."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Zero purchases remains plausible at the stated low conversion rate.",
+      "evidence_urls": [
+        "https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm"
+      ],
+      "high_risk": false
+    },
+    {
+      "id": "commercial-independent-109-many-clicks-tiny-value",
+      "category": "small_samples",
+      "input_facts": [
+        "Campaign has 200000 clicks and 3 settled purchases on USD 200 spend.",
+        "Contribution is USD 500 per purchase.",
+        "No quality defect exists and User wants positive contribution."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The Campaign earned USD 1500 contribution. The small purchase count does not imply a loss.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en",
+        "https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-110-multiple-comparisons",
+      "category": "small_samples",
+      "input_facts": [
+        "Operator screened 500 tiny Campaign segments and found 3 with no purchases yesterday.",
+        "Each flagged segment has fewer than 5 clicks.",
+        "The whole Campaign is profitable and tracking is reliable."
+      ],
+      "expected_action": "abstain",
+      "rationale": "Selective inspection of many sparse segments does not establish Campaign-wide waste.",
+      "evidence_urls": [
+        "https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm"
+      ],
+      "high_risk": false
+    },
+    {
+      "id": "commercial-independent-111-uncertain-close-rate",
+      "category": "small_samples",
+      "input_facts": [
+        "Campaign lead CPA is USD 100 with 20 settled leads.",
+        "User assumes 50 percent close rate because 1 of 2 reviewed leads closed.",
+        "Customer contribution is USD 1000 and the remaining 18 outcomes are unknown."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "Review the missing outcomes before treating the two reviewed leads as representative.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/11459091?hl=en",
+        "https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-112-few-results-hard-cap",
+      "category": "small_samples",
+      "input_facts": [
+        "Campaign has only 2 clicks and zero sales.",
+        "Those clicks cost USD 5000, exceeding the User's explicit USD 1000 total test cap.",
+        "User forbids further spend after that cap."
+      ],
+      "expected_action": "recommend_pause",
+      "rationale": "The explicit funding breach is decisive even though conversion evidence is sparse.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/1704443?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-113-persistent-zero-sales",
+      "category": "sustained_loss_and_constraints",
+      "input_facts": [
+        "Campaign spent USD 20000 across 90 fully settled days with zero sales.",
+        "Purchase tracking reconciles to payment records and no sales occurred.",
+        "User ended exploration and has no visibility, store or lead objective."
+      ],
+      "expected_action": "recommend_pause",
+      "rationale": "Three settled months produced none of the sole required outcome.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/6268633?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-114-persistent-partial-loss",
+      "category": "sustained_loss_and_constraints",
+      "input_facts": [
+        "Campaign spends USD 10000 monthly and generates USD 6000 verified contribution before ads.",
+        "This recurred in each of four settled months with no changes or tracking problems.",
+        "User wants continued presence with lower loss exposure."
+      ],
+      "expected_action": "recommend_budget_reduction",
+      "rationale": "Repeated USD 4000 monthly losses justify lower funding under the continued-presence requirement.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en",
+        "https://support.google.com/google-ads/answer/6268633?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-115-approved-cash-ceiling",
+      "category": "sustained_loss_and_constraints",
+      "input_facts": [
+        "Campaign has profitable settled CPA and available capacity.",
+        "Current daily budget is USD 1000 and User explicitly reduced available funding to USD 300 per day effective today.",
+        "Budget is exclusive to this Campaign and no minimum-volume commitment exists."
+      ],
+      "expected_action": "recommend_budget_reduction",
+      "rationale": "The confirmed funding ceiling requires a lower budget despite profitable historical acquisition.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/1704443?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-116-loss-without-recovery-plan",
+      "category": "sustained_loss_and_constraints",
+      "input_facts": [
+        "Campaign spent USD 24000 for USD 4000 verified contribution over 120 settled days.",
+        "No commercial outcome outside those purchases exists.",
+        "User ended testing and explicitly wants unprofitable acquisition stopped rather than maintained."
+      ],
+      "expected_action": "recommend_pause",
+      "rationale": "Persistent losses and the stated stop objective justify withdrawal.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en",
+        "https://support.google.com/google-ads/answer/6268633?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-117-improved-still-loss",
+      "category": "sustained_loss_and_constraints",
+      "input_facts": [
+        "Campaign CPA improved from USD 500 to USD 300 across three settled months.",
+        "Contribution per sale is USD 100 with 100 current sales and no repeat contribution.",
+        "User requests reduced exposure but wants to continue some acquisition."
+      ],
+      "expected_action": "recommend_budget_reduction",
+      "rationale": "Improvement does not erase the USD 200 loss per acquired sale.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-118-worse-but-profitable",
+      "category": "sustained_loss_and_constraints",
+      "input_facts": [
+        "Campaign CPA worsened from USD 20 to USD 60 across three settled months.",
+        "Contribution is USD 200 per purchase on 500 current purchases.",
+        "User wants maximum profitable volume and cash and inventory are sufficient."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The deterioration still leaves substantial positive contribution under the stated objective.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/13064207?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-119-budget-underutilized",
+      "category": "sustained_loss_and_constraints",
+      "input_facts": [
+        "Campaign budget is USD 1000 daily but actual spend is USD 50 daily.",
+        "Settled CPA is USD 300 versus USD 100 contribution per sale.",
+        "There is no funding ceiling. Bid settings and eligibility may constrain delivery, but neither has been checked."
+      ],
+      "expected_action": "recommend_review",
+      "rationale": "A nominal budget cut may leave spend unchanged. Review the actual constraint before proposing it.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/1704443?hl=en",
+        "https://support.google.com/google-ads/answer/6385155?hl=en"
+      ],
+      "high_risk": true
+    },
+    {
+      "id": "commercial-independent-120-already-ended",
+      "category": "sustained_loss_and_constraints",
+      "input_facts": [
+        "Campaign spent USD 15000 with zero purchases during an ended event.",
+        "Current status is ended, daily spend is zero and no restart is scheduled.",
+        "User requests protection against further event spend."
+      ],
+      "expected_action": "abstain",
+      "rationale": "The ended Campaign already creates no further spending exposure.",
+      "evidence_urls": [
+        "https://support.google.com/google-ads/answer/19888?hl=en"
+      ],
+      "high_risk": false
+    }
+  ]
+}

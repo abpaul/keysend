@@ -5,11 +5,17 @@ mod control;
 mod entities;
 mod google_ads;
 pub mod history;
+pub mod investigations;
+pub mod measurement;
 pub mod monitoring;
+pub mod operator;
+pub mod optimization;
 pub mod profile;
 mod retention;
 pub mod settings;
+pub mod shadow;
 
+pub use billing::SubscriptionChange;
 pub use google_ads::Operation;
 
 use loco_rs::{Error, Result};
@@ -321,6 +327,9 @@ impl<'a> WorkspaceStore<'a> {
             .await?;
         }
         txn.commit().await?;
+        for _ in selected {
+            self.record_activity(measurement::Activity::Connected).await;
+        }
         Ok(true)
     }
 }
@@ -331,3 +340,6 @@ pub fn valid_id(id: &str) -> bool {
 fn invalid_selection() -> Error {
     Error::Message("Invalid Ad Account selection".into())
 }
+
+#[cfg(test)]
+pub(crate) use shadow::shadow_adapter_database;

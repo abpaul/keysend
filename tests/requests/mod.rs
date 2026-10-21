@@ -1,3 +1,5 @@
+mod admin;
+mod admin_pages;
 mod app;
 mod boundaries;
 mod catalog;

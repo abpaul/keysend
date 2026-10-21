@@ -23,6 +23,12 @@ pub(super) struct Calls {
 }
 
 impl Calls {
+    pub fn cancellation(&mut self, id: &str, scheduled: bool, canceled_at: Option<i64>) {
+        let subscription = self.subscriptions.get_mut(id).unwrap();
+        subscription["cancel_at_period_end"] = json!(scheduled);
+        subscription["canceled_at"] = json!(canceled_at);
+    }
+
     pub fn posted(&self, path: &str) -> Vec<&HashMap<String, String>> {
         self.requests
             .iter()

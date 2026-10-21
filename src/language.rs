@@ -508,6 +508,8 @@ mod tests {
             "page_class",
             "nav_accounts",
             "nav_subscription",
+            "nav_investigations",
+            "nav_optimize",
         ] {
             source = without_spans(
                 &source,

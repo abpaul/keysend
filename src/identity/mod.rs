@@ -1,3 +1,4 @@
+pub mod admin;
 mod entities;
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
@@ -162,6 +163,7 @@ pub async fn sign_in(
     let inserted = workspaces::Entity::insert(workspaces::ActiveModel {
         id: Set(workspace_id.clone()),
         user_id: Set(user.id.clone()),
+        created_at: Set(Some(crate::settings::wall_clock().timestamp())),
         sign_up_source: Set(source.map(|source| source.as_str().to_owned())),
     })
     .on_conflict(

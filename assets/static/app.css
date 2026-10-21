@@ -376,3 +376,67 @@ textarea.input { min-height: 7.5rem; resize: vertical; }
 @media (max-width: 40em) {
   .data .spark-cell { display: none; }
 }
+
+/* Operator tables retain readable columns on narrow screens. */
+.admin-nav { flex-wrap: wrap; }
+.admin-metrics { grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); }
+.admin-definition { font-size: 0.875rem; font-weight: 400; line-height: 1.5; margin-block: var(--s2) var(--s4); }
+.admin-table { max-width: 100%; overflow-x: auto; margin-top: var(--s4); }
+.admin-table :is(th, td) { min-width: 6rem; max-width: 28rem; overflow-wrap: break-word; }
+.admin-data--wide { min-width: 48rem; }
+.admin-data--large { min-width: 64rem; }
+.admin-sections { display: grid; gap: var(--card-gap); }
+.admin-sections > .card { min-width: 0; }
+.admin-metrics .metric__value { font-size: 1.875rem; }
+.admin-overview .metric { padding: var(--s4); }
+.admin-overview .metric .admin-definition { margin-bottom: 0; }
+.admin-overview .page-head + p { margin-top: var(--s4); }
+.admin-overview .admin-sections > .card { padding: var(--s5); }
+.admin-overview .data { font-size: 0.9375rem; }
+.admin-overview .data :is(th, td) { padding-block: var(--s2); }
+.admin-overview .data td:not(:last-child) { white-space: nowrap; }
+@media (min-width: 64em) {
+  .admin-overview .admin-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .admin-overview .admin-sections { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: start; }
+  .admin-overview .admin-sections > :last-child { grid-column: 1 / -1; }
+  .admin-overview .admin-data--wide { min-width: 30rem; }
+  .admin-overview .admin-table-hint { display: none; }
+}
+.admin-filters { display: flex; flex-wrap: wrap; align-items: end; gap: var(--s4); }
+.admin-filters label { flex: 1 1 12rem; }
+.admin-filters input, .admin-filters select { width: 100%; }
+.admin-pager { display: flex; flex-wrap: wrap; gap: var(--s5); margin-top: var(--s5); }
+.admin-chart { width: 100%; height: auto; margin-block: var(--s5); fill: var(--plum); }
+
+/* Investigations */
+.investigation-shortcuts { margin-top: var(--s6); }
+.investigation-shortcuts .link-button { display: block; padding-block: var(--s2); white-space: normal; text-align: left; }
+.investigation-recent > li { padding-block: 1rem; border-bottom: 1px solid var(--line); }
+.investigation-claim { margin-block: 1.25rem; }
+.investigation-evidence { margin-block: 1rem; }
+.investigation-evidence table { width: 100%; table-layout: fixed; }
+.investigation-evidence th, .investigation-evidence td { white-space: normal; overflow-wrap: anywhere; }
+.investigation { overflow-wrap: anywhere; }
+.investigation details > summary { cursor: pointer; }
+.investigation-citation { margin-inline-start: var(--s2); }
+
+/* Optimize */
+.optimize-steps { display: flex; flex-wrap: wrap; gap: var(--s2); margin: var(--s5) 0; padding: 0; list-style: none; counter-reset: none; }
+.optimize-steps > li { display: flex; align-items: baseline; gap: var(--s2); padding: var(--s2) var(--s4); border: 1px solid var(--line); border-radius: var(--r-m); background: var(--surface); }
+.optimize-steps__count { font-size: 1.25rem; font-weight: 700; color: var(--plum); }
+.optimize-list > li + li, .optimize-timeline > li + li { margin-top: var(--s4); padding-top: var(--s4); border-top: 1px solid var(--line); }
+.optimize-list .heading-s { margin-top: var(--s1); }
+.optimize-held { margin: var(--s1) 0 0; padding-left: var(--s5); }
+.optimize-risk { font-weight: 600; }
+.optimize-risk--high { color: var(--error); }
+.optimize-values { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--s4); margin: 0; }
+.optimize-values > div { padding: var(--s4); border-radius: var(--r-m); background: var(--canvas); }
+.optimize-values dt { color: var(--ink-2); font-size: 0.875rem; }
+.optimize-values dd { margin: var(--s1) 0 0; font-size: 1.25rem; font-weight: 700; }
+.optimize-values > div + div { background: var(--name); }
+.optimize-decide > * + * { margin-top: var(--s3); }
+.optimize-stop { margin-top: var(--s6); }
+.optimize-stop > * + * { margin-top: var(--s2); }
+.notice--alert { border-color: var(--error); }
+.choices--stacked { flex-direction: column; align-items: flex-start; }
+.choices--stacked .hint { display: block; }

@@ -12,9 +12,17 @@ Each line is a foreign key, with its columns. Every foreign key deletes its rows
 erDiagram
   ad_accounts ||--o{ monitoring_findings : "workspace_id, ad_account_customer_id"
   ad_accounts ||--o{ monitoring_recommendations : "workspace_id, ad_account_customer_id"
+  ad_accounts ||--o{ optimization_policies : "workspace_id, ad_account_customer_id"
+  ad_accounts ||--o{ optimization_proposals : "workspace_id, ad_account_customer_id"
+  ad_accounts ||--o{ optimization_shadows : "workspace_id, ad_account_customer_id"
   google_connections ||--o{ ad_account_selections : "workspace_id, google_connection_id"
   google_connections ||--o{ ad_accounts : "workspace_id, google_connection_id"
+  investigations ||--o{ investigation_steps : "investigation_id"
+  investigations ||--o{ investigations : "follows"
   monitoring_findings ||--o{ monitoring_recommendations : "workspace_id, ad_account_customer_id, finding_key"
+  optimization_policies ||--o{ optimization_shadows : "workspace_id, ad_account_customer_id, policy_version"
+  optimization_proposals ||--o{ optimization_executions : "proposal_id"
+  optimization_shadows ||--o{ optimization_shadow_events : "shadow_id"
   sessions ||--o{ oauth_states : "session_hash"
   users ||--o{ sessions : "user_id"
   users ||--o{ workspaces : "user_id"
@@ -23,12 +31,21 @@ erDiagram
   workspaces ||--o{ billing_checkouts : "workspace_id"
   workspaces ||--o{ google_ads_operations : "workspace_id"
   workspaces ||--o{ google_connections : "workspace_id"
+  workspaces ||--o{ investigations : "workspace_id"
   workspaces ||--o{ oauth_states : "workspace_id"
+  workspaces ||--o{ optimization_stops : "workspace_id"
   workspaces ||--o{ stripe_customers : "workspace_id"
   workspaces ||--o{ stripe_events : "workspace_id"
+  workspaces ||--o{ subscription_changes : "workspace_id"
   workspaces ||--o{ subscriptions : "workspace_id"
   workspaces ||--o{ weekly_emails : "workspace_id"
+  workspaces ||--o{ workspace_activity : "workspace_id"
   workspaces ||--o{ workspace_trials : "workspace_id"
+  admin_challenges
+  admin_sessions
+  admin_throttle
+  business_days
+  operation_days
   trial_history
 ```
 
@@ -46,6 +63,7 @@ Each of these tables has one foreign key, to `ad_accounts`, and no table refers 
 | `alerts` | `workspace_id`, `ad_account_customer_id`, `day`, `event_key` |
 | `branding` | `workspace_id`, `ad_account_customer_id` |
 | `breakdown_history` | `workspace_id`, `ad_account_customer_id`, `kind` |
+| `campaign_budgets` | `workspace_id`, `ad_account_customer_id`, `campaign_id` |
 | `campaign_days` | `workspace_id`, `ad_account_customer_id`, `day`, `campaign_id`, `device` |
 | `campaign_network_days` | `workspace_id`, `ad_account_customer_id`, `day`, `campaign_id`, `network` |
 | `campaign_search_share_days` | `workspace_id`, `ad_account_customer_id`, `day`, `campaign_id` |
@@ -62,5 +80,7 @@ Each of these tables has one foreign key, to `ad_accounts`, and no table refers 
 | `location_totals` | `workspace_id`, `ad_account_customer_id`, `day`, `location_id` |
 | `monitoring_runs` | `workspace_id`, `ad_account_customer_id`, `day` |
 | `monitoring_settings` | `workspace_id`, `ad_account_customer_id` |
+| `optimization_evaluations` | `workspace_id`, `ad_account_customer_id` |
+| `optimization_events` | `id` |
 | `translations` | `workspace_id`, `language`, `source_hash`, `ad_account_customer_id` |
 | `updates` | `workspace_id`, `ad_account_customer_id`, `day` |

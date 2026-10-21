@@ -27,6 +27,11 @@ pub(super) struct Calls {
     pub failed_status: Option<StatusCode>,
     pub failed_body: Option<Value>,
     pub failed_query: Option<&'static str>,
+    /// The live budget of Campaign 701 for Optimize, and the changes sent to Google Ads.
+    pub live_budget: Option<i64>,
+    pub mutations: Vec<(String, HeaderMap, Value)>,
+    /// The status of the next change that is sent for real; it is not applied.
+    pub mutate_failure: Option<StatusCode>,
 }
 
 async fn token(
@@ -140,6 +145,12 @@ async fn search(
             return Json(json!({"results":rows})).into_response();
         }
     }
+    if let (true, Some(budget)) = (
+        query.contains("WHERE campaign.id = 701"),
+        calls.google.live_budget,
+    ) {
+        return Json(json!({"results":[{"campaign":{"id":"701","status":"ENABLED","biddingStrategyType":"MAXIMIZE_CONVERSIONS"},"campaignBudget":{"id":"9001","amountMicros":budget.to_string(),"period":"DAILY","explicitlyShared":false,"referenceCount":"1"}}]})).into_response();
+    }
     if query.contains("campaign_budget.amount_micros") {
         if let Some(rows) = &calls.google.monitoring_campaigns {
             return Json(json!({"results":rows})).into_response();
@@ -198,6 +209,37 @@ async fn search(
     Json(json!({"results":[row]})).into_response()
 }
 
+async fn mutate_budgets(
+    State(calls): State<Arc<Mutex<super::Calls>>>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    assert_eq!(id, "4829153307");
+    let mut calls = calls.lock().unwrap();
+    calls
+        .google
+        .mutations
+        .push(("campaignBudgets".into(), headers, body.clone()));
+    let validate = body["validateOnly"].as_bool().unwrap();
+    if !validate {
+        if let Some(status) = calls.google.mutate_failure.take() {
+            return (status, Json(json!({"error":{}}))).into_response();
+        }
+        let amount = body["operations"][0]["update"]["amountMicros"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        calls.google.live_budget = Some(amount);
+    }
+    (
+        [("request-id", "stub-request-1")],
+        Json(json!({"results":[{"resourceName":body["operations"][0]["update"]["resourceName"]}]})),
+    )
+        .into_response()
+}
+
 async fn revoke(
     State(calls): State<Arc<Mutex<super::Calls>>>,
     Form(form): Form<HashMap<String, String>>,
@@ -215,5 +257,9 @@ pub(super) fn routes(calls: Arc<Mutex<super::Calls>>) -> Router {
         .route("/google/revoke", post(revoke))
         .route("/google/token", post(token))
         .route("/google/v25/customers/{id}/googleAds:search", post(search))
+        .route(
+            "/google/v25/customers/{id}/campaignBudgets:mutate",
+            post(mutate_budgets),
+        )
         .with_state(calls)
 }

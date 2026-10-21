@@ -91,6 +91,25 @@ pub async fn run(ctx: &AppContext, job: &MonitoringJob) -> Result<()> {
     store
         .finish_monitoring_run(&job.ad_account, day, now, result.is_ok())
         .await?;
+    if result.is_ok()
+        && store
+            .optimization_policy(&job.ad_account)
+            .await?
+            .policy
+            .mode
+            != crate::optimize::Mode::Investigate
+    {
+        crate::optimize::cycle::OptimizationWorker::perform_later(
+            ctx,
+            crate::optimize::cycle::OptimizationJob {
+                workspace_id: job.workspace_id.clone(),
+                task: crate::optimize::cycle::Task::Evaluate {
+                    ad_account: job.ad_account.clone(),
+                },
+            },
+        )
+        .await?;
+    }
     EmailWorker::perform_later(
         ctx,
         EmailJob {
@@ -183,12 +202,24 @@ async fn account(
     {
         return Ok(());
     }
-    tokio::time::timeout(
+    let started = std::time::Instant::now();
+    let collection = tokio::time::timeout(
         std::time::Duration::from_secs(540),
         google_ads::collect_history(settings, store, id),
     )
-    .await
-    .map_err(|_| Error::Message("Account history collection timed out".into()))??;
+    .await;
+    if collection.is_err() {
+        store
+            .record_operation(
+                crate::workspace::measurement::Operation::Sync,
+                "",
+                false,
+                started.elapsed(),
+                Default::default(),
+            )
+            .await;
+    }
+    collection.map_err(|_| Error::Message("Account history collection timed out".into()))??;
     if !store.monitoring_access(settings.now().timestamp()).await? {
         return Ok(());
     }
@@ -251,7 +282,7 @@ async fn account(
         );
         let inputs = causes::gather(store, id, &days, &changes, &campaigns, &detection).await?;
         detection.causes = causes::candidates(&detection, &inputs);
-        let update = update::generate(settings, detection, &rules).await?;
+        let update = update::generate(settings, Some(store), detection, &rules).await?;
         store.save_update(id, &update).await?;
     }
     let deep_result = refresh_check(settings, store, id, day, &rules).await;
@@ -269,7 +300,36 @@ async fn refresh_check(
     day: i64,
     rules: &Resolved,
 ) -> Result<()> {
-    let mut check = match store.latest_deep_check(id).await? {
+    let previous = store.latest_deep_check(id).await?;
+    if previous
+        .as_ref()
+        .is_some_and(|check| day - check.day < 7 && check.recommendations_generated)
+    {
+        return Ok(());
+    }
+    let started = std::time::Instant::now();
+    let result = refresh_due_check(settings, store, id, day, rules, previous).await;
+    store
+        .record_operation(
+            crate::workspace::measurement::Operation::DeepCheck,
+            "",
+            result.is_ok(),
+            started.elapsed(),
+            Default::default(),
+        )
+        .await;
+    result
+}
+
+async fn refresh_due_check(
+    settings: &Settings,
+    store: &WorkspaceStore<'_>,
+    id: &str,
+    day: i64,
+    rules: &Resolved,
+    previous: Option<deep_check::DeepCheck>,
+) -> Result<()> {
+    let mut check = match previous {
         Some(check) if day - check.day < 7 => check,
         previous => {
             let mut check = deep_check::collect(settings, store, id, day).await?;
@@ -300,7 +360,7 @@ async fn refresh_check(
                     .take(5)
                     .map(|location| location.name.clone())
                     .collect::<Vec<_>>();
-                business::research(settings, &business, &names, &places, day).await
+                business::research(settings, Some(store), &business, &names, &places, day).await
             }
         };
         check.research = business.research.clone();
@@ -315,7 +375,7 @@ async fn refresh_check(
                 .into_iter()
                 .collect(),
         };
-        let review = deep_check::review(settings, &check, &context, rules).await?;
+        let review = deep_check::review(settings, Some(store), &check, &context, rules).await?;
         check.recommendations_generated = true;
         check.assessment = Some(review.assessment);
         store

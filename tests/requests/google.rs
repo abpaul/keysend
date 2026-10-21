@@ -645,6 +645,17 @@ async fn connect_encrypts_refresh_token_discovers_manager_clients_and_saves_sele
         .add_cookie(session.clone())
         .await;
     assert_eq!(choices.status_code(), 200);
+    let operations = keysend::workspace::measurement::operation_days(
+        &fixture.ctx.db,
+        keysend::workspace::measurement::Operation::GoogleRequest,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        operations.iter().map(|row| row.succeeded).sum::<i64>(),
+        fixture.calls.lock().unwrap().ads.len() as i64
+    );
+
     assert!(choices.text().contains("Northwind Dental"));
     assert!(choices.text().contains("Harbor Furniture"));
     assert!(choices.text().contains("Lumen Yoga"));
@@ -1235,6 +1246,20 @@ async fn accessible_customer_failure_is_generic_and_saves_no_selection() {
         .callback(&state, &browser, "ads-a", Some(&session))
         .await;
     assert_eq!(response.status_code(), 502);
+    let operations = keysend::workspace::measurement::operation_days(
+        &fixture.ctx.db,
+        keysend::workspace::measurement::Operation::GoogleRequest,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        operations
+            .iter()
+            .map(|row| (row.succeeded, row.failed))
+            .collect::<Vec<_>>(),
+        [(0, 1)]
+    );
+
     assert!(response
         .text()
         .contains("Google could not complete this request. Please try again."));
@@ -1775,4 +1800,50 @@ async fn unknown_and_future_resources_do_not_stop_sign_in_or_store_a_source() {
         fixture.sign_up_source("b@example.com").await.as_deref(),
         Some("home-hero-ro")
     );
+}
+
+#[tokio::test]
+#[serial]
+async fn connecting_google_ads_again_clears_the_notice_and_continues_with_nothing_new() {
+    let fixture = Fixture::new().await;
+    let session = fixture.sign_in("user-a").await;
+    let first = fixture.connect(&session, "ads-a").await;
+    let saved = fixture
+        .request
+        .post(&first)
+        .add_cookie(session.clone())
+        .add_header("origin", ORIGIN)
+        .form(&[("ad_account", "2222222222")])
+        .await;
+    assert_eq!(saved.status_code(), 303);
+    fixture
+        .ctx
+        .db
+        .execute_unprepared("UPDATE account_history SET error='Connect Google Ads again.'")
+        .await
+        .unwrap();
+    let page = || async {
+        fixture
+            .request
+            .get("/ad-accounts/2222222222")
+            .add_cookie(session.clone())
+            .await
+            .text()
+    };
+    assert!(page().await.contains("Google Ads is no longer connected"));
+
+    let again = fixture.connect(&session, "ads-a").await;
+    assert!(!page().await.contains("Google Ads is no longer connected"));
+    assert_eq!(fixture.count("google_connections").await, 1);
+
+    let nothing_new = fixture
+        .request
+        .post(&again)
+        .add_cookie(session.clone())
+        .add_header("origin", ORIGIN)
+        .form(&[] as &[(&str, &str)])
+        .await;
+    assert_eq!(nothing_new.status_code(), 303);
+    assert_eq!(nothing_new.header("location"), "/ad-accounts");
+    assert_eq!(fixture.count("ad_accounts").await, 1);
 }

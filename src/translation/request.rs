@@ -107,6 +107,7 @@ fn payload(settings: &Settings, language: Language, target: &Text, batch: &[&str
 
 pub async fn translate(
     settings: &Settings,
+    store: &crate::workspace::WorkspaceStore<'_>,
     key: &str,
     language: Language,
     templates: &[String],
@@ -132,7 +133,7 @@ pub async fn translate(
     let mut answers = HashMap::new();
     for batch in &batches {
         let body = payload(settings, language, target, batch);
-        let Some(reply) = ai::request(settings, key, &body).await else {
+        let Some(reply) = ai::request(settings, Some(store), key, &body).await else {
             continue;
         };
         let Some(items) = reply.get("items").and_then(Value::as_array) else {

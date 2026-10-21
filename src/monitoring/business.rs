@@ -409,6 +409,7 @@ pub(crate) fn accept(
 /// the names of Campaigns and locations: no metric.
 pub async fn research(
     settings: &Settings,
+    store: Option<&crate::workspace::WorkspaceStore<'_>>,
     business: &Business,
     campaigns: &[String],
     locations: &[String],
@@ -427,7 +428,7 @@ pub async fn research(
         "tools":[{"type":"web_search"}],"max_tool_calls":3,"include":["web_search_call.action.sources"],
         "instructions":RESEARCH,"input":input.to_string(),
         "text":{"format":{"type":"json_schema","name":"business_research","strict":true,"schema":schema()}}});
-    let (body, sources) = crate::ai::request_with_sources(settings, key, &payload).await?;
+    let (body, sources) = crate::ai::request_with_sources(settings, store, key, &payload).await?;
     let cited = body["facts"]
         .as_array()
         .into_iter()

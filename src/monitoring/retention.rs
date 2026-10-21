@@ -15,6 +15,7 @@ use crate::{
 
 pub const INACTIVE_WORKSPACE_MONTHS: u32 = 12;
 pub const HISTORY_MONTHS: u32 = 24;
+pub const INVESTIGATION_DAYS: i64 = 180;
 pub const RUN_HOUR_UTC: u32 = 3;
 
 #[derive(Clone, Default, Deserialize, Serialize)]
@@ -56,8 +57,16 @@ pub async fn run(ctx: &AppContext) -> Result<()> {
         months_before(now, HISTORY_MONTHS)?.timestamp(),
     )
     .await;
+    crate::workspace::measurement::recorded(
+        crate::workspace::measurement::remove_before(
+            &ctx.db,
+            day_number(months_before(now, HISTORY_MONTHS)?.date_naive()),
+        )
+        .await,
+    );
     let history = remove_old_history(ctx, now).await;
-    inactive.and(trials).and(history)
+    let admin = identity::admin::retain(&ctx.db).await;
+    inactive.and(trials).and(history).and(admin)
 }
 
 async fn access_ended_before(store: &WorkspaceStore<'_>, oldest: i64) -> Result<bool> {
@@ -122,6 +131,14 @@ async fn remove_old_history(ctx: &AppContext, now: DateTime<Utc>) -> Result<()> 
 }
 
 async fn remove_workspace_history(store: &WorkspaceStore<'_>, now: DateTime<Utc>) -> Result<()> {
+    crate::workspace::measurement::recorded(
+        store
+            .remove_activity_before(day_number(months_before(now, HISTORY_MONTHS)?.date_naive()))
+            .await,
+    );
+    store
+        .remove_investigations_before(now.timestamp() - INVESTIGATION_DAYS * 86_400)
+        .await?;
     for ad in store.ad_accounts().await? {
         let Some((_, zone)) = store.ad_account_metadata(&ad.customer_id).await? else {
             continue;

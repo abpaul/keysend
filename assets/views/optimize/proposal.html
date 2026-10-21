@@ -1,0 +1,57 @@
+{% extends "app/base.html" %}
+{% block title %}{{ headline }}{% endblock title %}
+{% block nav_optimize %} aria-current="page"{% endblock nav_optimize %}
+{% block content %}
+<p><a class="back-link" href="/optimize">{{ t(key="opt_back") }}</a></p>
+<p class="small muted">{{ account }} · {{ kind }} · <span class="optimize-risk{% if high %} optimize-risk--high{% endif %}">{{ risk }}</span> · {{ state }}</p>
+<h1 class="heading-l">{{ headline }}</h1>
+<div class="card optimize-change">
+  <dl class="optimize-values">
+    <div><dt>{{ t(key="opt_current") }}</dt><dd>{{ current }}</dd></div>
+    <div><dt>{{ t(key="opt_proposed") }}</dt><dd>{{ proposed }}</dd></div>
+  </dl>
+  {% if open %}
+    {% if applicable %}
+    <form method="post" action="/optimize/proposals/{{ id }}/approve" class="optimize-decide">
+      <input type="hidden" name="fingerprint" value="{{ fingerprint }}">
+      <p class="small muted">{{ t(key="opt_approve_hint", date=expires) }}</p>
+      <button class="button" type="submit">{{ t(key="opt_approve") }}</button>
+    </form>
+    {% elif raise %}<p class="notice">{{ t(key="opt_raise_unavailable") }}</p>
+    {% elif mode_blocks %}<p class="notice">{{ mode_blocks }}</p>
+    {% elif stopped %}<p class="notice">{{ t(key="opt_stopped_short") }}</p>
+    {% else %}<p class="notice">{{ t(key="opt_not_live_notice") }}</p>{% endif %}
+    <form method="post" action="/optimize/proposals/{{ id }}/reject"><div class="field"><label class="label" for="reason">{{ t(key="opt_reject_reason") }}</label><textarea class="input" id="reason" name="reason" rows="2" maxlength="1000"></textarea></div><button class="link-button" type="submit">{{ t(key="opt_reject") }}</button></form>
+  {% endif %}
+  {% if verified %}<p>{{ t(key="opt_verified") }}{% if request_id %} <span class="small muted">{{ t(key="opt_request_id", id=request_id) }}</span>{% endif %}</p>{% endif %}
+</div>
+{% if uncertain %}
+<section class="card" aria-labelledby="recover-title">
+  <h2 class="heading-m" id="recover-title">{{ t(key="opt_recover_title") }}</h2>
+  <p>{{ t(key="opt_recover_hint") }}</p>
+  {% if error %}<div class="error-summary" role="alert" aria-labelledby="error-title"><h3 class="heading-s" id="error-title">{{ t(key="error_summary_title") }}</h3><p>{{ error }}</p></div>{% endif %}
+  <form method="post" action="/optimize/proposals/{{ id }}/recover">
+    <input type="hidden" name="fingerprint" value="{{ fingerprint }}">
+    <div class="field"><label class="label" for="note">{{ t(key="opt_recover_note") }}</label><textarea class="input" id="note" name="note" rows="3" maxlength="1000" required></textarea></div>
+    <label class="choice"><input type="checkbox" name="confirmed" value="yes" required><span>{{ t(key="opt_recover_confirm") }}</span></label>
+    <button class="button" type="submit">{{ t(key="opt_recover_submit") }}</button>
+  </form>
+</section>
+{% endif %}
+<section class="card" aria-labelledby="facts-title">
+  <h2 class="heading-m" id="facts-title">{{ t(key="opt_facts_title") }}</h2>
+  <ul class="findings">{% for fact in reasons.facts %}<li>{{ fact }}</li>{% endfor %}</ul>
+  <h3 class="heading-s">{{ t(key="opt_hypothesis_title") }}</h3>
+  <ul class="findings">{% for line in reasons.hypotheses %}<li>{{ line }}</li>{% endfor %}</ul>
+  <h3 class="heading-s">{{ t(key="opt_expected_title") }}</h3>
+  <ul class="findings">{% for line in reasons.expected %}<li>{{ line }}</li>{% endfor %}<li>{{ t(key="opt_disclaimer") }}</li></ul>
+  <h3 class="heading-s">{{ t(key="opt_risks_title") }}</h3>
+  <ul class="findings">{% for line in reasons.risks %}<li>{{ line }}</li>{% endfor %}</ul>
+  <h3 class="heading-s">{{ t(key="opt_measure_title") }}</h3>
+  <ul class="findings">{% for line in reasons.measure %}<li>{{ line }}</li>{% endfor %}</ul>
+</section>
+<section class="card" aria-labelledby="history-title">
+  <h2 class="heading-m" id="history-title">{{ t(key="opt_history_title") }}</h2>
+  <ul class="plain-list optimize-timeline">{% for event in history %}<li><p>{{ event.text }}</p><p class="small muted">{{ event.date }}</p></li>{% endfor %}</ul>
+</section>
+{% endblock content %}

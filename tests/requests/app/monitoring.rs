@@ -128,7 +128,7 @@ impl Fixture {
         f
     }
 
-    async fn prepare_monitoring(&self) -> MonitoringJob {
+    pub(super) async fn prepare_monitoring(&self) -> MonitoringJob {
         let signed = signed(self).await;
         let store = WorkspaceStore::new(&self.ctx.db, &signed.workspace);
         store
@@ -871,6 +871,7 @@ async fn standing_recommendations_use_the_ai_stub_and_reject_invented_evidence()
     check.findings.push(standing_finding());
     let recommendations = keysend::monitoring::deep_check::review(
         &Settings::load(&f.ctx).unwrap(),
+        None,
         &check,
         &Default::default(),
         AllFollowAccount { judged: true },
@@ -890,6 +891,7 @@ async fn standing_recommendations_use_the_ai_stub_and_reject_invented_evidence()
     );
     assert!(keysend::monitoring::deep_check::review(
         &Settings::load(&f.ctx).unwrap(),
+        None,
         &check,
         &Default::default(),
         AllFollowAccount { judged: true },
@@ -1215,6 +1217,7 @@ async fn weekly_email_skips_unready_accounts_and_waits_five_days() {
             AD,
             &update::generate(
                 &Settings::load(&f.ctx).unwrap(),
+                None,
                 detected,
                 AllFollowAccount { judged: true },
             )
@@ -1281,7 +1284,7 @@ async fn weekly_with_a_later_time_zone() -> (Fixture, Settings) {
         AllFollowAccount { judged: true },
         "EUR",
     );
-    let mut stored = update::generate(&settings, detected, AllFollowAccount { judged: true })
+    let mut stored = update::generate(&settings, None, detected, AllFollowAccount { judged: true })
         .await
         .unwrap();
     store.save_update(AD, &stored).await.unwrap();
@@ -1429,6 +1432,7 @@ async fn without_an_ai_key_the_conversion_tracking_recommendations_are_kept() {
     ];
     let recommendations = keysend::monitoring::deep_check::review(
         &settings,
+        None,
         &check,
         &Default::default(),
         AllFollowAccount { judged: true },
@@ -1467,6 +1471,7 @@ async fn recommendations_skip_bad_entries_and_bound_spend_and_count() {
     f.calls.lock().unwrap().override_recommendations = Some(json!({"recommendations":entries}));
     let recommendations = keysend::monitoring::deep_check::review(
         &Settings::load(&f.ctx).unwrap(),
+        None,
         &check,
         &Default::default(),
         AllFollowAccount { judged: true },
@@ -1735,7 +1740,7 @@ async fn a_failed_ai_or_email_request_logs_its_kind_and_status_without_a_secret(
         causes: vec![],
     };
     assert!(
-        update::generate(&settings, moved, AllFollowAccount { judged: true })
+        update::generate(&settings, None, moved, AllFollowAccount { judged: true })
             .await
             .unwrap()
             .written_without_ai
@@ -2162,7 +2167,7 @@ async fn weekly_email_runs_only_on_monday_after_six_utc() {
     store
         .save_update(
             AD,
-            &update::generate(&settings, detected, AllFollowAccount { judged: true })
+            &update::generate(&settings, None, detected, AllFollowAccount { judged: true })
                 .await
                 .unwrap(),
         )
@@ -2262,7 +2267,7 @@ async fn missing_ai_key_still_stores_a_factual_movement_update() {
         AllFollowAccount { judged: true },
         "EUR",
     );
-    let update = update::generate(&settings, detected, AllFollowAccount { judged: true })
+    let update = update::generate(&settings, None, detected, AllFollowAccount { judged: true })
         .await
         .unwrap();
     store.save_update(AD, &update).await.unwrap();
@@ -3042,3 +3047,6 @@ async fn the_business_is_researched_from_its_names_alone_and_the_research_is_kep
         .research
         .is_some());
 }
+mod measurement;
+
+mod agent;

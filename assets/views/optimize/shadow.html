@@ -1,0 +1,84 @@
+{% extends "app/base.html" %}
+{% block title %}{{ t(key="opt_shadow_title", name=account) }}{% endblock title %}
+{% block nav_optimize %} aria-current="page"{% endblock nav_optimize %}
+{% block content %}
+<p><a class="back-link" href="/optimize">{{ t(key="opt_back") }}</a></p>
+<p class="small muted">{{ mode }} · {{ t(key="opt_shadow_policy", version=version) }} · {{ t(key="opt_shadow_evaluated", date=evaluated) }}</p>
+<h1 class="heading-l">{{ t(key="opt_shadow_title", name=account) }}</h1>
+<div class="notice" role="status"><p>{{ t(key="opt_shadow_notice") }}</p></div>
+{% if stale | length > 0 %}
+<div class="notice notice--alert" role="status"><p class="notice__title">{{ t(key="opt_shadow_stale_title") }}</p>{% for line in stale %}<p>{{ line }}</p>{% endfor %}</div>
+{% endif %}
+<section class="card" aria-labelledby="evidence-title">
+  <h2 class="heading-m" id="evidence-title">{{ t(key="opt_shadow_evidence_title") }}</h2>
+  <dl class="optimize-values">
+    <div><dt>{{ t(key="opt_shadow_evidence_period") }}</dt><dd>{% if period %}{{ period }}{% else %}{{ t(key="opt_shadow_data", date=data_day) }}{% endif %}</dd></div>
+    <div><dt>{{ t(key="opt_shadow_evidence_campaigns") }}</dt><dd>{{ campaigns }}</dd></div>
+    <div><dt>{{ t(key="opt_shadow_evidence_changes") }}</dt><dd>{{ changes }}</dd></div>
+    <div><dt>{{ t(key="opt_shadow_evidence_findings") }}</dt><dd>{{ findings }}</dd></div>
+    <div><dt>{{ t(key="opt_shadow_evidence_tracking") }}</dt><dd>{% if tracking_reliable %}{{ t(key="opt_shadow_tracking_reliable") }}{% else %}{{ t(key="opt_shadow_tracking_unreliable") }}{% endif %}</dd></div>
+  </dl>
+</section>
+<section class="card" aria-labelledby="decisions-title">
+  <h2 class="heading-m" id="decisions-title">{{ t(key="opt_shadow_decisions_title") }}</h2>
+  {% if decisions | length == 0 %}<p class="muted">{{ abstention }}</p>{% else %}
+  <ul class="plain-list optimize-list">{% for decision in decisions %}<li id="decision-{{ decision.item }}">
+  {% if decision.proposed %}
+  <p class="small muted">{{ t(key="opt_shadow_would_propose") }} · {{ decision.kind }} · <span class="optimize-risk{% if decision.high %} optimize-risk--high{% endif %}">{{ decision.risk }}</span></p>
+  {% else %}
+  <p class="small muted">{{ t(key="opt_shadow_held") }}</p>
+  {% endif %}
+  <h3 class="heading-s">{{ decision.headline }}</h3>
+  <details class="more"{% if decision.open %} open{% endif %}>
+  <summary>{{ t(key="opt_shadow_details") }}</summary>
+  <div>
+  {% if decision.proposed %}
+  <dl class="optimize-values">
+    <div><dt>{{ t(key="opt_current") }}</dt><dd>{{ decision.current }}</dd></div>
+    <div><dt>{{ t(key="opt_proposed") }}</dt><dd>{{ decision.proposed_value }}</dd></div>
+  </dl>
+  <p class="small muted">{{ decision.expires }}</p>
+  <h4 class="heading-s">{{ t(key="opt_shadow_rules_title") }}</h4>
+  <ul class="findings">{% for line in decision.rules %}<li>{{ line }}</li>{% endfor %}</ul>
+  <h4 class="heading-s">{{ t(key="opt_facts_title") }}</h4>
+  <ul class="findings">{% for line in decision.reasons.facts %}<li>{{ line }}</li>{% endfor %}</ul>
+  <h4 class="heading-s">{{ t(key="opt_hypothesis_title") }}</h4>
+  <ul class="findings">{% for line in decision.reasons.hypotheses %}<li>{{ line }}</li>{% endfor %}</ul>
+  <h4 class="heading-s">{{ t(key="opt_expected_title") }}</h4>
+  <ul class="findings">{% for line in decision.reasons.expected %}<li>{{ line }}</li>{% endfor %}<li>{{ t(key="opt_disclaimer") }}</li></ul>
+  <h4 class="heading-s">{{ t(key="opt_risks_title") }}</h4>
+  <ul class="findings">{% for line in decision.reasons.risks %}<li>{{ line }}</li>{% endfor %}</ul>
+  <h4 class="heading-s">{{ t(key="opt_shadow_observed_title") }}</h4>
+  {% if decision.observed %}
+  <dl class="optimize-values">
+    <div><dt>{{ t(key="opt_shadow_before", days=decision.observed.before_days) }}</dt><dd>{{ decision.observed.before }}<br><span class="small muted">{{ decision.observed.before_coverage }}</span></dd></div>
+    <div><dt>{% if decision.observed.after_days %}{{ t(key="opt_shadow_after", days=decision.observed.after_days) }}{% else %}{{ t(key="opt_shadow_after_none") }}{% endif %}</dt><dd>{% if decision.observed.after_days %}{{ decision.observed.after }}<br><span class="small muted">{{ decision.observed.after_coverage }}</span>{% endif %}</dd></div>
+  </dl>
+  <ul class="findings">
+    {% if decision.observed.partial %}<li>{{ t(key="opt_shadow_partial") }}</li>{% endif %}
+    {% if decision.observed.unreliable %}<li>{{ t(key="opt_shadow_tracking_warning") }}</li>{% endif %}
+    {% if decision.observed.external %}<li>{{ decision.observed.external }}</li>{% endif %}
+    <li>{{ t(key="opt_shadow_no_claim") }}</li>
+  </ul>
+  {% else %}<p class="muted">{{ t(key="opt_shadow_after_none") }}</p>{% endif %}
+  {% else %}
+  <h4 class="heading-s">{{ t(key="opt_shadow_rules_title") }}</h4>
+  <ul class="findings">{% for line in decision.rules %}{% if line %}<li>{{ line }}</li>{% endif %}{% endfor %}</ul>
+  <h4 class="heading-s">{{ t(key="opt_facts_title") }}</h4>
+  <ul class="findings">{% for line in decision.facts %}<li>{{ line }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if decision.feedback | length > 0 %}<ul class="plain-list optimize-timeline">{% for given in decision.feedback %}<li><p>{{ given.text }}</p>{% if given.note %}<p>{{ given.note }}</p>{% endif %}<p class="small muted">{{ given.date }}</p></li>{% endfor %}</ul>{% endif %}
+  <form class="form" method="post" action="/optimize/shadows/{{ id }}/feedback">
+    <input type="hidden" name="item" value="{{ decision.item }}">
+    <fieldset class="field"><legend class="label">{{ t(key="opt_shadow_feedback_title") }}</legend>
+      {% if decision.error %}{% set message = t(key="opt_shadow_feedback_error") %}<p class="error-message" id="feedback-{{ decision.item }}-error"><span class="visually-hidden">{{ t(key="error_message", message=message) }}</span><span aria-hidden="true">{{ message }}</span></p>{% endif %}
+      <div class="choices">{% for choice in feedback %}<label class="choice"><input type="radio" name="feedback" value="{{ choice.name }}" required><span>{{ choice.label }}</span></label>{% endfor %}</div>
+    </fieldset>
+    <div class="field"><label class="label" for="note-{{ decision.item }}">{{ t(key="opt_shadow_note") }}</label><textarea class="input" id="note-{{ decision.item }}" name="note" rows="2" maxlength="1000"></textarea></div>
+    <button class="button" type="submit">{{ t(key="opt_shadow_send") }}</button>
+  </form>
+  </div>
+  </details>
+  </li>{% endfor %}</ul>{% endif %}
+</section>
+{% endblock content %}

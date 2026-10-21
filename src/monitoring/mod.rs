@@ -33,6 +33,6 @@ pub mod worker;
 pub(crate) const UPDATES_SHOWN: u32 = 31;
 
 #[cfg(test)]
-mod eval;
+pub(crate) mod eval;
 #[cfg(test)]
 mod tests;

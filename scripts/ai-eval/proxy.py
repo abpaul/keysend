@@ -9,6 +9,7 @@ Codex usage and the size of the KeySend payload.
 Usage: scripts/ai-eval/proxy.py DIRECTORY [PORT]
 """
 
+import copy
 import json
 import subprocess
 import sys
@@ -28,8 +29,27 @@ When TOOLS lists web_search, you may search the web; otherwise do not.
 """
 
 
-def answer(payload):
-    schema = payload["text"]["format"]["schema"]
+def compatible_schema(value):
+    """Preserve constraints as descriptions if the CLI rejects validation keywords."""
+    if isinstance(value, list):
+        return [compatible_schema(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+    result = {}
+    constraints = {}
+    for key, item in value.items():
+        if key in {"pattern", "minimum", "maximum", "minItems", "maxItems", "minLength", "maxLength"}:
+            constraints[key] = item
+        else:
+            result[key] = compatible_schema(item)
+    if constraints:
+        result["description"] = result.get("description", "") + " Required constraints: " + json.dumps(constraints)
+    return result
+
+
+def answer(payload, run_id=None):
+    schema = copy.deepcopy(payload["text"]["format"]["schema"])
+    schema_changes = []
     tools = [tool.get("type") for tool in payload.get("tools", [])]
     prompt = f"{PREAMBLE}\nTOOLS: {json.dumps(tools)}\n\nINSTRUCTIONS:\n{payload.get('instructions', '')}\n\nINPUT:\n{payload['input']}\n"
     with tempfile.TemporaryDirectory() as work:
@@ -45,6 +65,11 @@ def answer(payload):
             command[2:2] = ["-c", 'web_search="live"']
         started = time.monotonic()
         run = subprocess.run(command, input=prompt, capture_output=True, text=True, timeout=600)
+        if run.returncode and any(word in (run.stdout + run.stderr).lower() for word in ("invalid schema", "unsupported schema")):
+            schema = compatible_schema(schema)
+            schema_changes.append("validation keywords moved into description; production schema unchanged")
+            (work / "schema.json").write_text(json.dumps(schema))
+            run = subprocess.run(command, input=prompt, capture_output=True, text=True, timeout=600)
         seconds = time.monotonic() - started
         usage = {}
         sources = []
@@ -61,6 +86,9 @@ def answer(payload):
         text = (work / "answer.json").read_text() if (work / "answer.json").exists() else ""
     record = {
         "schema": payload["text"]["format"].get("name"),
+        "schema_changes": schema_changes,
+        "run_id": run_id,
+        "error": (run.stderr + run.stdout)[-2000:] if run.returncode else None,
         "seconds": round(seconds, 1),
         "payload_characters": len(payload.get("instructions", "")) + len(payload["input"]),
         "codex_usage": usage,
@@ -71,7 +99,7 @@ def answer(payload):
     with LOCK, open(DIRECTORY / "calls.jsonl", "a") as log:
         log.write(json.dumps(record) + "\n")
         with open(DIRECTORY / "payloads.jsonl", "a") as raw:
-            raw.write(json.dumps({"payload": payload, "answer": text}) + "\n")
+            raw.write(json.dumps({"run_id": run_id, "payload": payload, "answer": text, "schema_changes": schema_changes}) + "\n")
     return text, usage, sources
 
 
@@ -79,7 +107,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         try:
-            text, usage, sources = answer(payload)
+            text, usage, sources = answer(payload, self.headers.get("x-keysend-eval-run"))
         except subprocess.TimeoutExpired:
             self.send_response(504)
             self.end_headers()

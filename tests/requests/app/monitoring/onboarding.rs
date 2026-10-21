@@ -412,6 +412,22 @@ async fn the_queue_worker_writes_the_first_update_after_the_user_chooses_an_ad_a
         })
         .collect();
     assert!(frame.contains(update::QUIET), "{finished:?} {frame}");
+    let signed = signed_as(&user.f, &user.f.b).await;
+    let store = WorkspaceStore::new(&user.f.ctx.db, &signed.workspace);
+    assert!(
+        store
+            .activity_count(keysend::workspace::measurement::Activity::Synced)
+            .await
+            .unwrap()
+            > 0
+    );
+    for kind in keysend::workspace::measurement::Activity::ALL
+        .into_iter()
+        .filter(|kind| kind.by_user())
+    {
+        assert_eq!(store.activity_count(kind).await.unwrap(), 0);
+    }
+
     assert!(
         finished.contains(&("MonitoringWorker".to_owned(), "completed".to_owned())),
         "{finished:?}"

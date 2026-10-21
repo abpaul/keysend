@@ -37,6 +37,7 @@ fn change(day: NaiveDate, campaign: i64, kind: &str, old: Value, new: Value) -> 
     AccountChange {
         changed_at: format!("{day} 10:00:00"),
         resource_name: format!("customers/{AD}/changeEvents/{campaign}-{day}"),
+        change_resource_name: None,
         resource_type: kind.into(),
         operation: "UPDATE".into(),
         campaign_id: Some(campaign),
@@ -1949,4 +1950,57 @@ async fn a_user_saves_and_reopens_the_ad_account_economics_and_sees_invalid_valu
     for field in ["margin", "customer_value", "close_rate", "target_return"] {
         assert!(page.contains(&format!(r#"name="{field}" value="""#)));
     }
+}
+
+#[tokio::test]
+#[serial]
+async fn a_user_whose_google_connection_was_refused_is_asked_to_connect_google_ads_again() {
+    let f = normal_day().await;
+    let signed = signed(&f).await;
+    let store = WorkspaceStore::new(&f.ctx.db, &signed.workspace);
+    let page = f.page(PAGE).await;
+    assert!(!page.contains("Google Ads is no longer connected"));
+
+    store
+        .history_failed(AD, "Connect Google Ads again.")
+        .await
+        .unwrap();
+    let page = f.page(PAGE).await;
+    assert!(page.contains("Spend was steady this week at $4,120"));
+    assert!(page.contains(r#"<h2 class="notice__title">Google Ads is no longer connected</h2>"#));
+    assert!(page.contains("Google no longer accepts KeySend's access, so we cannot read your Ad Accounts and your Updates have stopped."));
+    assert!(page.contains(r#"<form method="post" action="/connections/google/start"><button class="button" type="submit">Connect Google Ads again</button></form>"#));
+
+    let connection = store.google_connections().await.unwrap().remove(0).id;
+    let selection = store
+        .create_selection(
+            &connection,
+            vec![AdAccountChoice {
+                customer_id: "6170254418".into(),
+                name: "Northgate Physio".into(),
+                login_customer_id: None,
+            }],
+        )
+        .await
+        .unwrap();
+    assert!(store
+        .save_selected(&selection, &["6170254418".into()])
+        .await
+        .unwrap());
+    let list = f.page("/ad-accounts").await;
+    assert!(list.contains(r#"<h2 class="notice__title">Google Ads is no longer connected</h2>"#));
+    assert!(list.contains(r#"action="/connections/google/start""#));
+
+    store
+        .history_failed(AD, "Google Ads data is unavailable. Try again later.")
+        .await
+        .unwrap();
+    assert!(!f
+        .page(PAGE)
+        .await
+        .contains("Google Ads is no longer connected"));
+    assert!(!f
+        .page("/ad-accounts")
+        .await
+        .contains("Google Ads is no longer connected"));
 }

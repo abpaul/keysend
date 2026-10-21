@@ -35,7 +35,7 @@ fn plan(id: i64, name: &'static str, channel: &'static str, before: Level, after
     }
 }
 
-pub(super) fn all() -> Vec<Scenario> {
+pub(crate) fn all() -> Vec<Scenario> {
     vec![
         Scenario {
             key: "high_ctr_poor_conversion",

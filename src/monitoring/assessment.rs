@@ -9,7 +9,7 @@ use super::{
     audit::{AuditRow, Counts, Data},
     deep_check::Finding,
     follow_up::COUNT_NOISE_DEVIATIONS,
-    metrics::{english_change, english_count, english_money, english_number},
+    metrics::{english_change, english_count, english_money, english_number, ratio},
     tracking,
 };
 
@@ -51,10 +51,6 @@ impl Verdict {
 pub struct Judged {
     pub verdict: Verdict,
     pub reasons: Vec<String>,
-}
-
-fn ratio(numerator: f64, denominator: f64) -> Option<f64> {
-    (denominator > 0.0).then(|| numerator / denominator)
 }
 
 fn beyond_noise(current: f64, previous: f64) -> bool {
@@ -302,11 +298,11 @@ pub fn fallback(judged: &Judged) -> Assessment {
     }
 }
 
-fn percent(part: f64, whole: f64) -> Option<String> {
+pub(crate) fn percent(part: f64, whole: f64) -> Option<String> {
     ratio(part, whole).map(|share| format!("{}%", english_number(share * 100.0, 0)))
 }
 
-fn block(counts: &Counts, currency: &str, judged: bool, by_value: bool) -> Value {
+pub(crate) fn block(counts: &Counts, currency: &str, judged: bool, by_value: bool) -> Value {
     let money = |value: f64| english_money(value, currency);
     let mut facts = json!({
         "Spend": money(counts.cost),
@@ -330,7 +326,7 @@ fn block(counts: &Counts, currency: &str, judged: bool, by_value: bool) -> Value
     facts
 }
 
-fn changes(now: &Counts, before: &Counts, judged: bool, by_value: bool) -> Value {
+pub(crate) fn changes(now: &Counts, before: &Counts, judged: bool, by_value: bool) -> Value {
     let change = |current: Option<f64>, previous: Option<f64>| {
         current
             .zip(previous)

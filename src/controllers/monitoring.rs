@@ -334,6 +334,18 @@ async fn add_options(store: &WorkspaceStore<'_>, settings: &Settings) -> Result<
     }))
 }
 
+async fn viewed(store: &WorkspaceStore<'_>, response: Result<Response>) -> Result<Response> {
+    if response
+        .as_ref()
+        .is_ok_and(|response| response.status() == StatusCode::OK)
+    {
+        store
+            .record_activity(crate::workspace::measurement::Activity::Viewed)
+            .await;
+    }
+    response
+}
+
 async fn index(
     Authenticated(signed): Authenticated,
     State(ctx): State<AppContext>,
@@ -370,11 +382,19 @@ async fn index(
             Ok(json!({"name": ad.name, "href": account_path(&ad.customer_id), "update": update}))
         })
         .collect::<Result<Vec<_>>>()?;
-    format::render().view(
-        &v,
-        "monitoring/ad_accounts.html",
-        json!({"accounts": cards, "add": add_options(&store, &settings).await?}),
+    viewed(
+        &store,
+        format::render().view(
+            &v,
+            "monitoring/ad_accounts.html",
+            json!({
+                "accounts": cards,
+                "add": add_options(&store, &settings).await?,
+                "refused": store.history_error_seen(crate::google_ads::REFUSED).await?,
+            }),
+        ),
     )
+    .await
 }
 
 async fn show(
@@ -395,7 +415,11 @@ async fn show(
             wanted.text(&update.summary);
         }
         let translations = Translations::load(&store, signed.user.language, wanted).await?;
-        return ended(text, &v, &store, &ad, &updates, translations).await;
+        return viewed(
+            &store,
+            ended(text, &v, &store, &ad, &updates, translations).await,
+        )
+        .await;
     }
     let check = store.latest_deep_check(&id).await?;
     let latest = store.latest_update(&id).await?;
@@ -475,6 +499,10 @@ async fn show(
         "panel_open": query.recommendations.as_deref() == Some(PANEL_OPEN),
         "panel_href": panel_href(&path, window),
         "deep_checked": check.is_some(),
+        "refused": history
+            .as_ref()
+            .and_then(|state| state.error.as_deref())
+            == Some(crate::google_ads::REFUSED),
         "reading_failed": latest.is_none()
             && history.as_ref().is_some_and(|state| state.error.is_some()),
         "return_to": {"window": if window == Window::ThirtyDays { "30" } else { "7" }},
@@ -529,7 +557,11 @@ async fn show(
         );
         data["breakdowns_href"] = json!(with_window(&format!("{path}/breakdowns"), window));
     }
-    format::render().view(&v, "monitoring/ad_account.html", data)
+    viewed(
+        &store,
+        format::render().view(&v, "monitoring/ad_account.html", data),
+    )
+    .await
 }
 
 async fn first_update(
@@ -808,7 +840,7 @@ async fn campaign(
         breakdown_pages::deep_check(text, &store, &id, campaign_id, &numbers.currency, judged)
             .await?
             .map(|(date, sections)| json!({"date": date, "sections": sections}));
-    format::render().view(
+    viewed(&store, format::render().view(
         &v,
         "monitoring/campaign.html",
         json!({
@@ -850,7 +882,7 @@ async fn campaign(
             "deep_check": deep_check,
             "return_to": {"window": if window == Window::ThirtyDays { "30" } else { "7" }, "campaign": campaign_id},
         }),
-    )
+    )).await
 }
 
 #[derive(Deserialize)]
@@ -872,6 +904,9 @@ async fn update_not_useful(
     if !store.mark_update_not_useful(&id, day_number(day)).await? {
         return Ok(not_found());
     }
+    store
+        .record_activity(crate::workspace::measurement::Activity::Feedback)
+        .await;
     Ok(Redirect::to(&with_window(
         &account_path(&id),
         window_of(form.window.as_deref()),
@@ -909,6 +944,9 @@ async fn close_recommendation(
     {
         return Ok(not_found());
     }
+    store
+        .record_activity(crate::workspace::measurement::Activity::Feedback)
+        .await;
     let path = match form.campaign {
         Some(campaign) => campaign_path(&id, campaign),
         None => account_path(&id),

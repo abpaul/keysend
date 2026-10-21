@@ -35,11 +35,17 @@ mod control;
 mod demo;
 mod google_ads;
 mod google_stub;
+mod investigations;
 mod monitoring;
+mod optimization_evidence;
+mod optimize;
 mod perf;
 mod public;
 mod retention;
+mod shadow;
+mod shadow_retention;
 mod stripe_stub;
+mod uncertain_recovery;
 
 async fn boot(mode: StartMode, config: Config, statements: Arc<Mutex<Vec<String>>>) -> BootResult {
     let environment = Environment::Test;
@@ -57,14 +63,17 @@ async fn boot(mode: StartMode, config: Config, statements: Arc<Mutex<Vec<String>
 }
 
 #[derive(Default)]
-struct Calls {
+pub(super) struct Calls {
     errors: Vec<Value>,
     commentary: Vec<Value>,
+    investigation_rounds: Vec<Value>,
+    investigation_requests: Vec<Value>,
     research: Vec<Value>,
     translations: Vec<Value>,
     translation_answer: Option<fn(&str, &str) -> String>,
-    emails: Vec<Value>,
+    pub(super) emails: Vec<Value>,
     invented: bool,
+    ai_response: Option<Value>,
     override_monitoring: Option<Value>,
     override_recommendations: Option<Value>,
     email_refused: bool,
@@ -72,13 +81,13 @@ struct Calls {
     google: google_stub::Calls,
 }
 
-struct Fixture {
-    request: TestServer,
-    router: Router,
-    ctx: AppContext,
-    a: Cookie<'static>,
-    b: Cookie<'static>,
-    calls: Arc<Mutex<Calls>>,
+pub(super) struct Fixture {
+    pub(super) request: TestServer,
+    pub(super) router: Router,
+    pub(super) ctx: AppContext,
+    pub(super) a: Cookie<'static>,
+    pub(super) b: Cookie<'static>,
+    pub(super) calls: Arc<Mutex<Calls>>,
     statements: Arc<Mutex<Vec<String>>>,
     stub: JoinHandle<()>,
     environment: Vec<(&'static str, Option<String>)>,
@@ -101,7 +110,24 @@ impl Drop for Fixture {
 }
 
 impl Fixture {
-    async fn new(invented: bool) -> Self {
+    pub(super) async fn admin_priced() -> Self {
+        Self::configured_source(false, false, true, "admin-prices").await
+    }
+
+    pub(super) async fn admin_secure() -> Self {
+        Self::built_for_host(
+            false,
+            false,
+            "sk_test_stub-stripe-secret",
+            "sample",
+            15_000,
+            Some("2026-10-11T12:00:00Z"),
+            Some("https://localhost:5150"),
+        )
+        .await
+    }
+
+    pub(super) async fn new(invented: bool) -> Self {
         Self::configured(invented, false, true).await
     }
 
@@ -185,6 +211,27 @@ impl Fixture {
         daily_limit: u32,
         test_now: Option<&str>,
     ) -> Self {
+        Self::built_for_host(
+            invented,
+            queued,
+            stripe_key,
+            source,
+            daily_limit,
+            test_now,
+            None,
+        )
+        .await
+    }
+
+    async fn built_for_host(
+        invented: bool,
+        queued: bool,
+        stripe_key: &str,
+        source: &str,
+        daily_limit: u32,
+        test_now: Option<&str>,
+        host: Option<&str>,
+    ) -> Self {
         let real_ai_key = env::var(REAL_AI_KEY).ok();
         let mut environment = vec![("CREDSEAL_MASTER_KEY", env::var("CREDSEAL_MASTER_KEY").ok())];
         env::remove_var("CREDSEAL_MASTER_KEY");
@@ -221,10 +268,24 @@ impl Fixture {
             Json(body): Json<Value>,
         ) -> Json<Value> {
             let mut calls = calls.lock().unwrap();
+            if let Some(response) = &calls.ai_response {
+                return Json(response.clone());
+            }
             let format_name = body["text"]["format"]["name"]
                 .as_str()
                 .unwrap_or_default()
                 .to_owned();
+            if format_name == "agent_investigation" {
+                calls.investigation_requests.push(body);
+                let answer = if calls.investigation_rounds.is_empty() {
+                    json!({"step":"clarify","operations":[],"answer":null,"clarification":"Which Campaign should we investigate?"})
+                } else {
+                    calls.investigation_rounds.remove(0)
+                };
+                return Json(
+                    json!({"usage":{"input_tokens":120,"output_tokens":30},"output":[{"type":"message","content":[{"type":"output_text","text":answer.to_string()}]}]}),
+                );
+            }
             if format_name == "monitoring_translation" {
                 let input: Value = serde_json::from_str(body["input"].as_str().unwrap()).unwrap();
                 let language = input["language"].as_str().unwrap().to_owned();
@@ -280,7 +341,7 @@ impl Fixture {
                     json!({"recommendations":recommendations})
                 };
                 return Json(
-                    json!({"output":[{"type":"message","content":[{"type":"output_text","text":answer.to_string()}]}]}),
+                    json!({"usage":{"input_tokens":120,"output_tokens":30},"output":[{"type":"message","content":[{"type":"output_text","text":answer.to_string()}]}]}),
                 );
             }
             panic!("Unexpected AI request: {format_name}");
@@ -318,6 +379,9 @@ impl Fixture {
             axum::serve(listener, router).await.unwrap();
         });
         let mut config = App::load_config(&Environment::Test).await.unwrap();
+        if let Some(host) = host {
+            config.server.host = host.into();
+        }
         let database = std::env::temp_dir().join(format!(
             "keysend-app-{}-{}.sqlite",
             if queued { "queue" } else { "request" },
@@ -334,10 +398,42 @@ impl Fixture {
             queue.poll_interval_sec = 1;
         } else {
             config.queue = None;
+            if env::var_os("KEYSEND_BROWSER_CHECK_DIR").is_some() {
+                config.workers.mode = loco_rs::config::WorkerMode::BackgroundAsync;
+            }
         }
+        let ai_url = env::var("KEYSEND_REAL_AI_URL").unwrap_or_else(|_| {
+            if real_ai_key.is_some() {
+                "https://api.openai.com/v1/responses".to_owned()
+            } else {
+                format!("{base}/commentary")
+            }
+        });
         config.settings = Some(
-            json!({"monitoring":{"first_update_wait_seconds":3},"postdeploy":{"url":format!("{base}/errors")},"services":{"ai_model":env::var("KEYSEND_REAL_AI_MODEL").unwrap_or_else(|_| "gpt-6.1-sol".into()),"ai_url":if real_ai_key.is_some() {"https://api.openai.com/v1/responses".to_owned()} else {format!("{base}/commentary")},"email_url":format!("{base}/email"),"test_now":test_now},"billing":{"api_base":format!("{base}/stripe")},"google":{"revoke_url":format!("{base}/google/revoke"),"token_url":format!("{base}/google/token"),"ads_api_base":format!("{base}/google/v25"),"daily_limit":daily_limit}}),
+            json!({"monitoring":{"first_update_wait_seconds":3},"postdeploy":{"url":format!("{base}/errors")},"services":{"ai_model":env::var("KEYSEND_REAL_AI_MODEL").unwrap_or_else(|_| "gpt-6.1-sol".into()),"ai_url":ai_url,"email_url":format!("{base}/email"),"test_now":test_now},"billing":{"api_base":format!("{base}/stripe")},"google":{"revoke_url":format!("{base}/google/revoke"),"token_url":format!("{base}/google/token"),"ads_api_base":format!("{base}/google/v25"),"daily_limit":daily_limit}}),
         );
+        config.settings.as_mut().unwrap()["services"]["ai_prices"] = json!({
+            "gpt-6.1-sol": {"input_usd_per_million": 2.0, "output_usd_per_million": 10.0}
+        });
+        config.settings.as_mut().unwrap()["optimize"] = json!({"max_mode":"autopilot"});
+        if env::var_os("KEYSEND_BROWSER_CHECK_DIR").is_some() {
+            config.settings.as_mut().unwrap()["optimize"] = json!({"live": true, "max_mode":env::var("KEYSEND_BROWSER_OPTIMIZE_MODE").unwrap_or_else(|_| "autopilot".into())});
+        }
+        if source == "optimization-shadow-ceiling" {
+            config.settings.as_mut().unwrap()["optimize"] = json!({"max_mode":"shadow"});
+        }
+        if source == "investigation-daily" {
+            config.settings.as_mut().unwrap()["agent"] = json!({"daily":1});
+        }
+        if source == "investigation-budget" {
+            config.settings.as_mut().unwrap()["agent"] = json!({"input_tokens":200});
+        }
+        if source == "investigation-unpriced" {
+            config.settings.as_mut().unwrap()["services"]["ai_prices"] = json!({});
+        }
+        if source == "admin-prices" {
+            config.settings.as_mut().unwrap()["services"]["ai_prices"] = json!({"invented-model":{"input_usd_per_million":2.0,"output_usd_per_million":4.0}});
+        }
         let statements = Arc::new(Mutex::new(Vec::new()));
         let boot = boot(
             if queued {
@@ -433,7 +529,7 @@ impl Fixture {
     }
 }
 
-fn capture() -> (Arc<Mutex<Vec<u8>>>, tracing::subscriber::DefaultGuard) {
+pub(super) fn capture() -> (Arc<Mutex<Vec<u8>>>, tracing::subscriber::DefaultGuard) {
     let captured = Arc::new(Mutex::new(Vec::new()));
     let writer = LogCapture(captured.clone());
     let subscriber = tracing_subscriber::fmt()

@@ -13,13 +13,14 @@ const UNLOCK_KEY: &str = "CREDSEAL_MASTER_KEY";
 const RCLONE_CONFIG: &str = "RCLONE_CONFIG_";
 const BACKUP_REMOTE: &str = "keysend_r2:";
 
-const CREDENTIAL_ENV_NAMES: [&str; 20] = [
+const CREDENTIAL_ENV_NAMES: [&str; 21] = [
     "POSTDEPLOY_INGEST_KEY",
     "STRIPE_SECRET_KEY",
     "STRIPE_WEBHOOK_SECRET",
     "OPENAI_API_KEY",
     "CLOUDFLARE_EMAIL_TOKEN",
     "REPORT_EMAIL_RECIPIENT",
+    "ADMIN_EMAILS",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
     "KEYSEND_MASTER_KEY",
@@ -44,6 +45,7 @@ pub struct Credentials {
     pub(super) stripe_webhook_secret: Option<String>,
     pub(super) openai_api_key: Option<String>,
     pub(super) cloudflare_email_token: Option<String>,
+    pub(super) admin_emails: Option<String>,
     pub(super) report_email_recipient: Option<String>,
     pub(super) google_client_id: Option<String>,
     pub(super) google_client_secret: Option<String>,
@@ -304,6 +306,7 @@ impl Credentials {
             stripe_webhook_secret: read("STRIPE_WEBHOOK_SECRET"),
             openai_api_key: read("OPENAI_API_KEY"),
             cloudflare_email_token: read("CLOUDFLARE_EMAIL_TOKEN"),
+            admin_emails: read("ADMIN_EMAILS"),
             report_email_recipient: read("REPORT_EMAIL_RECIPIENT"),
             google_client_id: read("GOOGLE_CLIENT_ID"),
             google_client_secret: read("GOOGLE_CLIENT_SECRET"),
@@ -329,6 +332,7 @@ impl Credentials {
             &mut self.openai_api_key,
             &mut self.cloudflare_email_token,
             &mut self.report_email_recipient,
+            &mut self.admin_emails,
             &mut self.google_client_id,
             &mut self.google_client_secret,
             &mut self.keysend_master_key,

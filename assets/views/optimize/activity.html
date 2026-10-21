@@ -1,0 +1,13 @@
+{% extends "app/base.html" %}
+{% block title %}{{ t(key="opt_activity_title") }}{% endblock title %}
+{% block nav_optimize %} aria-current="page"{% endblock nav_optimize %}
+{% block content %}
+<p><a class="back-link" href="/optimize">{{ t(key="opt_back") }}</a></p>
+<h1 class="heading-xl">{{ t(key="opt_activity_title") }}</h1>
+<p class="lede">{{ t(key="opt_activity_intro") }}</p>
+{% if events | length == 0 %}<p class="muted">{{ t(key="opt_activity_empty") }}</p>{% else %}
+<ul class="plain-list optimize-timeline card">{% for event in events %}<li>
+  {% if event.headline %}<h2 class="heading-s"><a href="/optimize/proposals/{{ event.proposal }}">{{ event.headline }}</a></h2>{% endif %}
+  <p>{{ event.text }}</p><p class="small muted">{{ event.account }} · {{ event.date }}</p>
+</li>{% endfor %}</ul>{% endif %}
+{% endblock content %}

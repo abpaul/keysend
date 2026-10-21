@@ -25,6 +25,16 @@ fn sql(query: &str, values: Vec<Value>) -> Statement {
 }
 
 impl WorkspaceStore<'_> {
+    pub async fn remove_investigations_before(&self, oldest: i64) -> Result<()> {
+        self.db
+            .execute_raw(sql(
+                "WITH RECURSIVE thread(root,id,created_at) AS (SELECT id,id,created_at FROM investigations WHERE workspace_id=?1 AND follows IS NULL UNION ALL SELECT t.root,i.id,i.created_at FROM investigations i JOIN thread t ON i.follows=t.id WHERE i.workspace_id=?1) DELETE FROM investigations WHERE workspace_id=?1 AND id IN (SELECT root FROM thread GROUP BY root HAVING MAX(created_at)<?2)",
+                vec![self.workspace.id().into(), oldest.into()],
+            ))
+            .await?;
+        Ok(())
+    }
+
     /// Deletes the rows of one Ad Account that are older than `oldest`, a day number. It keeps an
     /// active Finding and an open Recommendation whatever their age. `oldest_change` is the first
     /// `changed_at` that stays, as `YYYY-MM-DD HH:MM:SS`.
@@ -63,6 +73,13 @@ impl WorkspaceStore<'_> {
         txn.execute_raw(sql(
             "DELETE FROM monitoring_findings WHERE workspace_id=? AND ad_account_customer_id=? AND active=0 AND last_day<?",
             before(oldest),
+        ))
+        .await?;
+        let mut shadow_cutoff = before(oldest);
+        shadow_cutoff.push(oldest_change.into());
+        txn.execute_raw(sql(
+            "DELETE FROM optimization_shadows WHERE workspace_id=?1 AND ad_account_customer_id=?2 AND (data_day<?3 OR json_extract(detail,'$.snapshot.first_day')<?3 OR EXISTS (SELECT 1 FROM json_each(detail,'$.snapshot.days') WHERE json_extract(value,'$.day')<?3) OR EXISTS (SELECT 1 FROM json_each(detail,'$.snapshot.changes') WHERE json_extract(value,'$.changed_at')<?4))",
+            shadow_cutoff,
         ))
         .await?;
         txn.commit().await?;

@@ -855,6 +855,7 @@ mod tests {
         AccountChange {
             changed_at: format!("{} 10:00:00", date_of(day).unwrap()),
             resource_name: format!("customers/1/changeEvents/{day}-{old}"),
+            change_resource_name: None,
             resource_type: "CAMPAIGN".into(),
             operation: "UPDATE".into(),
             campaign_id: campaign,

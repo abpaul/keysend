@@ -41,6 +41,12 @@ impl WorkspaceStore<'_> {
                 .await?;
             }
         }
+        if kind == "accounts" {
+            txn.execute_raw(sql(
+                "DELETE FROM investigations WHERE workspace_id=? AND EXISTS (SELECT 1 FROM json_each(investigations.accounts) WHERE value=?)",
+                vec![self.workspace.id().into(), id.into()],
+            )).await?;
+        }
         let (query, values) = match kind {
             "accounts" => (
                 "DELETE FROM ad_accounts WHERE workspace_id=? AND customer_id=?",

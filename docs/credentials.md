@@ -49,6 +49,7 @@ Unknown fields are rejected.
 |---|---|
 | `google_client_id` | `GOOGLE_CLIENT_ID` |
 | `google_client_secret` | `GOOGLE_CLIENT_SECRET` |
+| `admin_emails` | `ADMIN_EMAILS` |
 | `keysend_master_key` | `KEYSEND_MASTER_KEY` |
 | `stripe_secret_key` | `STRIPE_SECRET_KEY` |
 | `stripe_webhook_secret` | `STRIPE_WEBHOOK_SECRET` |
@@ -59,6 +60,12 @@ Unknown fields are rejected.
 
 An empty or missing recipient restriction permits normal User delivery. A configured
 value permits only that exact email address.
+
+`admin_emails` is a comma-separated list of administrator email addresses. KeySend
+trims and lowercases each address and requires an exact match. Empty or missing
+means nobody may sign in. Admin sign-in also requires `keysend_master_key`.
+Admin codes bypass `report_email_recipient`; only allowlisted addresses receive them.
+Keep real addresses in encrypted credentials or ENV, never in tracked configuration.
 
 The same flat file also accepts these operator credentials. They are not
 application settings. The operator helper passes them only to the selected

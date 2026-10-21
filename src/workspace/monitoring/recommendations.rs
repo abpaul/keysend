@@ -94,6 +94,11 @@ impl WorkspaceStore<'_> {
         self.db.query_all_raw(sql("SELECT data FROM monitoring_findings WHERE workspace_id=? AND ad_account_customer_id=? AND active=1 ORDER BY finding_key",self.monitoring_account(id))).await?.into_iter().map(|row|Ok(serde_json::from_str::<Finding>(&row.try_get::<String>("","data")?)?.name_only())).collect()
     }
 
+    /// Active and resolved Findings, with the state recorded by the latest Deep check.
+    pub async fn monitoring_finding_history(&self, id: &str) -> Result<Vec<(Finding, bool)>> {
+        self.db.query_all_raw(sql("SELECT data,active FROM monitoring_findings WHERE workspace_id=? AND ad_account_customer_id=? ORDER BY finding_key", self.monitoring_account(id))).await?.into_iter().map(|row| Ok((serde_json::from_str::<Finding>(&row.try_get::<String>("", "data")?)?.name_only(), row.try_get::<i64>("", "active")? == 1))).collect()
+    }
+
     pub async fn monitoring_recommendations(&self, id: &str) -> Result<Vec<Recommendation>> {
         self.db.query_all_raw(sql("SELECT data,state FROM monitoring_recommendations WHERE workspace_id=? AND ad_account_customer_id=? ORDER BY opened_day,finding_key",self.monitoring_account(id))).await?.into_iter().map(|row| {
             let mut recommendation:Recommendation=serde_json::from_str(&row.try_get::<String>("","data")?)?;
@@ -233,6 +238,10 @@ impl WorkspaceStore<'_> {
         ))
         .await?;
         txn.commit().await?;
+        if check.assessment.is_some() {
+            self.record_activity(crate::workspace::measurement::Activity::Assessed)
+                .await;
+        }
         Ok(())
     }
 }

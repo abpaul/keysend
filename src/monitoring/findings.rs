@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     audit::{Audit, AuditRow, Counts, Data},
     follow_up::COUNT_NOISE_DEVIATIONS,
-    metrics::{english_change, english_count, english_money, english_number},
+    metrics::{english_change, english_count, english_money, english_number, ratio},
     tracking::MIN_CONVERSIONS,
 };
 use crate::{language::english, workspace::history::date_of};
@@ -94,10 +94,6 @@ fn scope(campaign: Option<&str>) -> String {
 
 fn count(value: f64) -> String {
     english_number(value, if value.fract() == 0.0 { 0 } else { 2 })
-}
-
-fn ratio(numerator: f64, denominator: f64) -> Option<f64> {
-    (denominator > 0.0).then(|| numerator / denominator)
 }
 
 fn percent(part: f64, whole: f64) -> String {

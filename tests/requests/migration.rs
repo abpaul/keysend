@@ -5,6 +5,11 @@ async fn run(db: &DatabaseConnection, sql: &str) {
     db.execute_unprepared(sql).await.unwrap();
 }
 
+async fn revert_to(db: &DatabaseConnection, remaining: usize) {
+    let steps = u32::try_from(Migrator::migrations().len() - remaining).unwrap();
+    Migrator::down(db, Some(steps)).await.unwrap();
+}
+
 async fn count(db: &DatabaseConnection, query: &str) -> i64 {
     db.query_one_raw(Statement::from_string(DatabaseBackend::Sqlite, query))
         .await
@@ -250,7 +255,7 @@ async fn the_breakdown_tables_have_no_rowid_and_go_with_their_ad_account() {
             "{table}"
         );
     }
-    Migrator::down(&db, Some(7)).await.unwrap();
+    revert_to(&db, 10).await;
     let remaining = tables(&db).await;
     for table in new {
         assert!(!remaining.contains(&table.to_owned()), "{table}");
@@ -309,7 +314,7 @@ async fn the_campaign_settings_table_has_no_rowid_keeps_unset_values_null_and_go
         count(&db, "SELECT COUNT(*) AS n FROM campaign_settings").await,
         0
     );
-    Migrator::down(&db, Some(6)).await.unwrap();
+    revert_to(&db, 11).await;
     assert!(!tables(&db).await.contains(&"campaign_settings".to_owned()));
     drop(db);
     std::fs::remove_file(path).ok();
@@ -345,7 +350,7 @@ async fn users_keep_english_and_the_language_column_refuses_other_codes() {
     ] {
         assert!(db.execute_unprepared(refused).await.is_err(), "{refused}");
     }
-    Migrator::down(&db, Some(5)).await.unwrap();
+    revert_to(&db, 12).await;
     assert_eq!(count(&db, "SELECT COUNT(*) AS n FROM users").await, 2);
     drop(db);
     remove_database(&path);
@@ -390,7 +395,7 @@ async fn translations_have_no_rowid_refuse_english_and_go_with_their_ad_account(
         count(&db, "SELECT COUNT(*) AS n FROM translations").await,
         0
     );
-    Migrator::down(&db, Some(4)).await.unwrap();
+    revert_to(&db, 13).await;
     assert!(!tables(&db).await.contains(&"translations".to_owned()));
     drop(db);
     remove_database(&path);
@@ -434,7 +439,7 @@ async fn the_sign_up_source_is_optional_short_and_goes_with_its_migration() {
     ] {
         assert!(db.execute_unprepared(&refused).await.is_err(), "{refused}");
     }
-    Migrator::down(&db, Some(3)).await.unwrap();
+    revert_to(&db, 14).await;
     assert_eq!(
         count(
             &db,
@@ -529,7 +534,7 @@ async fn the_economics_of_an_ad_account_profile_are_optional_and_refuse_impossib
     ] {
         assert!(db.execute_unprepared(refused).await.is_err(), "{refused}");
     }
-    Migrator::down(&db, Some(1)).await.unwrap();
+    Migrator::down(&db, Some(2)).await.unwrap();
     assert_eq!(
         count(
             &db,
@@ -540,4 +545,244 @@ async fn the_economics_of_an_ad_account_profile_are_optional_and_refuse_impossib
     );
     drop(db);
     remove_database(&path);
+}
+
+#[tokio::test]
+async fn administrators_have_separate_challenges_sessions_and_throttles() {
+    let path = std::env::temp_dir().join(format!(
+        "keysend-admin-migration-{}.sqlite",
+        keysend::identity::random_token()
+    ));
+    let db = pool(&path, 1).await;
+    Migrator::up(&db, Some(17)).await.unwrap();
+    Migrator::up(&db, None).await.unwrap();
+    for sql in [
+        "INSERT INTO admin_challenges(token_hash,email,code_mac,expires_at) VALUES ('challenge','admin@example.com','mac',600)",
+        "INSERT INTO admin_sessions(token_hash,email,created_at,expires_at) VALUES ('session','admin@example.com',0,14400)",
+        "INSERT INTO admin_throttle(key,window_start,count) VALUES ('all',0,1)",
+    ] { run(&db, sql).await; }
+    assert_eq!(
+        count(&db, "SELECT attempts AS n FROM admin_challenges").await,
+        0
+    );
+    assert!(db.execute_unprepared("INSERT INTO admin_sessions(token_hash,email,created_at,expires_at) VALUES ('session','admin@example.com',0,14400)").await.is_err());
+    revert_to(&db, 17).await;
+    for table in ["admin_challenges", "admin_sessions", "admin_throttle"] {
+        assert!(!tables(&db).await.contains(&table.to_owned()));
+    }
+    drop(db);
+    remove_database(&path);
+}
+
+#[tokio::test]
+async fn measurement_keeps_existing_registration_and_collection_dates_unknown() {
+    let db = Database::connect("sqlite::memory:").await.unwrap();
+    Migrator::up(&db, Some(17)).await.unwrap();
+    run(&db, "INSERT INTO users(id,google_subject_id,email,name) VALUES ('u','g','user@example.com','User')").await;
+    run(&db, "INSERT INTO workspaces(id,user_id) VALUES ('w','u')").await;
+    Migrator::up(&db, None).await.unwrap();
+    assert_eq!(
+        count(
+            &db,
+            "SELECT COUNT(*) AS n FROM workspaces WHERE created_at IS NULL"
+        )
+        .await,
+        1
+    );
+    for kind in keysend::workspace::measurement::Activity::ALL.map(|kind| kind.as_str()) {
+        run(
+            &db,
+            &format!("INSERT INTO workspace_activity VALUES ('w',20000,'{kind}',1)"),
+        )
+        .await;
+    }
+    for op in keysend::workspace::measurement::Operation::ALL {
+        run(
+            &db,
+            &format!(
+                "INSERT INTO operation_days VALUES (20000,'{}','',1,0,0,NULL,NULL)",
+                op.as_str()
+            ),
+        )
+        .await;
+    }
+    assert!(db
+        .execute_unprepared(
+            "INSERT INTO operation_days VALUES (20000,'unknown','',1,0,0,NULL,NULL)"
+        )
+        .await
+        .is_err());
+    assert!(db
+        .execute_unprepared("INSERT INTO workspace_activity VALUES ('w',20000,'unknown',1)")
+        .await
+        .is_err());
+}
+
+#[tokio::test]
+async fn investigations_keep_their_steps_until_the_workspace_or_parent_is_removed() {
+    let db = Database::connect("sqlite::memory:").await.unwrap();
+    Migrator::up(&db, Some(19)).await.unwrap();
+    for sql in [
+        "INSERT INTO users(id,google_subject_id,email,name) VALUES ('u','g','user@example.com','User')",
+        "INSERT INTO workspaces(id,user_id) VALUES ('w','u')",
+        "INSERT INTO operation_days VALUES (20000,'ai_update','model',2,1,456,123,78)",
+    ] { run(&db, sql).await; }
+    Migrator::up(&db, None).await.unwrap();
+    assert_eq!(count(&db, "SELECT COUNT(*) AS n FROM operation_days WHERE operation='ai_update' AND succeeded=2 AND failed=1 AND elapsed_ms=456 AND input_tokens=123 AND output_tokens=78").await, 1);
+    for sql in [
+        "INSERT INTO operation_days VALUES (20000,'ai_investigation','model',1,0,12,NULL,NULL)",
+        "INSERT INTO investigations(id,workspace_id,question,accounts,period,state,created_at) VALUES (1,'w','Where did spend change?','[\"4829153307\"]','last_7_days','created',1)",
+        "INSERT INTO investigations(id,workspace_id,follows,question,accounts,period,state,created_at) VALUES (2,'w',1,'Continue','[]','last_30_days','gathering',2)",
+        "INSERT INTO investigation_steps VALUES (2,1,1,'{}','answered','[]',12)",
+    ] { run(&db, sql).await; }
+    assert_eq!(
+        count(
+            &db,
+            "SELECT COUNT(*) AS n FROM pragma_table_list WHERE name='investigation_steps' AND wr=1"
+        )
+        .await,
+        1
+    );
+    assert_eq!(count(&db, "SELECT COUNT(*) AS n FROM investigations WHERE model_calls=0 AND input_tokens=0 AND output_tokens=0 AND started_at IS NULL AND finished_at IS NULL AND failure IS NULL AND report IS NULL").await, 2);
+    for sql in [
+        "UPDATE investigations SET question=printf('%0501d',1)",
+        "UPDATE investigations SET period='last_90_days'",
+        "UPDATE investigations SET state='running'",
+        "UPDATE investigations SET failure='unknown'",
+        "UPDATE investigation_steps SET outcome='unknown'",
+        "INSERT INTO investigation_steps VALUES (99,1,1,'{}','refused','[]',0)",
+        "INSERT INTO investigation_steps VALUES (2,1,2,'{}','repeated','[]',0)",
+        "INSERT INTO investigations(workspace_id,question,accounts,period,state,created_at) VALUES ('missing','Question','[]','last_7_days','created',1)",
+    ] { assert!(db.execute_unprepared(sql).await.is_err(), "{sql}"); }
+    run(
+        &db,
+        "UPDATE investigations SET question=printf('%0500d',1),failure='interrupted'",
+    )
+    .await;
+    run(&db, "DELETE FROM investigations WHERE id=1").await;
+    assert_eq!(
+        count(&db, "SELECT COUNT(*) AS n FROM investigations").await,
+        0
+    );
+    assert_eq!(
+        count(&db, "SELECT COUNT(*) AS n FROM investigation_steps").await,
+        0
+    );
+    for sql in [
+        "INSERT INTO investigations(id,workspace_id,question,accounts,period,state,created_at) VALUES (3,'w','Question','[]','last_7_days','created',1)",
+        "INSERT INTO investigation_steps VALUES (3,1,1,'{}','refused','[]',0)",
+        "DELETE FROM workspaces WHERE id='w'",
+    ] { run(&db, sql).await; }
+    assert_eq!(
+        count(&db, "SELECT COUNT(*) AS n FROM investigations").await,
+        0
+    );
+    assert_eq!(
+        count(&db, "SELECT COUNT(*) AS n FROM investigation_steps").await,
+        0
+    );
+    revert_to(&db, 19).await;
+    assert_eq!(count(&db, "SELECT COUNT(*) AS n FROM operation_days WHERE operation='ai_update' AND succeeded=2 AND input_tokens=123").await, 1);
+    assert!(db
+        .execute_unprepared(
+            "INSERT INTO operation_days VALUES (20000,'ai_investigation','model',1,0,0,NULL,NULL)"
+        )
+        .await
+        .is_err());
+    Migrator::up(&db, None).await.unwrap();
+    assert_eq!(
+        keysend::workspace::measurement::Operation::from_schema("agent_investigation")
+            .unwrap()
+            .as_str(),
+        "ai_investigation"
+    );
+}
+
+#[tokio::test]
+async fn optimization_history_is_append_only_and_goes_with_its_ad_account() {
+    let db = Database::connect("sqlite::memory:").await.unwrap();
+    Migrator::up(&db, None).await.unwrap();
+    run(&db, "PRAGMA foreign_keys=ON").await;
+    for sql in [
+        "INSERT INTO users(id,google_subject_id,email,name) VALUES ('u','g','user@example.com','User')",
+        "INSERT INTO workspaces(id,user_id) VALUES ('w','u')",
+        "INSERT INTO google_connections(id,workspace_id,google_subject_id,email,encrypted_refresh_token) VALUES ('c','w','g','user@example.com','sealed')",
+        "INSERT INTO ad_accounts(id,workspace_id,google_connection_id,customer_id,name) VALUES ('a','w','c','1234567890','Ad Account')",
+        "INSERT INTO optimization_policies VALUES ('w','1234567890',1,'{}','active','',1)",
+        "INSERT INTO optimization_proposals(id,workspace_id,ad_account_customer_id,key,draft,fingerprint,approval,state,created_at,expires_at) VALUES (1,'w','1234567890','pause_campaign:7','{}','f','required','open',1,2)",
+        "INSERT INTO optimization_executions(proposal_id,workspace_id,ad_account_customer_id,day,automatic,started_at) VALUES (1,'w','1234567890',20000,0,1)",
+        "INSERT INTO optimization_events(workspace_id,ad_account_customer_id,proposal_id,at,kind,detail) VALUES ('w','1234567890',1,1,'proposed','{}')",
+        "INSERT INTO campaign_budgets VALUES ('w','1234567890',7,70,0,1)",
+        "INSERT INTO optimization_stops VALUES ('w',1)",
+    ] { run(&db, sql).await; }
+    for sql in [
+        "UPDATE optimization_events SET kind='applied'",
+        "UPDATE optimization_policies SET standing='revoked'",
+        "UPDATE optimization_proposals SET draft='{\"other\":1}'",
+        "UPDATE optimization_proposals SET fingerprint='g'",
+        "UPDATE optimization_proposals SET state='unknown'",
+        "INSERT INTO optimization_proposals(workspace_id,ad_account_customer_id,key,draft,fingerprint,approval,state,created_at,expires_at) VALUES ('w','1234567890','pause_campaign:7','{}','f','required','open',1,2)",
+        "INSERT INTO optimization_policies VALUES ('w','1234567890',0,'{}','active','',1)",
+        "INSERT INTO campaign_budgets VALUES ('w','1234567890',8,80,2,1)",
+    ] { assert!(db.execute_unprepared(sql).await.is_err(), "{sql}"); }
+    run(&db, "UPDATE optimization_proposals SET state='applied'").await;
+    run(&db, "INSERT INTO optimization_proposals(workspace_id,ad_account_customer_id,key,draft,fingerprint,approval,state,created_at,expires_at) VALUES ('w','1234567890','pause_campaign:7','{}','f','required','open',1,2)").await;
+    run(&db, "DELETE FROM ad_accounts").await;
+    for table in [
+        "optimization_policies",
+        "optimization_proposals",
+        "optimization_executions",
+        "optimization_events",
+        "campaign_budgets",
+    ] {
+        assert_eq!(
+            count(&db, &format!("SELECT COUNT(*) AS n FROM {table}")).await,
+            0,
+            "{table}"
+        );
+    }
+    run(&db, "DELETE FROM workspaces").await;
+    assert_eq!(
+        count(&db, "SELECT COUNT(*) AS n FROM optimization_stops").await,
+        0
+    );
+    revert_to(&db, 20).await;
+    assert!(!tables(&db)
+        .await
+        .iter()
+        .any(|table| table.starts_with("optimization_")));
+    Migrator::up(&db, None).await.unwrap();
+}
+
+#[tokio::test]
+async fn shadow_evidence_stays_immutable_and_is_removed_with_its_ad_account() {
+    let db = Database::connect("sqlite::memory:").await.unwrap();
+    Migrator::up(&db, None).await.unwrap();
+    run(&db, "PRAGMA foreign_keys=ON").await;
+    for sql in [
+        "INSERT INTO users(id,google_subject_id,email,name) VALUES ('u','g','user@example.com','User')",
+        "INSERT INTO workspaces(id,user_id) VALUES ('w','u')",
+        "INSERT INTO google_connections(id,workspace_id,google_subject_id,email,encrypted_refresh_token) VALUES ('c','w','g','user@example.com','sealed')",
+        "INSERT INTO ad_accounts(id,workspace_id,google_connection_id,customer_id,name) VALUES ('a','w','c','1234567890','Ad Account')",
+        "INSERT INTO optimization_policies VALUES ('w','1234567890',1,'{}','active','',1)",
+        "INSERT INTO optimization_shadows VALUES (1,'w','1234567890',1,20000,1,'{}')",
+        "INSERT INTO optimization_shadow_events VALUES (1,1,1,'feedback','{}')",
+    ] { run(&db, sql).await; }
+    for sql in [
+        "UPDATE optimization_shadows SET detail='[]'",
+        "UPDATE optimization_shadow_events SET detail='[]'",
+        "INSERT INTO optimization_shadows VALUES (2,'w','1234567890',1,20000,2,'{}')",
+        "INSERT INTO optimization_shadows VALUES (2,'w','1234567890',2,20001,2,'{}')",
+    ] {
+        assert!(db.execute_unprepared(sql).await.is_err(), "{sql}");
+    }
+    run(&db, "DELETE FROM ad_accounts").await;
+    assert_eq!(
+        count(&db, "SELECT COUNT(*) AS n FROM optimization_shadows").await,
+        0
+    );
+    assert_eq!(
+        count(&db, "SELECT COUNT(*) AS n FROM optimization_shadow_events").await,
+        0
+    );
 }

@@ -255,40 +255,57 @@ async fn discover_scoped(
 ) -> Result<Vec<AdAccountChoice>> {
     claim_operation(settings, store).await?;
     let base = settings.google.ads_api_base.trim_end_matches('/');
-    let response = settings
-        .http
-        .get(format!("{base}/customers:listAccessibleCustomers"))
-        .bearer_auth(access_token)
-        .send()
-        .await
-        .map_err(|_| {
+    let started = std::time::Instant::now();
+    let outcome = async {
+        let response = settings
+            .http
+            .get(format!("{base}/customers:listAccessibleCustomers"))
+            .bearer_auth(access_token)
+            .send()
+            .await
+            .map_err(|_| {
+                tracing::warn!(
+                    operation = "customers:listAccessibleCustomers",
+                    failure = "transport",
+                    "Google call failed"
+                );
+                unavailable()
+            })?;
+        let status = response.status();
+        if !status.is_success() {
+            warn_google_error(
+                response,
+                "customers:listAccessibleCustomers",
+                None,
+                &[access_token],
+            )
+            .await?;
+            return Err(unavailable());
+        }
+        let accessible: Accessible = response.json().await.map_err(|_| {
             tracing::warn!(
                 operation = "customers:listAccessibleCustomers",
-                failure = "transport",
+                http_status = status.as_u16(),
+                failure = "invalid_response",
                 "Google call failed"
             );
             unavailable()
         })?;
-    let status = response.status();
-    if !status.is_success() {
-        warn_google_error(
-            response,
-            "customers:listAccessibleCustomers",
-            None,
-            &[access_token],
-        )
-        .await?;
-        return Err(unavailable());
+        Ok::<_, Error>(accessible)
     }
-    let accessible: Accessible = response.json().await.map_err(|_| {
-        tracing::warn!(
-            operation = "customers:listAccessibleCustomers",
-            http_status = status.as_u16(),
-            failure = "invalid_response",
-            "Google call failed"
-        );
-        unavailable()
-    })?;
+    .await;
+    if let Some(store) = store {
+        store
+            .record_operation(
+                crate::workspace::measurement::Operation::GoogleRequest,
+                "",
+                outcome.is_ok(),
+                started.elapsed(),
+                Default::default(),
+            )
+            .await;
+    }
+    let accessible = outcome?;
     let mut choices = BTreeMap::new();
     for resource in accessible.resource_names {
         let Some(id) = resource
@@ -365,34 +382,53 @@ async fn search(
         if let Some(manager) = manager {
             request = request.header("login-customer-id", manager);
         }
-        let response = request.send().await.map_err(|_| {
-            tracing::warn!(
-                operation = "googleAds:search",
-                customer_id = id,
-                failure = "transport",
-                "Google call failed"
-            );
-            unavailable()
-        })?;
-        let status = response.status();
-        if !status.is_success() {
-            warn_google_error(response, "googleAds:search", Some(id), &[access_token]).await?;
-            return if status == reqwest::StatusCode::UNAUTHORIZED {
-                Err(unavailable())
-            } else {
-                Ok(None)
-            };
+        let started = std::time::Instant::now();
+        let outcome = async {
+            let response = request.send().await.map_err(|_| {
+                tracing::warn!(
+                    operation = "googleAds:search",
+                    customer_id = id,
+                    failure = "transport",
+                    "Google call failed"
+                );
+                unavailable()
+            })?;
+            let status = response.status();
+            if !status.is_success() {
+                warn_google_error(response, "googleAds:search", Some(id), &[access_token]).await?;
+                return if status == reqwest::StatusCode::UNAUTHORIZED {
+                    Err(unavailable())
+                } else {
+                    Ok(None)
+                };
+            }
+            let page: Search = response.json().await.map_err(|_| {
+                tracing::warn!(
+                    operation = "googleAds:search",
+                    customer_id = id,
+                    http_status = status.as_u16(),
+                    failure = "invalid_response",
+                    "Google call failed"
+                );
+                unavailable()
+            })?;
+            Ok::<_, Error>(Some((page, status)))
         }
-        let page: Search = response.json().await.map_err(|_| {
-            tracing::warn!(
-                operation = "googleAds:search",
-                customer_id = id,
-                http_status = status.as_u16(),
-                failure = "invalid_response",
-                "Google call failed"
-            );
-            unavailable()
-        })?;
+        .await;
+        if let Some(store) = store {
+            store
+                .record_operation(
+                    crate::workspace::measurement::Operation::GoogleRequest,
+                    "",
+                    outcome.as_ref().is_ok_and(Option::is_some),
+                    started.elapsed(),
+                    Default::default(),
+                )
+                .await;
+        }
+        let Some((page, status)) = outcome? else {
+            return Ok(None);
+        };
         rows.extend(page.results.into_iter().map(|row| row.customer_client));
         let Some(next) = page.next_page_token.filter(|value| !value.is_empty()) else {
             break;

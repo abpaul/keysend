@@ -18,6 +18,7 @@
 {% if deep_checked %}{% set panel_empty = t(key="ad_account_panel_empty_deep") %}{% else %}{% set panel_empty = t(key="ad_account_panel_empty_none") %}{% endif %}
 {% if update or recommendations | length > 0 %}{% include "monitoring/_recommendations.html" %}{% endif %}
 
+{% include "monitoring/_refused.html" %}
 {% include "monitoring/_notice.html" %}
 
 <div class="bento">

@@ -204,6 +204,7 @@ pub fn changes() -> Vec<AccountChange> {
         AccountChange {
             changed_at: format!("{day} 10:00:00"),
             resource_name: format!("customers/{AD}/changeEvents/{index}"),
+            change_resource_name: None,
             resource_type: kind.into(),
             operation: "UPDATE".into(),
             campaign_id: Some(campaign),

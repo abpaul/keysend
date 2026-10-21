@@ -39,6 +39,11 @@ database:
   dangerously_recreate: false
 
 settings:
+  services:
+    ai_prices:
+      gpt-6.1-sol:
+        input_usd_per_million: 2.0
+        output_usd_per_million: 10.0
   google:
     authorization_url: https://accounts.google.com/o/oauth2/v2/auth
     token_url: https://oauth2.googleapis.com/token

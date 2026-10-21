@@ -38,6 +38,7 @@ impl Default for GoogleSettings {
 pub struct ServiceSettings {
     pub ai_url: String,
     pub ai_model: String,
+    pub ai_prices: std::collections::BTreeMap<String, AiPrice>,
     pub email_url: Option<String>,
     pub test_now: Option<chrono::DateTime<chrono::Utc>>,
 }
@@ -47,6 +48,7 @@ impl Default for ServiceSettings {
         Self {
             ai_url: "https://api.openai.com/v1/responses".into(),
             ai_model: "gpt-6.1-sol".into(),
+            ai_prices: Default::default(),
             test_now: None,
             email_url: nonempty_env("CLOUDFLARE_ACCOUNT_ID").map(|id| {
                 format!("https://api.cloudflare.com/client/v4/accounts/{id}/email/sending/send")
@@ -69,6 +71,30 @@ impl Default for MonitoringSettings {
     }
 }
 
+/// Whether Optimize may send changes to Google Ads, and which kinds. Off by default: the
+/// Google Cloud project of the OAuth client needs production access and a declared campaign
+/// management use before any change is sent (`docs/optimization.md`).
+#[derive(Deserialize)]
+#[serde(default)]
+pub struct OptimizeSettings {
+    pub live: bool,
+    pub max_mode: crate::optimize::Mode,
+    pub actions: Vec<crate::optimize::ActionKind>,
+}
+
+impl Default for OptimizeSettings {
+    fn default() -> Self {
+        Self {
+            live: false,
+            max_mode: crate::optimize::Mode::Shadow,
+            actions: vec![
+                crate::optimize::ActionKind::AdjustCampaignBudget,
+                crate::optimize::ActionKind::PauseCampaign,
+            ],
+        }
+    }
+}
+
 pub struct Settings {
     pub postdeploy: PostDeploySettings,
     pub postdeploy_key: Option<String>,
@@ -78,12 +104,15 @@ pub struct Settings {
     pub stripe_webhook: Option<String>,
     pub services: ServiceSettings,
     pub monitoring: MonitoringSettings,
+    pub agent: crate::agent::investigation::Limits,
+    pub optimize: OptimizeSettings,
     pub openai_key: Option<String>,
     pub email_key: Option<String>,
     pub email_recipient: Option<String>,
     pub google: GoogleSettings,
     pub client_id: Option<String>,
     pub client_secret: Option<String>,
+    pub admin_emails: Vec<String>,
     pub master_key: Option<MasterKey>,
     pub origin: String,
     pub redirect_uri: String,
@@ -112,6 +141,10 @@ impl Settings {
             services: ServiceSettings,
             #[serde(default)]
             monitoring: MonitoringSettings,
+            #[serde(default)]
+            agent: crate::agent::investigation::Limits,
+            #[serde(default)]
+            optimize: OptimizeSettings,
         }
         let application: ApplicationSettings = ctx
             .config
@@ -154,11 +187,21 @@ impl Settings {
             google: application.google,
             services: application.services,
             monitoring: application.monitoring,
+            agent: application.agent,
+            optimize: application.optimize,
             openai_key: credentials.openai_api_key.clone(),
             email_key: credentials.cloudflare_email_token.clone(),
             email_recipient: credentials.report_email_recipient.clone(),
             client_id: credentials.google_client_id.clone(),
             client_secret: credentials.google_client_secret.clone(),
+            admin_emails: credentials
+                .admin_emails
+                .as_deref()
+                .unwrap_or_default()
+                .split(',')
+                .map(|email| email.trim().to_lowercase())
+                .filter(|email| !email.is_empty())
+                .collect(),
             master_key,
             secure: host.scheme() == "https",
             redirect_uri: format!("{origin}/auth/google/callback"),
@@ -229,4 +272,36 @@ pub fn transport_kind(error: &reqwest::Error) -> &'static str {
 
 fn nonempty_env(name: &str) -> Option<String> {
     env::var(name).ok().filter(|value| !value.is_empty())
+}
+
+#[derive(Clone, Copy, Deserialize)]
+pub struct AiPrice {
+    pub input_usd_per_million: f64,
+    pub output_usd_per_million: f64,
+}
+
+pub fn estimate_ai_usd(input_tokens: i64, output_tokens: i64, price: AiPrice) -> f64 {
+    (input_tokens as f64 * price.input_usd_per_million
+        + output_tokens as f64 * price.output_usd_per_million)
+        / 1_000_000.0
+}
+
+#[cfg(test)]
+mod measurement_tests {
+    use super::*;
+
+    #[test]
+    fn an_ai_cost_estimate_uses_the_configured_input_and_output_prices() {
+        assert_eq!(
+            estimate_ai_usd(
+                1_000_000,
+                500_000,
+                AiPrice {
+                    input_usd_per_million: 2.0,
+                    output_usd_per_million: 8.0
+                }
+            ),
+            6.0
+        );
+    }
 }

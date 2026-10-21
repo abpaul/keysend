@@ -35,15 +35,19 @@ const UPDATES: u64 = 31;
 const REQUESTS: usize = 5;
 const TOLERANCE_PERCENT: usize = 10;
 
-const BUDGET: [(&str, usize, usize); 13] = [
-    ("/ad-accounts", 8, 3873),
+const BUDGET: [(&str, usize, usize); 17] = [
+    ("/investigations", 6, 5720),
+    ("/investigations/1", 6, 8142),
+    ("/ad-accounts", 10, 3873),
     ("/ad-accounts/4829153307", 19, 108573),
     ("/ad-accounts/4829153307?window=30", 19, 110155),
     ("/ad-accounts/4829153307/campaigns/701", 22, 82189),
     ("/ad-accounts/4829153307/settings", 14, 8731),
     ("/ad-accounts/4829153307/campaigns/701/settings", 9, 5665),
-    ("/subscription", 4, 3258),
-    ("/ad-accounts/4829153307/export.pdf?window=7", 25, 187503),
+    ("/subscription", 4, 3584),
+    ("/optimize", 11, 9652),
+    ("/optimize/activity", 5, 7649),
+    ("/ad-accounts/4829153307/export.pdf?window=7", 28, 187503),
     (
         "/ad-accounts/4829153307/campaigns/701/export.pdf?window=7",
         25,
@@ -104,6 +108,7 @@ fn changes(ad: &str) -> Vec<AccountChange> {
             AccountChange {
                 changed_at: format!("{day} 10:00:00"),
                 resource_name: format!("customers/{ad}/changeEvents/{offset}"),
+                change_resource_name: None,
                 resource_type: "CAMPAIGN_BUDGET".into(),
                 operation: "UPDATE".into(),
                 campaign_id: Some(701 + offset as i64),
@@ -382,7 +387,252 @@ async fn seeded() -> Fixture {
             .await
             .unwrap();
     }
+    seed_investigations(&f).await;
+    seed_optimize(&f).await;
     f
+}
+
+/// Optimize as the production evaluation leaves it: the first Ad Account recommends cuts,
+/// the second runs an Autopilot that applied one cut, the third records Shadow decisions.
+async fn seed_optimize(f: &Fixture) {
+    use keysend::optimize::{
+        ads::Simulated,
+        cycle, execute,
+        policy::{Live, Policy, Standing, AUTOMATIC_KINDS},
+        propose::Budget,
+        Mode, ProposalState,
+    };
+    let signed = identity::authenticate(&f.ctx.db, f.a.value())
+        .await
+        .unwrap()
+        .unwrap();
+    let store = WorkspaceStore::new(&f.ctx.db, &signed.workspace);
+    let mut settings = keysend::settings::Settings::load(&f.ctx).unwrap();
+    settings.optimize.live = true;
+    settings.optimize.max_mode = Mode::Autopilot;
+    let now = settings.now().timestamp();
+    let budgets = campaigns()
+        .iter()
+        .map(|campaign| {
+            (
+                campaign.id,
+                Budget {
+                    budget_id: campaign.id + 8300,
+                    shared: campaign.id == 702,
+                    campaigns: if campaign.id == 702 { 3 } else { 1 },
+                },
+            )
+        })
+        .collect::<Vec<_>>();
+    for (ad, mode) in [
+        (ACCOUNTS[0], Mode::Recommend),
+        (ACCOUNTS[1], Mode::Autopilot),
+        (ACCOUNTS[2], Mode::Shadow),
+    ] {
+        store.save_campaign_budgets(ad, &budgets).await.unwrap();
+        let policy = Policy {
+            mode,
+            automatic: if mode == Mode::Autopilot {
+                AUTOMATIC_KINDS.into_iter().collect()
+            } else {
+                Default::default()
+            },
+            envelope_micros: Some(2_000_000_000),
+            max_daily_increase_micros: 50_000_000,
+            target_cost_micros: Some(10_000_000),
+            ..Default::default()
+        };
+        store
+            .save_optimization_policy(ad, &policy, Standing::Active, "user", now - 86_400)
+            .await
+            .unwrap();
+        let authorized = cycle::evaluate(&settings, &store, ad, now).await.unwrap();
+        assert!(
+            authorized.len() <= Policy::default().changes_per_day as usize,
+            "the Autopilot authorized more changes than the day allows"
+        );
+        if let Some(first) = authorized.first() {
+            let proposal = store.proposal(*first).await.unwrap().unwrap();
+            let campaign = proposal.draft.action.campaign_id();
+            let google = Simulated::new(vec![Live {
+                campaign_id: campaign,
+                status: "ENABLED".into(),
+                budget_id: Some(campaign + 8300),
+                budget_micros: Some(80_000_000),
+                budget_shared: false,
+                budget_campaigns: 1,
+                bidding_strategy: "MAXIMIZE_CONVERSIONS".into(),
+            }]);
+            let day = day_number(end_date()) + 1;
+            execute::run(&settings, &store, &google, *first, day, 1_600_000_000, now)
+                .await
+                .unwrap();
+            assert_eq!(
+                store.proposal(*first).await.unwrap().unwrap().state,
+                ProposalState::Applied
+            );
+        }
+    }
+    assert!(!store
+        .proposals(Some(ACCOUNTS[0]), &[ProposalState::Open], 10)
+        .await
+        .unwrap()
+        .is_empty());
+}
+
+async fn seed_investigations(f: &Fixture) {
+    use keysend::agent::{
+        answer::{self, Draft},
+        data,
+        investigation::Reply,
+        operation::{Operation, Period},
+        Failure, State,
+    };
+    use keysend::workspace::investigations::{
+        InvestigationFinish, InvestigationStep, InvestigationUsage, Outcome,
+    };
+    let signed = identity::authenticate(&f.ctx.db, f.a.value())
+        .await
+        .unwrap()
+        .unwrap();
+    let store = WorkspaceStore::new(&f.ctx.db, &signed.workspace);
+    let now = keysend::settings::Settings::load(&f.ctx)
+        .unwrap()
+        .now()
+        .timestamp();
+    let selected = vec![ACCOUNTS[0].to_owned()];
+    let scope = data::Scope::load(&store, &selected).await.unwrap();
+    let snapshots = data::load_scope(&store, &scope, day_number(end_date()))
+        .await
+        .unwrap();
+    let operation: Operation = serde_json::from_value(json!({"operation":"compare_campaigns","account":"A1","period":"last_30_days","order":"spend","rows":5})).unwrap();
+    let evidence = keysend::agent::run::run(&operation, 1, &scope, &snapshots).unwrap();
+    let name = evidence[1].subject.name().unwrap();
+    let spend = evidence[1].facts["Spend"].as_str().unwrap();
+    let draft: Draft = serde_json::from_value(json!({
+        "summary":format!("{name} spent {spend}. Check conversion tracking before changing its budget."),
+        "observations":[{"text":format!("{name} spent {spend}."),"evidence":["E1.2"]}],
+        "hypotheses":[{"text":"Conversion delay may affect the recent results.","evidence":["E1.2"]}],
+        "recommendations":[{"kind":"investigate","action":format!("Review {name}."),"target":name,"evidence":["E1.2"],"rationale":"Conversion tracking may need review.","risk":"Changing the budget before reviewing tracking may hide the problem.","measure":"Compare conversions and cost per conversion."}],"limitations":[]
+    })).unwrap();
+    let report = answer::check(
+        draft,
+        &evidence,
+        &[name],
+        &serde_json::json!({"period": "last 30 days"}),
+    );
+    assert!(!report.observations.is_empty());
+    let id = store
+        .create_investigation(
+            "Which campaigns need attention before I change their budgets?",
+            &selected,
+            Period::Last30Days,
+            None,
+            now - 1800,
+            i64::MAX,
+            0,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    store.claim_investigation(id, now - 1800).await.unwrap();
+    store
+        .save_investigation_step(
+            id,
+            &InvestigationStep {
+                ordinal: 1,
+                round: 0,
+                operation,
+                outcome: Outcome::Answered,
+                evidence,
+                elapsed_ms: 20,
+            },
+        )
+        .await
+        .unwrap();
+    store
+        .set_investigation_state(id, State::Answering)
+        .await
+        .unwrap();
+    store
+        .finish_investigation(
+            id,
+            &InvestigationFinish {
+                state: State::Completed,
+                failure: None,
+                report: Some(serde_json::to_value(Reply::Answer(report)).unwrap()),
+                usage: InvestigationUsage {
+                    model_calls: 2,
+                    input_tokens: 800,
+                    output_tokens: 250,
+                },
+            },
+            now - 1780,
+        )
+        .await
+        .unwrap();
+    let id = store
+        .create_investigation(
+            "Why did conversions drop?",
+            &selected,
+            Period::Last7Days,
+            None,
+            now - 1200,
+            i64::MAX,
+            0,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    store.claim_investigation(id, now - 1200).await.unwrap();
+    store
+        .set_investigation_state(id, State::Answering)
+        .await
+        .unwrap();
+    store
+        .finish_investigation(
+            id,
+            &InvestigationFinish {
+                state: State::Completed,
+                failure: None,
+                report: Some(
+                    serde_json::to_value(Reply::Clarification {
+                        question: "Which Campaign should we investigate?".into(),
+                    })
+                    .unwrap(),
+                ),
+                usage: InvestigationUsage::default(),
+            },
+            now - 1190,
+        )
+        .await
+        .unwrap();
+    let id = store
+        .create_investigation(
+            "Where might we be wasting budget?",
+            &selected,
+            Period::Last30Days,
+            None,
+            now - 600,
+            i64::MAX,
+            0,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    store
+        .finish_investigation(
+            id,
+            &InvestigationFinish {
+                state: State::Failed,
+                failure: Some(Failure::Model),
+                report: None,
+                usage: InvestigationUsage::default(),
+            },
+            now - 590,
+        )
+        .await
+        .unwrap();
 }
 
 async fn seed_breakdowns(f: &Fixture) {
@@ -612,13 +862,21 @@ struct Measured {
 }
 
 async fn measure(f: &Fixture, path: &str) -> Measured {
+    measure_with_cookie(f, path, &f.a).await
+}
+
+async fn measure_with_cookie(
+    f: &Fixture,
+    path: &str,
+    cookie: &axum_extra::extract::cookie::Cookie<'static>,
+) -> Measured {
     let mut times = Vec::new();
     let mut statements = Vec::new();
     let mut bytes = 0;
     for _ in 0..REQUESTS {
         f.statements.lock().unwrap().clear();
         let started = Instant::now();
-        let response = f.request.get(path).add_cookie(f.a.clone()).await;
+        let response = f.request.get(path).add_cookie(cookie.clone()).await;
         times.push(started.elapsed());
         assert_eq!(response.status_code(), 200, "{path}");
         bytes = response.as_bytes().len();
@@ -875,4 +1133,43 @@ async fn serve_the_seeded_pages_to_a_browser() {
     while !directory.join("stop").exists() {
         tokio::time::sleep(Duration::from_millis(200)).await;
     }
+}
+
+#[tokio::test]
+#[serial]
+async fn admin_pages_stay_inside_their_committed_query_and_byte_budget() {
+    let (f, cookie, id) = crate::requests::admin_pages::invented_dataset().await;
+    let paths = [
+        "/admin".to_owned(),
+        "/admin/customers".to_owned(),
+        format!("/admin/customers/{id}"),
+        "/admin/revenue".to_owned(),
+        "/admin/usage".to_owned(),
+        "/admin/operations".to_owned(),
+    ];
+    let budgets = [
+        (11, 13602),
+        (3, 7245),
+        (9, 7168),
+        (6, 5891),
+        (5, 5393),
+        (8, 11124),
+    ];
+    let mut failures = Vec::new();
+    for (path, (queries, bytes)) in paths.iter().zip(budgets) {
+        let measured = measure_with_cookie(&f, path, &cookie).await;
+        println!(
+            "{path}: {} queries, {} bytes (five successful authenticated requests)",
+            measured.statements.len(),
+            measured.bytes
+        );
+        if over(measured.statements.len(), queries) || over(measured.bytes, bytes) {
+            failures.push(format!(
+                "{path}: {} queries / {} bytes",
+                measured.statements.len(),
+                measured.bytes
+            ));
+        }
+    }
+    assert!(failures.is_empty(), "{failures:#?}");
 }

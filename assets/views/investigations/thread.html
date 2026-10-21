@@ -1,0 +1,47 @@
+{% extends "app/base.html" %}
+{% block title %}{{ t(key="investigations") }}{% endblock title %}
+{% block nav_investigations %} aria-current="page"{% endblock nav_investigations %}
+{% block head %}{% if refresh %}<meta http-equiv="refresh" content="2">{% endif %}{% endblock head %}
+{% block content %}
+<a class="back-link" href="/investigations">{{ t(key="investigations") }}</a>
+<h1 class="heading-xl">{{ t(key="investigations") }}</h1>
+{% for row in thread %}
+<article class="card investigation" aria-labelledby="question-{{ row.id }}">
+<h2 class="heading-m" id="question-{{ row.id }}">{{ row.question }}</h2>
+<p class="small muted">{{ row.accounts | join(sep=" · ") }} · {{ row.date }} · {{ row.state }}</p>
+{% if row.steps | length > 0 or not row.finished %}
+<details{% if not row.finished %} open{% endif %}><summary>{{ t(key="inv_progress") }}</summary>
+<ol>{% for step in row.steps %}<li>{{ step.label }}{% if step.account %} · {{ step.account }}{% endif %}{% if step.outcome %}<p class="small">{{ step.outcome }}</p>{% endif %}</li>{% endfor %}{% if row.answering %}<li>{{ row.state }}</li>{% endif %}</ol>
+</details>
+{% endif %}
+{% if not row.finished %}<form method="post" action="/investigations/{{ row.id }}/cancel"><button class="button" type="submit">{{ t(key="cancel") }}</button></form>{% endif %}
+{% if row.no_access %}<div class="notice"><p>{{ t(key="inv_access") }}</p><a href="/subscription">{{ t(key="subscription") }}</a></div>{% endif %}
+{% if row.failure %}<div class="notice"><p>{{ row.failure }}</p><a href="/investigations">{{ t(key="inv_ask") }}</a></div>{% endif %}
+{% if row.clarification %}<p lang="en">{{ row.clarification }}</p>{% endif %}
+{% if row.report %}
+{% set report = row.report %}
+{% if report.summary %}<h3 class="heading-s">{{ t(key="inv_answer") }}</h3><p lang="en">{{ report.summary }}</p>{% endif %}
+{% for section in ["observations", "hypotheses"] %}
+{% if report[section] | length > 0 %}<h3 class="heading-s">{% if section == "observations" %}{{ t(key="inv_evidence") }}{% else %}{{ t(key="inv_explanation") }}{% endif %}</h3>
+<ul class="plain-list">{% for claim in report[section] %}<li class="investigation-claim"><p lang="en">{{ claim.text }}</p><p class="small">{{ claim.strength }} {% for citation in claim.citations %}<a class="investigation-citation" href="#I{{ row.id }}-{{ citation.anchor }}">{{ citation.id }}</a> {% endfor %}</p></li>{% endfor %}</ul>{% endif %}
+{% endfor %}
+{% if report.recommendations | length > 0 %}<h3 class="heading-s">{{ t(key="inv_actions") }}</h3>
+{% for action in report.recommendations %}
+<section class="investigation-claim"><h4 class="heading-s">{% if action.kind == "act" %}{{ t(key="inv_change") }}{% else %}{{ t(key="inv_investigate_first") }}{% endif %}</h4><p lang="en">{{ action.action }}</p>
+<p class="small">{{ action.strength }} {% for citation in action.citations %}<a class="investigation-citation" href="#I{{ row.id }}-{{ citation.anchor }}">{{ citation.id }}</a> {% endfor %}</p>
+<dl class="summary"><div><dt>{{ t(key="inv_target") }}</dt><dd lang="en">{{ action.target }}</dd></div><div><dt>{{ t(key="inv_why") }}</dt><dd lang="en">{{ action.rationale }}</dd></div><div><dt>{{ t(key="inv_risk") }}</dt><dd lang="en">{{ action.risk }}</dd></div><div><dt>{{ t(key="inv_measure") }}</dt><dd lang="en">{{ action.measure }}</dd></div></dl></section>
+{% endfor %}{% endif %}
+{% if report.limitations | length > 0 %}<h3 class="heading-s">{{ t(key="inv_limits") }}</h3><ul>{% for line in report.limitations %}<li>{{ line }}</li>{% endfor %}</ul>{% endif %}
+{% if report.refused > 0 %}<p class="small muted">{{ t(key="inv_refused", count=report.refused) }}</p>{% endif %}
+{% if report.evidence | length > 0 %}<h3 class="heading-s">{{ t(key="inv_sources") }}</h3>
+{% for item in report.evidence %}<details class="investigation-evidence" id="I{{ row.id }}-{{ item.anchor }}"><summary>{{ item.id }} · {% if item.subject %}{{ item.subject }} · {% endif %}{{ item.account }}</summary>
+<p class="small">{% if item.days %}{{ item.days }}{% endif %}{% if item.baseline %} · {{ t(key="inv_baseline") }} {{ item.baseline }}{% endif %}</p>
+<p class="small">{{ item.source }} · {{ item.strength }}</p>
+<table class="data"><thead><tr><th scope="col">{{ t(key="inv_fact") }}</th><th scope="col">{{ t(key="inv_value") }}</th></tr></thead><tbody>{% for fact in item.facts %}<tr><th scope="row" lang="en">{{ fact.label }}</th><td lang="en">{{ fact.value }}</td></tr>{% endfor %}</tbody></table>
+{% if item.caveats | length > 0 %}<ul>{% for line in item.caveats %}<li>{{ line }}</li>{% endfor %}</ul>{% endif %}
+</details>{% endfor %}{% endif %}
+{% endif %}
+</article>
+{% endfor %}
+{% if finished %}<form class="form card" method="post" action="/investigations/{{ latest }}/follow-ups"><div class="field"><label class="label" for="question">{{ t(key="inv_follow") }}</label><textarea class="input" id="question" name="question" rows="3" maxlength="500" required></textarea></div><button class="button" type="submit">{{ t(key="inv_ask") }}</button></form>{% endif %}
+{% endblock content %}

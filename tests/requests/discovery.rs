@@ -29,6 +29,7 @@ async fn robots_names_the_ai_crawlers_and_keeps_the_private_paths_closed() {
              Disallow: /accounts\n\
              Disallow: /connect\n\
              Disallow: /sign-in\n\
+             Disallow: /admin\n\
              \n\
              Sitemap: https://keysend.app/sitemap.xml\n"
         );

@@ -76,11 +76,14 @@ impl Hooks for App {
             .add_route(controllers::content::routes())
             .add_route(controllers::page::routes())
             .add_route(controllers::auth::routes())
+            .add_route(controllers::admin::routes())
             .add_route(controllers::accounts::routes())
             .add_route(controllers::billing::routes())
             .add_route(controllers::control::routes())
             .add_route(controllers::monitoring::routes())
             .add_route(controllers::export::routes())
+            .add_route(controllers::investigations::routes())
+            .add_route(controllers::optimize::routes())
     }
 
     async fn after_routes(router: axum::Router, ctx: &AppContext) -> Result<axum::Router> {
@@ -129,6 +132,12 @@ impl Hooks for App {
             .await?;
         queue
             .register(crate::monitoring::retention::RetentionWorker::build(ctx))
+            .await?;
+        queue
+            .register(crate::agent::worker::InvestigationWorker::build(ctx))
+            .await?;
+        queue
+            .register(crate::optimize::cycle::OptimizationWorker::build(ctx))
             .await?;
         if ctx.environment == Environment::Production {
             tokio::spawn(crate::monitoring::schedule::hourly(ctx.clone()));

@@ -249,7 +249,7 @@ fn mean(values: &[f64]) -> f64 {
     }
 }
 
-fn device_name(device: i64) -> &'static str {
+pub(crate) fn device_name(device: i64) -> &'static str {
     let written = &english().written;
     match device {
         1 => written.device_mobile,

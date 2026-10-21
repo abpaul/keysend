@@ -48,7 +48,10 @@ pub struct CampaignDay {
 #[derive(Clone, Debug, Serialize)]
 pub struct AccountChange {
     pub changed_at: String,
+    /// The identity of the ChangeEvent, not the resource it changed.
     pub resource_name: String,
+    /// Google's target resource. Older collected events may not have it.
+    pub change_resource_name: Option<String>,
     pub resource_type: String,
     pub operation: String,
     pub campaign_id: Option<i64>,
@@ -62,6 +65,7 @@ pub struct HistoryState {
     pub first_day: Option<NaiveDate>,
     pub last_day: Option<NaiveDate>,
     pub error: Option<String>,
+    pub succeeded_at: Option<i64>,
 }
 
 impl WorkspaceStore<'_> {
@@ -72,7 +76,7 @@ impl WorkspaceStore<'_> {
     pub async fn history_state(&self, id: &str) -> Result<Option<HistoryState>> {
         self.db
             .query_one_raw(sql(
-                "SELECT first_day,last_day,error FROM account_history WHERE workspace_id=? AND ad_account_customer_id=?",
+                "SELECT first_day,last_day,error,succeeded_at FROM account_history WHERE workspace_id=? AND ad_account_customer_id=?",
                 self.account(id),
             ))
             .await?
@@ -81,9 +85,29 @@ impl WorkspaceStore<'_> {
                     first_day: row.try_get::<Option<i64>>("", "first_day")?.and_then(date_of),
                     last_day: row.try_get::<Option<i64>>("", "last_day")?.and_then(date_of),
                     error: row.try_get("", "error")?,
+                    succeeded_at: row.try_get("", "succeeded_at")?,
                 })
             })
             .transpose()
+    }
+
+    pub async fn history_error_seen(&self, error: &str) -> Result<bool> {
+        Ok(self
+            .db
+            .query_one_raw(sql(
+                "SELECT 1 FROM account_history WHERE workspace_id=? AND error=? LIMIT 1",
+                vec![self.workspace.id().into(), error.into()],
+            ))
+            .await?
+            .is_some())
+    }
+
+    pub async fn clear_history_error(&self, connection: &str, error: &str) -> Result<()> {
+        self.db.execute_raw(sql(
+            "UPDATE account_history SET error=NULL WHERE workspace_id=?1 AND error=?3 AND ad_account_customer_id IN (SELECT customer_id FROM ad_accounts WHERE workspace_id=?1 AND google_connection_id=?2)",
+            vec![self.workspace.id().into(), connection.into(), error.into()],
+        )).await?;
+        Ok(())
     }
 
     pub async fn history_failed(&self, id: &str, error: &str) -> Result<()> {
@@ -181,6 +205,7 @@ impl WorkspaceStore<'_> {
             values.extend([
                 change.changed_at.clone().into(),
                 change.resource_name.clone().into(),
+                change.change_resource_name.clone().into(),
                 change.resource_type.clone().into(),
                 change.operation.clone().into(),
                 change.campaign_id.into(),
@@ -189,13 +214,13 @@ impl WorkspaceStore<'_> {
                 change.new_value.clone().into(),
             ]);
             txn.execute_raw(sql(
-                "INSERT INTO account_changes(workspace_id,ad_account_customer_id,changed_at,resource_name,resource_type,operation,campaign_id,changed_fields,old_value,new_value) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(workspace_id,ad_account_customer_id,changed_at,resource_name) DO NOTHING",
+                "INSERT INTO account_changes(workspace_id,ad_account_customer_id,changed_at,resource_name,change_resource_name,resource_type,operation,campaign_id,changed_fields,old_value,new_value) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(workspace_id,ad_account_customer_id,changed_at,resource_name) DO UPDATE SET change_resource_name=COALESCE(account_changes.change_resource_name,excluded.change_resource_name)",
                 values,
             )).await?;
         }
         range.push(crate::settings::wall_clock().timestamp().into());
         txn.execute_raw(sql(
-            "INSERT INTO account_history(workspace_id,ad_account_customer_id,first_day,last_day,collected_at,error) VALUES(?,?,?,?,?,NULL) ON CONFLICT(workspace_id,ad_account_customer_id) DO UPDATE SET first_day=MIN(COALESCE(first_day,excluded.first_day),excluded.first_day),last_day=MAX(COALESCE(last_day,excluded.last_day),excluded.last_day),collected_at=excluded.collected_at,error=NULL",
+            "INSERT INTO account_history(workspace_id,ad_account_customer_id,first_day,last_day,collected_at,succeeded_at,error) VALUES(?1,?2,?3,?4,?5,?5,NULL) ON CONFLICT(workspace_id,ad_account_customer_id) DO UPDATE SET first_day=MIN(COALESCE(first_day,excluded.first_day),excluded.first_day),last_day=MAX(COALESCE(last_day,excluded.last_day),excluded.last_day),collected_at=excluded.collected_at,succeeded_at=excluded.succeeded_at,error=NULL",
             range,
         ))
         .await?;
@@ -216,7 +241,7 @@ impl WorkspaceStore<'_> {
         ]);
         self.db
             .query_all_raw(sql(
-                "SELECT changed_at,resource_name,resource_type,operation,campaign_id,changed_fields,old_value,new_value FROM account_changes WHERE workspace_id=? AND ad_account_customer_id=? AND changed_at BETWEEN ? AND ? ORDER BY changed_at",
+                "SELECT changed_at,resource_name,change_resource_name,resource_type,operation,campaign_id,changed_fields,old_value,new_value FROM account_changes WHERE workspace_id=? AND ad_account_customer_id=? AND changed_at BETWEEN ? AND ? ORDER BY changed_at",
                 values,
             ))
             .await?
@@ -225,6 +250,7 @@ impl WorkspaceStore<'_> {
                 Ok(AccountChange {
                     changed_at: row.try_get("", "changed_at")?,
                     resource_name: row.try_get("", "resource_name")?,
+                    change_resource_name: row.try_get("", "change_resource_name")?,
                     resource_type: row.try_get("", "resource_type")?,
                     operation: row.try_get("", "operation")?,
                     campaign_id: row.try_get("", "campaign_id")?,

@@ -139,6 +139,7 @@ Disallow: /auth/
 Disallow: /accounts
 Disallow: /connect
 Disallow: /sign-in
+Disallow: /admin
 
 Sitemap: https://keysend.app/sitemap.xml
 ";

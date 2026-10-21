@@ -1,0 +1,719 @@
+{
+  "schema_version": 1,
+  "purpose": "Blind hypothetical commercial supplement for later production mapping. No repository, implementation, internal policy, existing evaluation cases or labels were read.",
+  "authored_as_of": "2026-10-21",
+  "judgment_status": "All judgments are provisional, not ground truth.",
+  "execution_permission": false,
+  "definitions": {
+    "facts": "All numerical premises, independent verification records and business constraints are fictional, not observed real-account facts.",
+    "conversions": "Deduplicated paid orders unless explicitly marked as misleading Ads reporting.",
+    "conversion_value": "Realized revenue after refunds, not contribution, unless explicitly marked as misleading Ads reporting.",
+    "contribution_before_ad_spend": "Revenue less variable product, fulfillment and payment costs; excludes advertising and fixed overhead.",
+    "contribution_after_ad_spend": "Contribution before advertising minus advertising spend; not full accounting profit.",
+    "target_CPA": "Stated hypothetical advertiser goal, not an internal policy threshold.",
+    "high_risk": "Author flags material commercial or measurement hazards; not an internal policy tier.",
+    "expected_action": "Provisional commercial label only, not execution permission. Abstain means no budget/pause action on supplied facts.",
+    "sources": "Official Google Ads documentation supplies reasoning concepts only, not evidence for fictional figures or prescribed labels.",
+    "null": "Unknown or undefined; not zero and not estimated."
+  },
+  "method": "Authored independently from official public Google Ads Help. Varied marginal economics, value mix, account context, settlement, learning, conversion reliability, cash constraints and segment composition. No production decision mapping, internal thresholds or engine calls.",
+  "cases": [
+    {
+      "id": "commercial-budget-supplement-01",
+      "title": "Funded expansion backed by profitable marginal demand",
+      "category": "budget_limited",
+      "judgment_status": "provisional_not_ground_truth",
+      "facts": [
+        {
+          "kind": "settled_window",
+          "start": "2026-09-01",
+          "end": "2026-09-28",
+          "days": 28,
+          "as_of": "2026-10-21",
+          "date_basis": "ad_click_cohort",
+          "currency": "USD",
+          "settled": true,
+          "conversion_lag_days_max_observed": 7,
+          "reporting_import_lag_days_max": 2
+        },
+        {
+          "kind": "campaign_metrics",
+          "average_daily_budget_usd": 100,
+          "spend_usd": 2800,
+          "clicks": 1400,
+          "conversions": 140,
+          "conversion_value_usd": 14000,
+          "contribution_before_ad_spend_usd": 7000,
+          "contribution_after_ad_spend_usd": 4200,
+          "target_CPA_usd": 30,
+          "observed_CPA_usd": 20.0
+        },
+        {
+          "kind": "delivery_constraints",
+          "campaign_type": "Search",
+          "status": "Limited by budget",
+          "search_lost_impression_share_budget_pct": 38,
+          "search_lost_impression_share_rank_pct": 7,
+          "other_constraints": "No learning, policy, billing, stock or service restriction; capacity for 10 extra orders daily. No recent targeting changes."
+        },
+        {
+          "kind": "independent_verification",
+          "tracking_reliable": true,
+          "method": "Hypothetical independent paid-order ledger reconciliation to click cohort, deduplicated transaction records, refunds, payment receipts and variable costs; checked separately from Ads reporting.",
+          "independently_verified_conversions": 140,
+          "independently_verified_revenue_usd": 14000,
+          "independently_verified_contribution_before_ad_spend_usd": 7000,
+          "verified_on": "2026-10-21",
+          "note": "No discrepancy; purchase-only goals. All orders and refunds reconciled."
+        },
+        {
+          "kind": "account_other_campaign_context",
+          "window_start": "2026-09-01",
+          "window_end": "2026-09-28",
+          "other_campaign_conversions": 220,
+          "other_campaign_spend_usd": 4400,
+          "other_campaign_conversion_value_usd": 22000,
+          "other_campaign_contribution_before_ad_spend_usd": 11000,
+          "tracking_reliable": true,
+          "independent_verification": "Hypothetical separate order-ledger reconciliation; excludes focal campaign; identical settled click cohort and lag bounds."
+        },
+        {
+          "kind": "commercial_context",
+          "additional_funding_available_next_28_days_usd": 1400,
+          "marginal_evidence": {
+            "design": "Hypothetical randomized non-overlapping geo holdout in the settled window; no cross-geo delivery. Totals above include treated geos.",
+            "incremental_spend_usd": 400,
+            "incremental_paid_orders": 16,
+            "incremental_revenue_usd": 1600,
+            "incremental_contribution_before_ad_spend_usd": 800,
+            "uncertainty": "Small experiment; wider expansion may differ."
+          },
+          "misleading_fact": "A budget badge alone might be treated as proof of profitability."
+        }
+      ],
+      "expected_action": "recommend_budget_increase",
+      "high_risk": true,
+      "rationale": "Provisional commercial judgment, not ground truth: Funded expansion is commercially useful given verified contribution and direct marginal evidence. Lost impressions indicate potential reach, without guaranteeing incremental profit.",
+      "sources": [
+        "https://support.google.com/google-ads/answer/6385220?hl=en",
+        "https://support.google.com/google-ads/answer/2497703?hl=en"
+      ]
+    },
+    {
+      "id": "commercial-budget-supplement-02",
+      "title": "Higher CPA accompanies a profitable shift toward larger orders",
+      "category": "budget_limited",
+      "judgment_status": "provisional_not_ground_truth",
+      "facts": [
+        {
+          "kind": "settled_window",
+          "start": "2026-09-01",
+          "end": "2026-09-28",
+          "days": 28,
+          "as_of": "2026-10-21",
+          "date_basis": "ad_click_cohort",
+          "currency": "USD",
+          "settled": true,
+          "conversion_lag_days_max_observed": 7,
+          "reporting_import_lag_days_max": 2
+        },
+        {
+          "kind": "campaign_metrics",
+          "average_daily_budget_usd": 200,
+          "spend_usd": 5600,
+          "clicks": 1400,
+          "conversions": 56,
+          "conversion_value_usd": 33600,
+          "contribution_before_ad_spend_usd": 16800,
+          "contribution_after_ad_spend_usd": 11200,
+          "target_CPA_usd": 60,
+          "observed_CPA_usd": 100.0
+        },
+        {
+          "kind": "delivery_constraints",
+          "campaign_type": "Search",
+          "status": "Limited by budget",
+          "search_lost_impression_share_budget_pct": 24,
+          "search_lost_impression_share_rank_pct": 16,
+          "other_constraints": "No learning, operational restriction or recent bid change. Target CPA is a legacy goal; owner now prioritizes net contribution, with no replacement target yet agreed."
+        },
+        {
+          "kind": "independent_verification",
+          "tracking_reliable": true,
+          "method": "Hypothetical independent paid-order ledger reconciliation to click cohort, deduplicated transaction records, refunds, payment receipts and variable costs; checked separately from Ads reporting.",
+          "independently_verified_conversions": 56,
+          "independently_verified_revenue_usd": 33600,
+          "independently_verified_contribution_before_ad_spend_usd": 16800,
+          "verified_on": "2026-10-21",
+          "note": "No discrepancy; purchase-only goals. All orders and refunds reconciled."
+        },
+        {
+          "kind": "account_other_campaign_context",
+          "window_start": "2026-09-01",
+          "window_end": "2026-09-28",
+          "other_campaign_conversions": 180,
+          "other_campaign_spend_usd": 5400,
+          "other_campaign_conversion_value_usd": 18000,
+          "other_campaign_contribution_before_ad_spend_usd": 7200,
+          "tracking_reliable": true,
+          "independent_verification": "Hypothetical separate order-ledger reconciliation; excludes focal campaign; identical settled click cohort and lag bounds."
+        },
+        {
+          "kind": "commercial_context",
+          "prior_settled_window": {
+            "start": "2026-08-01",
+            "end": "2026-08-28",
+            "average_daily_budget_usd": 200,
+            "spend_usd": 5600,
+            "clicks": 1600,
+            "conversions": 80,
+            "conversion_value_usd": 16000,
+            "contribution_before_ad_spend_usd": 6400,
+            "contribution_after_ad_spend_usd": 800,
+            "CPA_usd": 70,
+            "tracking_reliable": true,
+            "independent_verification": "Same independent paid-order and variable-cost reconciliation; complete by 2026-10-21.",
+            "conversion_lag_days_max_observed": 7,
+            "reporting_import_lag_days_max": 2
+          },
+          "marginal_expansion_evidence": null,
+          "misleading_fact": "CPA rose from USD 70 to USD 100 and exceeds USD 60 target."
+        }
+      ],
+      "expected_action": "abstain",
+      "high_risk": true,
+      "rationale": "Provisional commercial judgment, not ground truth: Hold the budget: rising acquisition cost does not justify cutting substantially more profitable larger orders. Average returns do not prove expansion returns; clarify the legacy goal separately.",
+      "sources": [
+        "https://support.google.com/google-ads/answer/1722022?hl=en",
+        "https://support.google.com/google-ads/answer/6268633?hl=en"
+      ]
+    },
+    {
+      "id": "commercial-budget-supplement-03",
+      "title": "Severe sustained losses despite missed impressions",
+      "category": "budget_limited",
+      "judgment_status": "provisional_not_ground_truth",
+      "facts": [
+        {
+          "kind": "settled_window",
+          "start": "2026-09-01",
+          "end": "2026-09-28",
+          "days": 28,
+          "as_of": "2026-10-21",
+          "date_basis": "ad_click_cohort",
+          "currency": "USD",
+          "settled": true,
+          "conversion_lag_days_max_observed": 7,
+          "reporting_import_lag_days_max": 2
+        },
+        {
+          "kind": "campaign_metrics",
+          "average_daily_budget_usd": 80,
+          "spend_usd": 2240,
+          "clicks": 1120,
+          "conversions": 8,
+          "conversion_value_usd": 800,
+          "contribution_before_ad_spend_usd": 240,
+          "contribution_after_ad_spend_usd": -2000,
+          "target_CPA_usd": 40,
+          "observed_CPA_usd": 280.0
+        },
+        {
+          "kind": "delivery_constraints",
+          "campaign_type": "Search",
+          "status": "Limited by budget",
+          "search_lost_impression_share_budget_pct": 52,
+          "search_lost_impression_share_rank_pct": 18,
+          "other_constraints": "No learning, tracking outage, billing hold or capacity restriction. Offer unchanged for 84 days; no contractual requirement to keep it live."
+        },
+        {
+          "kind": "independent_verification",
+          "tracking_reliable": true,
+          "method": "Hypothetical independent paid-order ledger reconciliation to click cohort, deduplicated transaction records, refunds, payment receipts and variable costs; checked separately from Ads reporting.",
+          "independently_verified_conversions": 8,
+          "independently_verified_revenue_usd": 800,
+          "independently_verified_contribution_before_ad_spend_usd": 240,
+          "verified_on": "2026-10-21",
+          "note": "No discrepancy; purchase-only goals. All orders and refunds reconciled."
+        },
+        {
+          "kind": "account_other_campaign_context",
+          "window_start": "2026-09-01",
+          "window_end": "2026-09-28",
+          "other_campaign_conversions": 240,
+          "other_campaign_spend_usd": 4800,
+          "other_campaign_conversion_value_usd": 24000,
+          "other_campaign_contribution_before_ad_spend_usd": 12000,
+          "tracking_reliable": true,
+          "independent_verification": "Hypothetical separate order-ledger reconciliation; excludes focal campaign; identical settled click cohort and lag bounds."
+        },
+        {
+          "kind": "commercial_context",
+          "preceding_56_days": {
+            "start": "2026-07-07",
+            "end": "2026-08-31",
+            "spend_usd": 4480,
+            "clicks": 2240,
+            "conversions": 16,
+            "conversion_value_usd": 1600,
+            "contribution_before_ad_spend_usd": 480,
+            "tracking_reliable": true,
+            "independent_verification": "Same deduplicated order-ledger reconciliation, settled before assessment.",
+            "conversion_lag_days_max_observed": 7,
+            "reporting_import_lag_days_max": 2
+          },
+          "misleading_claim": "248 account conversions and 52% lost impressions justify increasing this campaign."
+        }
+      ],
+      "expected_action": "recommend_pause",
+      "high_risk": true,
+      "rationale": "Provisional commercial judgment, not ground truth: Settled paid orders repeatedly fail to cover advertising cost. Extra available traffic does not cure the economics; pause is a commercial recommendation requiring a separate operational decision.",
+      "sources": [
+        "https://support.google.com/google-ads/answer/6385220?hl=en",
+        "https://support.google.com/google-ads/answer/1722022?hl=en"
+      ]
+    },
+    {
+      "id": "commercial-budget-supplement-04",
+      "title": "Temporary sale and new bidding make recent zeroes misleading",
+      "category": "budget_limited",
+      "judgment_status": "provisional_not_ground_truth",
+      "facts": [
+        {
+          "kind": "settled_window",
+          "start": "2026-09-01",
+          "end": "2026-09-28",
+          "days": 28,
+          "as_of": "2026-10-21",
+          "date_basis": "ad_click_cohort",
+          "currency": "USD",
+          "settled": true,
+          "conversion_lag_days_max_observed": 7,
+          "reporting_import_lag_days_max": 2
+        },
+        {
+          "kind": "campaign_metrics",
+          "average_daily_budget_usd": 120,
+          "spend_usd": 3360,
+          "clicks": 1680,
+          "conversions": 112,
+          "conversion_value_usd": 11200,
+          "contribution_before_ad_spend_usd": 5600,
+          "contribution_after_ad_spend_usd": 2240,
+          "target_CPA_usd": 35,
+          "observed_CPA_usd": 30.0
+        },
+        {
+          "kind": "delivery_constraints",
+          "campaign_type": "Search",
+          "status": "Limited by budget",
+          "search_lost_impression_share_budget_pct": 28,
+          "search_lost_impression_share_rank_pct": 12,
+          "other_constraints": "Three-day sale ran 2026-10-16 through 2026-10-18. Bidding changed 2026-10-16 from manual CPC to Maximize conversions with target CPA USD 35. Learning remains visible. No stock, policy or billing restriction."
+        },
+        {
+          "kind": "independent_verification",
+          "tracking_reliable": true,
+          "method": "Hypothetical independent paid-order ledger reconciliation to click cohort, deduplicated transaction records, refunds, payment receipts and variable costs; checked separately from Ads reporting.",
+          "independently_verified_conversions": 112,
+          "independently_verified_revenue_usd": 11200,
+          "independently_verified_contribution_before_ad_spend_usd": 5600,
+          "verified_on": "2026-10-21",
+          "note": "No discrepancy; purchase-only goals. All orders and refunds reconciled."
+        },
+        {
+          "kind": "account_other_campaign_context",
+          "window_start": "2026-09-01",
+          "window_end": "2026-09-28",
+          "other_campaign_conversions": 175,
+          "other_campaign_spend_usd": 5250,
+          "other_campaign_conversion_value_usd": 17500,
+          "other_campaign_contribution_before_ad_spend_usd": 8750,
+          "tracking_reliable": true,
+          "independent_verification": "Hypothetical separate order-ledger reconciliation; excludes focal campaign; identical settled click cohort and lag bounds."
+        },
+        {
+          "kind": "commercial_context",
+          "recent_unsettled_window": {
+            "start": "2026-10-16",
+            "end": "2026-10-20",
+            "average_daily_budget_usd": 120,
+            "spend_usd": 600,
+            "clicks": 300,
+            "reported_conversions": 0,
+            "reported_conversion_value_usd": 0,
+            "verified_paid_orders_to_date": 0,
+            "verified_contribution_before_ad_spend_to_date_usd": 0,
+            "target_CPA_usd": 35,
+            "settled": false,
+            "tracking_reliable": true,
+            "independent_verification": "Ledger confirms zero paid orders to date; cannot establish eventual outcomes before lag expires.",
+            "conversion_lag_days_max_observed": 7,
+            "reporting_import_lag_days_max": 2,
+            "search_lost_impression_share_budget_pct": 35,
+            "search_lost_impression_share_rank_pct": 15,
+            "eventual_conversions": null
+          },
+          "misleading_claim": "Five recent days with zero reported sales require an immediate pause."
+        }
+      ],
+      "expected_action": "abstain",
+      "high_risk": true,
+      "rationale": "Provisional commercial judgment, not ground truth: Maintain budget while the new cohort matures. A profitable settled baseline, temporary promotion and incomplete post-change outcomes do not establish durable deterioration or an expansion opportunity.",
+      "sources": [
+        "https://support.google.com/google-ads/answer/6268633?hl=en",
+        "https://support.google.com/google-ads/answer/9352512?hl=en"
+      ]
+    },
+    {
+      "id": "commercial-budget-supplement-05",
+      "title": "Profitable demand exceeds available cash funding",
+      "category": "budget_limited",
+      "judgment_status": "provisional_not_ground_truth",
+      "facts": [
+        {
+          "kind": "settled_window",
+          "start": "2026-09-01",
+          "end": "2026-09-28",
+          "days": 28,
+          "as_of": "2026-10-21",
+          "date_basis": "ad_click_cohort",
+          "currency": "USD",
+          "settled": true,
+          "conversion_lag_days_max_observed": 7,
+          "reporting_import_lag_days_max": 2
+        },
+        {
+          "kind": "campaign_metrics",
+          "average_daily_budget_usd": 150,
+          "spend_usd": 4200,
+          "clicks": 1400,
+          "conversions": 140,
+          "conversion_value_usd": 21000,
+          "contribution_before_ad_spend_usd": 10500,
+          "contribution_after_ad_spend_usd": 6300,
+          "target_CPA_usd": 40,
+          "observed_CPA_usd": 30.0
+        },
+        {
+          "kind": "delivery_constraints",
+          "campaign_type": "Search",
+          "status": "Limited by budget",
+          "search_lost_impression_share_budget_pct": 42,
+          "search_lost_impression_share_rank_pct": 8,
+          "other_constraints": "No stock, learning or delivery restriction. Owner has a hard USD 2800 remaining advertising cash envelope for the next 28 days across all campaigns. Receivables arrive later; no credit or extra funding."
+        },
+        {
+          "kind": "independent_verification",
+          "tracking_reliable": true,
+          "method": "Hypothetical independent paid-order ledger reconciliation to click cohort, deduplicated transaction records, refunds, payment receipts and variable costs; checked separately from Ads reporting.",
+          "independently_verified_conversions": 140,
+          "independently_verified_revenue_usd": 21000,
+          "independently_verified_contribution_before_ad_spend_usd": 10500,
+          "verified_on": "2026-10-21",
+          "note": "No discrepancy; purchase-only goals. All orders and refunds reconciled."
+        },
+        {
+          "kind": "account_other_campaign_context",
+          "window_start": "2026-09-01",
+          "window_end": "2026-09-28",
+          "other_campaign_conversions": 70,
+          "other_campaign_spend_usd": 1400,
+          "other_campaign_conversion_value_usd": 7000,
+          "other_campaign_contribution_before_ad_spend_usd": 3500,
+          "tracking_reliable": true,
+          "independent_verification": "Hypothetical separate order-ledger reconciliation; excludes focal campaign; identical settled click cohort and lag bounds."
+        },
+        {
+          "kind": "commercial_context",
+          "next_window_start": "2026-10-22",
+          "next_window_end": "2026-11-18",
+          "account_cash_available_usd": 2800,
+          "other_campaigns_committed_cash_usd": 1400,
+          "cash_available_for_focal_campaign_usd": 1400,
+          "current_28_day_spend_run_rate_usd": 4200,
+          "nominal_daily_allocation_usd": 50,
+          "allocation_caveat": "Average daily budget is not a hard daily cash cap; exact delivery controls require separate operational review.",
+          "independent_funding_verification": "Hypothetical treasury cash ledger and signed owner allocation confirm envelope and commitments.",
+          "misleading_claim": "Positive contribution guarantees the advertiser can fund a budget increase."
+        }
+      ],
+      "expected_action": "recommend_budget_reduction",
+      "high_risk": true,
+      "rationale": "Provisional commercial judgment, not ground truth: Reduce the campaign allocation to fit the documented cash envelope despite positive contribution. Expected profit does not provide immediately available cash.",
+      "sources": [
+        "https://support.google.com/google-ads/answer/6385220?hl=en",
+        "https://support.google.com/google-ads/answer/1722022?hl=en"
+      ]
+    },
+    {
+      "id": "commercial-budget-supplement-06",
+      "title": "Attractive reported CPA consists largely of micro-conversions",
+      "category": "budget_limited",
+      "judgment_status": "provisional_not_ground_truth",
+      "facts": [
+        {
+          "kind": "settled_window",
+          "start": "2026-09-01",
+          "end": "2026-09-28",
+          "days": 28,
+          "as_of": "2026-10-21",
+          "date_basis": "ad_click_cohort",
+          "currency": "USD",
+          "settled": true,
+          "conversion_lag_days_max_observed": 7,
+          "reporting_import_lag_days_max": 2
+        },
+        {
+          "kind": "campaign_metrics",
+          "average_daily_budget_usd": 100,
+          "spend_usd": 2800,
+          "clicks": 1400,
+          "conversions": 280,
+          "conversion_value_usd": 28000,
+          "contribution_before_ad_spend_usd": 700,
+          "contribution_after_ad_spend_usd": -2100,
+          "target_CPA_usd": 25,
+          "observed_CPA_usd": 10.0
+        },
+        {
+          "kind": "delivery_constraints",
+          "campaign_type": "Search",
+          "status": "Limited by budget",
+          "search_lost_impression_share_budget_pct": 45,
+          "search_lost_impression_share_rank_pct": 20,
+          "other_constraints": "No learning or billing hold. Newsletter and purchase goals are mixed. Purchase-only historical bidding series unavailable."
+        },
+        {
+          "kind": "independent_verification",
+          "tracking_reliable": false,
+          "method": "Hypothetical independent paid-order ledger reconciliation to click cohort, deduplicated transaction records, refunds, payment receipts and variable costs; checked separately from Ads reporting.",
+          "independently_verified_conversions": 14,
+          "independently_verified_revenue_usd": 2800,
+          "independently_verified_contribution_before_ad_spend_usd": 700,
+          "verified_on": "2026-10-21",
+          "note": "Ads reports 266 newsletter events plus 14 purchases as 280 conversions, assigning USD 100 to every event. Ledger shows 14 purchases at USD 200 revenue and USD 50 contribution each."
+        },
+        {
+          "kind": "account_other_campaign_context",
+          "window_start": "2026-09-01",
+          "window_end": "2026-09-28",
+          "other_campaign_conversions": 90,
+          "other_campaign_spend_usd": 2700,
+          "other_campaign_conversion_value_usd": 13500,
+          "other_campaign_contribution_before_ad_spend_usd": 6750,
+          "tracking_reliable": true,
+          "independent_verification": "Hypothetical separate order-ledger reconciliation; excludes focal campaign; identical settled click cohort and lag bounds."
+        },
+        {
+          "kind": "commercial_context",
+          "metric_semantics": "Campaign conversions and conversion_value are misleading Ads-reported figures; contribution is independently verified ledger contribution.",
+          "verified_purchase_CPA_usd": 200,
+          "reported_CPA_usd": 10,
+          "reported_value_to_cost": 10,
+          "actual_revenue_to_cost": 1,
+          "misleading_claim": "Reported CPA USD 10 and value/cost 10 justify immediate expansion.",
+          "unknowns": [
+            "Future performance after purchase-only goal repair",
+            "Marginal paid-order acquisition cost"
+          ]
+        }
+      ],
+      "expected_action": "recommend_review",
+      "high_risk": true,
+      "rationale": "Provisional commercial judgment, not ground truth: Reconcile conversion definitions and repair measurement before choosing a budget direction. Reported cheap conversions and value do not describe paid-order economics.",
+      "sources": [
+        "https://support.google.com/google-ads/answer/1722022?hl=en",
+        "https://support.google.com/google-ads/answer/6268633?hl=en"
+      ]
+    },
+    {
+      "id": "commercial-budget-supplement-07",
+      "title": "Tiny impression-share fluctuation does not establish a new opportunity",
+      "category": "budget_limited",
+      "judgment_status": "provisional_not_ground_truth",
+      "facts": [
+        {
+          "kind": "settled_window",
+          "start": "2026-09-01",
+          "end": "2026-09-28",
+          "days": 28,
+          "as_of": "2026-10-21",
+          "date_basis": "ad_click_cohort",
+          "currency": "USD",
+          "settled": true,
+          "conversion_lag_days_max_observed": 7,
+          "reporting_import_lag_days_max": 2
+        },
+        {
+          "kind": "campaign_metrics",
+          "average_daily_budget_usd": 100,
+          "spend_usd": 2800,
+          "clicks": 1400,
+          "conversions": 140,
+          "conversion_value_usd": 14000,
+          "contribution_before_ad_spend_usd": 7000,
+          "contribution_after_ad_spend_usd": 4200,
+          "target_CPA_usd": 30,
+          "observed_CPA_usd": 20.0
+        },
+        {
+          "kind": "delivery_constraints",
+          "campaign_type": "Search",
+          "status": "Limited by budget",
+          "search_lost_impression_share_budget_pct": 21,
+          "search_lost_impression_share_rank_pct": 19,
+          "other_constraints": "No learning, stock, capacity, billing or policy restriction. Budget, bids, product mix and targeting unchanged across both windows. No marginal experiment or forecast available."
+        },
+        {
+          "kind": "independent_verification",
+          "tracking_reliable": true,
+          "method": "Hypothetical independent paid-order ledger reconciliation to click cohort, deduplicated transaction records, refunds, payment receipts and variable costs; checked separately from Ads reporting.",
+          "independently_verified_conversions": 140,
+          "independently_verified_revenue_usd": 14000,
+          "independently_verified_contribution_before_ad_spend_usd": 7000,
+          "verified_on": "2026-10-21",
+          "note": "No discrepancy; purchase-only goals. All orders and refunds reconciled."
+        },
+        {
+          "kind": "account_other_campaign_context",
+          "window_start": "2026-09-01",
+          "window_end": "2026-09-28",
+          "other_campaign_conversions": 210,
+          "other_campaign_spend_usd": 4200,
+          "other_campaign_conversion_value_usd": 21000,
+          "other_campaign_contribution_before_ad_spend_usd": 10500,
+          "tracking_reliable": true,
+          "independent_verification": "Hypothetical separate order-ledger reconciliation; excludes focal campaign; identical settled click cohort and lag bounds."
+        },
+        {
+          "kind": "commercial_context",
+          "prior_settled_window": {
+            "start": "2026-08-01",
+            "end": "2026-08-28",
+            "average_daily_budget_usd": 100,
+            "spend_usd": 2800,
+            "clicks": 1400,
+            "conversions": 140,
+            "conversion_value_usd": 14000,
+            "contribution_before_ad_spend_usd": 7000,
+            "target_CPA_usd": 30,
+            "search_lost_impression_share_budget_pct": 20,
+            "search_lost_impression_share_rank_pct": 20,
+            "tracking_reliable": true,
+            "independent_verification": "Same independent ledger reconciliation; complete at assessment.",
+            "conversion_lag_days_max_observed": 7,
+            "reporting_import_lag_days_max": 2
+          },
+          "additional_funding_available_usd": null,
+          "marginal_return_evidence": null,
+          "misleading_claim": "Lost budget share rose one percentage point, so an immediate increase is necessary."
+        }
+      ],
+      "expected_action": "abstain",
+      "high_risk": false,
+      "rationale": "Provisional commercial judgment, not ground truth: Maintain budget: unchanged settled commercial outcomes and a small estimated impression-share movement do not establish a need for action. Funding and incremental returns remain unknown.",
+      "sources": [
+        "https://support.google.com/google-ads/answer/2497703?hl=en",
+        "https://support.google.com/google-ads/answer/6385220?hl=en"
+      ]
+    },
+    {
+      "id": "commercial-budget-supplement-08",
+      "title": "Blended profitability hides an avoidable loss-making segment",
+      "category": "budget_limited",
+      "judgment_status": "provisional_not_ground_truth",
+      "facts": [
+        {
+          "kind": "settled_window",
+          "start": "2026-09-01",
+          "end": "2026-09-28",
+          "days": 28,
+          "as_of": "2026-10-21",
+          "date_basis": "ad_click_cohort",
+          "currency": "USD",
+          "settled": true,
+          "conversion_lag_days_max_observed": 7,
+          "reporting_import_lag_days_max": 2
+        },
+        {
+          "kind": "campaign_metrics",
+          "average_daily_budget_usd": 200,
+          "spend_usd": 5600,
+          "clicks": 2800,
+          "conversions": 140,
+          "conversion_value_usd": 16800,
+          "contribution_before_ad_spend_usd": 6720,
+          "contribution_after_ad_spend_usd": 1120,
+          "target_CPA_usd": 50,
+          "observed_CPA_usd": 40.0
+        },
+        {
+          "kind": "delivery_constraints",
+          "campaign_type": "Search",
+          "status": "Limited by budget",
+          "search_lost_impression_share_budget_pct": 35,
+          "search_lost_impression_share_rank_pct": 25,
+          "other_constraints": "No learning, stock or billing restriction. Mutually exclusive product segments have separate ad groups and landing pages; neither requires the other. No demonstrated marginal demand for the profitable segment."
+        },
+        {
+          "kind": "independent_verification",
+          "tracking_reliable": true,
+          "method": "Hypothetical independent paid-order ledger reconciliation to click cohort, deduplicated transaction records, refunds, payment receipts and variable costs; checked separately from Ads reporting.",
+          "independently_verified_conversions": 140,
+          "independently_verified_revenue_usd": 16800,
+          "independently_verified_contribution_before_ad_spend_usd": 6720,
+          "verified_on": "2026-10-21",
+          "note": "No discrepancy; purchase-only goals. All orders and refunds reconciled."
+        },
+        {
+          "kind": "account_other_campaign_context",
+          "window_start": "2026-09-01",
+          "window_end": "2026-09-28",
+          "other_campaign_conversions": 200,
+          "other_campaign_spend_usd": 6000,
+          "other_campaign_conversion_value_usd": 30000,
+          "other_campaign_contribution_before_ad_spend_usd": 15000,
+          "tracking_reliable": true,
+          "independent_verification": "Hypothetical separate order-ledger reconciliation; excludes focal campaign; identical settled click cohort and lag bounds."
+        },
+        {
+          "kind": "commercial_context",
+          "independently_reconciled_segments": [
+            {
+              "segment": "higher_margin",
+              "spend_usd": 2800,
+              "clicks": 1400,
+              "conversions": 112,
+              "conversion_value_usd": 13440,
+              "contribution_before_ad_spend_usd": 5376,
+              "contribution_after_ad_spend_usd": 2576,
+              "target_CPA_usd": 50
+            },
+            {
+              "segment": "lower_margin",
+              "spend_usd": 2800,
+              "clicks": 1400,
+              "conversions": 28,
+              "conversion_value_usd": 3360,
+              "contribution_before_ad_spend_usd": 1344,
+              "contribution_after_ad_spend_usd": -1456,
+              "target_CPA_usd": 50
+            }
+          ],
+          "segment_verification": "Both segment ledgers reconcile exactly to campaign totals; same settled click dates and lag bounds.",
+          "misleading_claim": "Blended CPA USD 40 beats target USD 50, so all traffic deserves more budget.",
+          "proposed_allocation_usd_next_28_days": 2800,
+          "implementation_dependency": "Review removal of the independently loss-making segment while preserving profitable demand; reducing budget alone cannot guarantee traffic mix."
+        }
+      ],
+      "expected_action": "recommend_budget_reduction",
+      "high_risk": true,
+      "rationale": "Provisional commercial judgment, not ground truth: Reduce total allocation alongside segment review to avoid verified losses while protecting profitable orders. Positive blended results conceal avoidable waste; traffic-mix control must accompany any implementation.",
+      "sources": [
+        "https://support.google.com/google-ads/answer/1722022?hl=en",
+        "https://support.google.com/google-ads/answer/2497703?hl=en"
+      ]
+    }
+  ]
+}

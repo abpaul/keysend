@@ -467,6 +467,7 @@ fn prompt_facts(detection: &Detection, rules: &impl Rules) -> Value {
 
 pub async fn generate(
     settings: &Settings,
+    store: Option<&crate::workspace::WorkspaceStore<'_>>,
     detection: Detection,
     rules: impl Rules,
 ) -> Result<Update> {
@@ -490,7 +491,7 @@ pub async fn generate(
     }}}}});
     causes::extend_request(&mut payload, &detection.causes, &ids);
     follow_up::add_instructions(&mut payload, &detection);
-    Ok(match request(settings, key, &payload).await {
+    Ok(match request(settings, store, key, &payload).await {
         Some(body) => match accept(body, &detection) {
             Ok(update) => update,
             Err(error) => {

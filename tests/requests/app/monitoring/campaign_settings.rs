@@ -791,6 +791,7 @@ async fn the_note_of_a_campaign_reaches_the_recommendation_prompt_next_to_its_fi
         .unwrap();
     let recommendations = keysend::monitoring::deep_check::review(
         &Settings::load(&f.ctx).unwrap(),
+        None,
         &check,
         &Default::default(),
         &rules,

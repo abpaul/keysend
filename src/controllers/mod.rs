@@ -1,8 +1,11 @@
 pub mod accounts;
+pub mod admin;
 pub mod auth;
 pub mod billing;
 pub mod content;
 pub mod control;
 pub mod export;
+pub mod investigations;
 pub mod monitoring;
+pub mod optimize;
 pub mod page;

@@ -141,6 +141,10 @@ pub fn window_metrics(
     }
 }
 
+pub(crate) fn ratio(numerator: f64, denominator: f64) -> Option<f64> {
+    (denominator > 0.0).then(|| numerator / denominator)
+}
+
 pub fn english_number(n: f64, precision: usize) -> String {
     english().written.format.number(n, precision)
 }

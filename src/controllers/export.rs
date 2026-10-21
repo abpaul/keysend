@@ -376,7 +376,31 @@ async fn assemble(
     })
 }
 
-async fn render(export: Export, text: &'static Text) -> Result<Response> {
+async fn render(
+    store: &WorkspaceStore<'_>,
+    export: Export,
+    text: &'static Text,
+) -> Result<Response> {
+    let started = std::time::Instant::now();
+    let result = render_pdf(export, text).await;
+    store
+        .record_operation(
+            crate::workspace::measurement::Operation::Export,
+            "",
+            result.is_ok(),
+            started.elapsed(),
+            Default::default(),
+        )
+        .await;
+    if result.is_ok() {
+        store
+            .record_activity(crate::workspace::measurement::Activity::Exported)
+            .await;
+    }
+    result
+}
+
+async fn render_pdf(export: Export, text: &'static Text) -> Result<Response> {
     let file = file_name(
         text,
         &match &export.subject {
@@ -722,7 +746,7 @@ async fn export_pdf(
 ) -> Result<Response> {
     let store = WorkspaceStore::new(&ctx.db, &signed.workspace);
     match ad_account_export(&store, &settings, &id, &params, signed.user.language).await? {
-        Ok((export, text)) => render(export, text).await,
+        Ok((export, text)) => render(&store, export, text).await,
         Err(response) => Ok(response),
     }
 }
@@ -745,7 +769,7 @@ async fn campaign_export_pdf(
     )
     .await?
     {
-        Ok((export, text)) => render(export, text).await,
+        Ok((export, text)) => render(&store, export, text).await,
         Err(response) => Ok(response),
     }
 }

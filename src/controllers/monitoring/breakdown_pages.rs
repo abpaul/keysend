@@ -582,5 +582,9 @@ pub(super) async fn show(
         "ages": breakdowns.ages,
         "genders": breakdowns.genders,
     });
-    format::render().view(&v, "monitoring/breakdowns.html", data)
+    super::viewed(
+        &store,
+        format::render().view(&v, "monitoring/breakdowns.html", data),
+    )
+    .await
 }

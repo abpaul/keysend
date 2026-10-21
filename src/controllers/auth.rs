@@ -285,6 +285,9 @@ async fn finish_callback(
         let connection = store
             .save_google_connection(&user.sub, &user.email, refresh, key)
             .await?;
+        store
+            .clear_history_error(&connection.id, crate::google_ads::REFUSED)
+            .await?;
         let choices =
             google::discover_for_workspace(settings, &tokens.access_token, &store).await?;
         let selection = store.create_selection(&connection.id, choices).await?;

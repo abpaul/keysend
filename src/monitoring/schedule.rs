@@ -29,6 +29,14 @@ pub async fn collect_history(ctx: &AppContext, workspace: &Workspace) -> Result<
         )
         .await?;
     }
+    crate::optimize::cycle::OptimizationWorker::perform_later(
+        ctx,
+        crate::optimize::cycle::OptimizationJob {
+            workspace_id: workspace.id().into(),
+            task: crate::optimize::cycle::Task::Reconcile,
+        },
+    )
+    .await?;
     Ok(())
 }
 
@@ -75,8 +83,15 @@ pub async fn queue_retention(ctx: &AppContext, now: DateTime<Utc>) -> Result<()>
     Ok(())
 }
 
+pub async fn snapshot_business(ctx: &AppContext, now: DateTime<Utc>) {
+    crate::workspace::measurement::recorded(
+        crate::workspace::measurement::snapshot(&ctx.db, now).await,
+    );
+}
+
 pub async fn hourly(ctx: AppContext) {
     loop {
+        snapshot_business(&ctx, crate::settings::wall_clock()).await;
         if remove_old_jobs(&ctx).await.is_err() {
             tracing::warn!("Old jobs could not be removed from the queue");
         }

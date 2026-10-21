@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{% block title %}{{ t(key="admin_sign_in") }}{% endblock title %} | KeySend</title>
+  <link rel="icon" type="image/svg+xml" href="{{ assets["images/logo.svg"] }}">
+  <link rel="stylesheet" href="{{ assets["parts.css"] }}">
+  <link rel="stylesheet" href="{{ assets["app.css"] }}">
+</head>
+<body>
+  <a class="skip-link" href="#main">{{ t(key="skip_to_main") }}</a>
+  <header class="site-header"><div class="wrap site-header__in">
+    <a class="brand" href="/admin"><img src="{{ assets["images/logo-on-plum.svg"] }}" alt="" width="30" height="23">KeySend</a>
+    {% block nav %}{% if dashboard is defined %}<nav class="site-nav admin-nav" aria-label="{{ t(key="admin_dashboard_admin_navigation") }}"><a href="/admin" {% if dashboard.current == "overview" %}aria-current="page"{% endif %}>{{ t(key="admin_dashboard_overview") }}</a><a href="/admin/customers" {% if dashboard.current == "customers" %}aria-current="page"{% endif %}>{{ t(key="admin_dashboard_customers") }}</a><a href="/admin/revenue" {% if dashboard.current == "revenue" %}aria-current="page"{% endif %}>{{ t(key="admin_dashboard_revenue") }}</a><a href="/admin/usage" {% if dashboard.current == "usage" %}aria-current="page"{% endif %}>{{ t(key="admin_dashboard_usage") }}</a><a href="/admin/operations" {% if dashboard.current == "operations" %}aria-current="page"{% endif %}>{{ t(key="admin_dashboard_operations") }}</a><form method="post" action="/admin/sign-out"><button class="link-button" type="submit">{{ t(key="sign_out") }}</button></form></nav>{% endif %}{% endblock nav %}
+  </div></header>
+  <main class="wrap page" id="main"><div class="column{% if dashboard is defined and dashboard.current == "overview" %} admin-overview{% endif %}">
+    {% block content %}{% endblock content %}
+  </div></main>
+</body>
+</html>

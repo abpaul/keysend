@@ -1,0 +1,56 @@
+{% extends "app/base.html" %}
+{% block title %}{{ t(key="opt_policy_title", name=name) }}{% endblock title %}
+{% block nav_optimize %} aria-current="page"{% endblock nav_optimize %}
+{% block content %}
+<p><a class="back-link" href="/optimize">{{ t(key="opt_back") }}</a></p>
+<h1 class="heading-xl">{{ t(key="opt_policy_title", name=name) }}</h1>
+<p class="lede">{{ t(key="opt_policy_intro") }}</p>
+{% if error %}
+<div class="error-summary" role="alert" aria-labelledby="error-title"><h2 class="heading-s" id="error-title">{{ t(key="error_summary_title") }}</h2><p>{{ error }}</p></div>
+{% endif %}
+{% if ceiling %}<div class="notice" role="status"><p>{{ ceiling }}</p></div>{% endif %}
+{% if autopilot %}
+<div class="card optimize-autopilot">
+  <h2 class="heading-m">{{ t(key="opt_autopilot_status") }}</h2>
+  <p><strong>{{ standing }}</strong></p>
+  <form method="post" action="/ad-accounts/{{ id }}/optimize/autopilot">{% if active %}<input type="hidden" name="stop" value="stop"><button class="button button--warning" type="submit">{{ t(key="opt_autopilot_stop") }}</button>{% else %}<input type="hidden" name="stop" value="resume"><button class="button" type="submit">{{ t(key="opt_autopilot_resume") }}</button>{% endif %}</form>
+</div>
+{% endif %}
+<form class="form card" method="post" action="/ad-accounts/{{ id }}/optimize">
+  <fieldset class="field"><legend class="label">{{ t(key="opt_mode_label") }}</legend>
+    <div class="choices choices--stacked">
+      <label class="choice"><input type="radio" name="mode" value="investigate"{% if mode == "investigate" %} checked{% endif %}><span><strong>{{ t(key="opt_mode_investigate") }}</strong><span class="hint">{{ t(key="opt_mode_investigate_hint") }}</span></span></label>
+      <label class="choice"><input type="radio" name="mode" value="shadow"{% if mode == "shadow" %} checked{% endif %}{% if not available.shadow %} disabled{% endif %}><span><strong>{{ t(key="opt_mode_shadow") }}</strong><span class="hint">{{ t(key="opt_mode_shadow_hint") }}</span></span></label>
+      <label class="choice"><input type="radio" name="mode" value="recommend"{% if mode == "recommend" %} checked{% endif %}{% if not available.recommend %} disabled{% endif %}><span><strong>{{ t(key="opt_mode_recommend") }}</strong><span class="hint">{{ t(key="opt_mode_recommend_hint") }}</span></span></label>
+      <label class="choice"><input type="radio" name="mode" value="autopilot"{% if mode == "autopilot" %} checked{% endif %}{% if not available.autopilot %} disabled{% endif %}><span><strong>{{ t(key="opt_mode_autopilot") }}</strong><span class="hint">{{ t(key="opt_mode_autopilot_hint") }}</span></span></label>
+    </div>
+    {% if mode != "shadow" and available.shadow %}<label class="choice"><input type="checkbox" name="shadow_consent" value="yes"><span>{{ t(key="opt_shadow_consent") }}</span></label>{% endif %}
+  </fieldset>
+  <fieldset class="field"><legend class="label">{{ t(key="opt_automatic_title") }}</legend>
+    <p class="hint">{{ t(key="opt_automatic_hint") }}</p>
+    <div class="choices choices--stacked">{% for kind in automatic %}<label class="choice"><input type="checkbox" name="automatic" value="{{ kind.name }}"{% if kind.checked %} checked{% endif %}><span>{{ kind.label }}{% if not kind.live %} <span class="hint">{{ t(key="opt_not_live_kind") }}</span>{% endif %}</span></label>{% endfor %}</div>
+  </fieldset>
+  <h2 class="heading-m">{{ t(key="opt_limits_title") }}</h2>
+  <p class="hint">{{ t(key="opt_increases_unavailable") }}</p>
+  <div class="field"><label class="label" for="max_decrease_percent">{{ t(key="opt_max_decrease") }}</label><input class="input input--short" id="max_decrease_percent" name="max_decrease_percent" type="number" min="1" max="{{ limits.decrease }}" value="{{ max_decrease_percent }}" required></div>
+  <div class="field"><label class="label" for="max_increase_percent">{{ t(key="opt_max_increase") }}</label><input class="input input--short" id="max_increase_percent" name="max_increase_percent" type="number" min="1" max="{{ limits.increase }}" value="{{ max_increase_percent }}" required></div>
+  <div class="field"><label class="label" for="envelope">{{ t(key="opt_envelope", currency=currency) }}</label><p class="hint" id="envelope-hint">{{ t(key="opt_envelope_hint") }}</p><input class="input input--short" id="envelope" name="envelope" inputmode="decimal" value="{{ envelope }}" aria-describedby="envelope-hint"></div>
+  <div class="field"><label class="label" for="max_daily_increase">{{ t(key="opt_max_daily_increase", currency=currency) }}</label><input class="input input--short" id="max_daily_increase" name="max_daily_increase" inputmode="decimal" value="{{ max_daily_increase }}"></div>
+  <div class="field"><label class="label" for="changes_per_day">{{ t(key="opt_changes_per_day") }}</label><input class="input input--short" id="changes_per_day" name="changes_per_day" type="number" min="1" max="{{ limits.changes }}" value="{{ changes_per_day }}" required></div>
+  <div class="field"><label class="label" for="cooldown_days">{{ t(key="opt_cooldown_days") }}</label><input class="input input--short" id="cooldown_days" name="cooldown_days" type="number" min="1" max="90" value="{{ cooldown_days }}" required></div>
+  <div class="field"><label class="label" for="min_conversions">{{ t(key="opt_min_conversions") }}</label><input class="input input--short" id="min_conversions" name="min_conversions" type="number" min="5" max="1000" value="{{ min_conversions }}" required></div>
+  <div class="field"><label class="label" for="target_cost">{{ t(key="opt_target_cost", currency=currency) }}</label><p class="hint" id="target-hint">{{ t(key="opt_target_cost_hint") }}</p><input class="input input--short" id="target_cost" name="target_cost" inputmode="decimal" value="{{ target_cost }}" aria-describedby="target-hint"></div>
+  {% if campaigns | length > 0 %}
+  <fieldset class="field"><legend class="label">{{ t(key="opt_protected_title") }}</legend><p class="hint">{{ t(key="opt_protected_hint") }}</p>
+    <div class="choices choices--stacked">{% for campaign in campaigns %}<label class="choice"><input type="checkbox" name="protected" value="{{ campaign.id }}"{% if campaign.protected %} checked{% endif %}><span>{{ campaign.name }}</span></label>{% endfor %}</div>
+  </fieldset>
+  {% endif %}
+  <p class="hint">{{ t(key="opt_budget_note") }}</p>
+  <button class="button" type="submit">{{ t(key="opt_save") }}</button>
+</form>
+{% if versions | length > 0 %}
+<section class="card" aria-labelledby="versions-title"><h2 class="heading-m" id="versions-title">{{ t(key="opt_versions_title") }}</h2>
+  <ul class="plain-list optimize-timeline">{% for version in versions %}<li><p>{{ t(key="opt_version", version=version.version) }} · {{ version.mode }} · {{ version.standing }}</p><p class="small muted">{{ version.date }}</p></li>{% endfor %}</ul>
+</section>
+{% endif %}
+{% endblock content %}

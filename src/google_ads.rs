@@ -16,6 +16,7 @@ use crate::{
 
 mod breakdowns;
 pub(crate) mod deep_breakdowns;
+pub(crate) mod mutate;
 
 pub(crate) const COUNTS: &str = "metrics.impressions, metrics.clicks, metrics.conversions, metrics.cost_micros, metrics.conversions_value";
 
@@ -32,7 +33,7 @@ pub(crate) enum Failure {
 impl Failure {
     fn message(&self) -> &'static str {
         match self {
-            Self::Reconnect => "Connect Google Ads again.",
+            Self::Reconnect => REFUSED,
             Self::Disabled => "This Ad Account is not enabled in Google Ads.",
             Self::Quota | Self::DailyLimit => {
                 "Google Ads quota or rate limit reached. Try again later."
@@ -43,12 +44,16 @@ impl Failure {
     }
 }
 
+/// The stored Ad Account error when Google refused the Google Connection.
+pub(crate) const REFUSED: &str = "Connect Google Ads again.";
+
 impl From<Failure> for Error {
     fn from(value: Failure) -> Self {
         Self::Message(value.message().into())
     }
 }
 
+/// The Google Ads client of one Ad Account of one Workspace.
 pub(crate) struct Client<'a, 'db> {
     settings: &'a Settings,
     store: &'a WorkspaceStore<'db>,
@@ -198,6 +203,7 @@ impl<'a, 'db> Client<'a, 'db> {
                     )
                 })
                 .unwrap_or("other");
+            let started = std::time::Instant::now();
             let response = request.send().await.map_err(|error| {
                 tracing::warn!(
                     resource,
@@ -211,6 +217,15 @@ impl<'a, 'db> Client<'a, 'db> {
             let response = match response {
                 Ok(response) => response,
                 Err(failure) => {
+                    self.store
+                        .record_operation(
+                            crate::workspace::measurement::Operation::GoogleRequest,
+                            "",
+                            false,
+                            started.elapsed(),
+                            Default::default(),
+                        )
+                        .await;
                     self.record(&format!("{resource} {query_kind}: no response"))
                         .await;
                     return Err(failure);
@@ -219,6 +234,15 @@ impl<'a, 'db> Client<'a, 'db> {
             let status = response.status();
             if !status.is_success() {
                 let body: Value = response.json().await.unwrap_or(Value::Null);
+                self.store
+                    .record_operation(
+                        crate::workspace::measurement::Operation::GoogleRequest,
+                        "",
+                        false,
+                        started.elapsed(),
+                        Default::default(),
+                    )
+                    .await;
                 let codes = body["error"]["details"]
                     .as_array()
                     .into_iter()
@@ -280,7 +304,17 @@ impl<'a, 'db> Client<'a, 'db> {
                     },
                 );
             }
-            let body: Value = response.json().await.map_err(|_| {
+            let body = response.json::<Value>().await;
+            self.store
+                .record_operation(
+                    crate::workspace::measurement::Operation::GoogleRequest,
+                    "",
+                    body.is_ok(),
+                    started.elapsed(),
+                    Default::default(),
+                )
+                .await;
+            let body = body.map_err(|_| {
                 tracing::warn!(resource, "Google Metrics response decoding failed");
                 Failure::Unavailable
             })?;
@@ -527,9 +561,31 @@ async fn history(
             .map_err(|_| Failure::Unavailable)?;
         state = None;
     }
-    let campaigns = client
-        .query_daily_history("SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, campaign.bidding_strategy_type, campaign_budget.amount_micros FROM campaign")
-        .await?
+    let campaign_rows = client
+        .query_daily_history("SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, campaign.bidding_strategy_type, campaign_budget.amount_micros, campaign_budget.id, campaign_budget.explicitly_shared, campaign_budget.reference_count FROM campaign")
+        .await?;
+    // The budget of each Campaign, for Optimize. A budget that does not say whether it is
+    // shared counts as shared.
+    let budgets = campaign_rows
+        .iter()
+        .filter_map(|row| {
+            Some((
+                resource_id(row, "/campaign/id")?,
+                crate::optimize::propose::Budget {
+                    budget_id: resource_id(row, "/campaignBudget/id")?,
+                    shared: row
+                        .pointer("/campaignBudget/explicitlyShared")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(true),
+                    campaigns: resource_id(row, "/campaignBudget/referenceCount").unwrap_or(0),
+                },
+            ))
+        })
+        .collect::<Vec<_>>();
+    if store.save_campaign_budgets(id, &budgets).await.is_err() {
+        tracing::warn!("Campaign budgets could not be stored");
+    }
+    let campaigns = campaign_rows
         .iter()
         .filter_map(|row| {
             Some(crate::workspace::history::Campaign {
@@ -560,7 +616,7 @@ async fn history(
     let mut until = format!("{today} 23:59:59");
     for _ in 0..5 {
         let page = client
-            .query_daily_history(&format!("SELECT change_event.change_date_time, change_event.change_resource_type, change_event.resource_change_operation, change_event.changed_fields, change_event.old_resource, change_event.new_resource, change_event.resource_name, change_event.campaign FROM change_event WHERE change_event.change_date_time >= '{changes_from} 00:00:00' AND change_event.change_date_time <= '{until}' ORDER BY change_event.change_date_time DESC LIMIT 10000"))
+            .query_daily_history(&format!("SELECT change_event.change_date_time, change_event.change_resource_type, change_event.resource_change_operation, change_event.changed_fields, change_event.old_resource, change_event.new_resource, change_event.resource_name, change_event.change_resource_name, change_event.campaign FROM change_event WHERE change_event.change_date_time >= '{changes_from} 00:00:00' AND change_event.change_date_time <= '{until}' ORDER BY change_event.change_date_time DESC LIMIT 10000"))
             .await?;
         let full = page.len() >= 10_000;
         let oldest = page
@@ -577,6 +633,11 @@ async fn history(
             crate::workspace::history::AccountChange {
                 changed_at: text(row, "/changeEvent/changeDateTime"),
                 resource_name: text(row, "/changeEvent/resourceName"),
+                change_resource_name: row
+                    .pointer("/changeEvent/changeResourceName")
+                    .and_then(Value::as_str)
+                    .filter(|name| !name.is_empty())
+                    .map(str::to_owned),
                 resource_type: text(row, "/changeEvent/changeResourceType"),
                 operation: text(row, "/changeEvent/resourceChangeOperation"),
                 campaign_id: resource_id(row, "/changeEvent/campaign"),
@@ -686,10 +747,25 @@ async fn collect(
     id: &str,
     recent_only: bool,
 ) -> Result<()> {
+    let started = std::time::Instant::now();
     let outcome = match Client::connect(settings, store, id).await {
         Ok(client) => history(&client, settings, store, id, recent_only).await,
         Err(failure) => Err(failure),
     };
+    store
+        .record_operation(
+            crate::workspace::measurement::Operation::Sync,
+            "",
+            outcome.is_ok(),
+            started.elapsed(),
+            Default::default(),
+        )
+        .await;
+    if outcome.is_ok() {
+        store
+            .record_activity(crate::workspace::measurement::Activity::Synced)
+            .await;
+    }
     if let Err(failure) = &outcome {
         store.history_failed(id, failure.message()).await?;
     }

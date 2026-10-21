@@ -6,10 +6,14 @@ A test (`tests/requests/feature_map.rs`) fails when a route or a queue worker of
 
 | Feature | Routes and workers | Code | Tests |
 |---|---|---|---|
+| Investigations | `/investigations`, `/investigations/*`, `InvestigationWorker` | `src/agent/`, `src/controllers/investigations.rs`, `assets/views/investigations/`, `src/workspace/investigations.rs` | `tests/requests/app/investigations.rs`, `tests/requests/app/perf.rs` |
 | Public pages | `/`, `/ro`, `/for/*`, `/privacy`, `/terms`, `/security` | `src/controllers/page.rs`, `assets/views/home/` | `tests/requests/page.rs`, `tests/requests/app/demo.rs` |
 | Public content | `/resources`, `/blog/*`, `/guides/*`, `/tools/*`, `/sitemap.xml`, `/feed.xml`, `/robots.txt`, `/llms.txt`, `/pricing.md` | `src/controllers/content.rs`, `src/content.rs`, `content/seo/catalog.json` | `tests/requests/page.rs`, `tests/requests/discovery.rs` |
+| Admin sign-in and read-only business dashboard | `/admin/*` | `src/controllers/admin.rs`, `src/identity/admin.rs`, `src/controllers/admin/pages.rs`, `src/workspace/operator.rs`, `src/workspace/measurement.rs`, `assets/views/admin/` | `tests/requests/admin.rs`, `tests/requests/admin_pages.rs`, `tests/requests/app/perf.rs` |
 | Sign in with Google | `/sign-in`, `/auth/google/*`, `/sign-out` | `src/controllers/auth.rs`, `src/identity/mod.rs`, `src/google.rs` | `tests/requests/google.rs` |
 | Connect Google Ads and choose Ad Accounts | `/connect`, `/connections/google/start`, `/connections/{id}/ad-accounts`, `/ad-accounts/choose/{id}`, `/accounts` | `src/controllers/accounts.rs`, `src/google.rs`, `src/workspace/mod.rs` | `tests/requests/connection.rs`, `tests/requests/discovery.rs`, `tests/requests/app/monitoring/onboarding.rs` |
+| Optimize: Proposals, Approval, execution, Autopilot | `/optimize`, `/optimize/*`, `/ad-accounts/{id}/optimize`, `/ad-accounts/{id}/optimize/autopilot`, `OptimizationWorker` | `src/optimize/`, `src/controllers/optimize.rs`, `src/controllers/optimize/view.rs`, `src/google_ads/mutate.rs`, `src/workspace/optimization.rs`, `assets/views/optimize/` | `tests/requests/app/optimize.rs`, `src/optimize/eval.rs`, `tests/requests/app/perf.rs` |
+| Agent investigation operations | Read-only operations used by Investigations | `src/agent/data.rs`, `src/agent/run.rs`, `src/agent/operation.rs` | `src/agent/run.rs`, `tests/requests/app/monitoring/agent.rs` |
 | Daily run: Account history, Update, Alerts, Deep check, Assessment, Recommendations | `MonitoringWorker` | `src/monitoring/worker.rs`, `src/monitoring/schedule.rs`, `src/google_ads.rs`, `src/monitoring/detection.rs`, `src/monitoring/causes.rs`, `src/monitoring/follow_up.rs`, `src/monitoring/update.rs`, `src/monitoring/alerts.rs`, `src/monitoring/deep_check.rs`, `src/monitoring/findings.rs`, `src/monitoring/recommendation.rs`, `src/monitoring/assessment.rs`, `src/monitoring/business.rs`, `src/monitoring/tracking.rs` | `tests/requests/app/monitoring.rs`, `tests/requests/app/monitoring/follow_up.rs`, `tests/requests/app/google_ads.rs`, `src/monitoring/tests.rs`, `src/monitoring/causes/tests.rs` |
 | Ad Account pages | `/ad-accounts`, `/ad-accounts/{id}`, `/ad-accounts/{id}/first-update` | `src/controllers/monitoring.rs`, `src/monitoring/view.rs`, `src/monitoring/metrics.rs`, `assets/views/monitoring/` | `tests/requests/app/monitoring/pages.rs`, `tests/requests/app/perf.rs` |
 | Campaign page and breakdowns | `/ad-accounts/{id}/campaigns/{campaign}`, `/ad-accounts/{id}/breakdowns` | `src/controllers/monitoring/breakdown_pages.rs`, `src/controllers/monitoring/chart_pages.rs`, `src/monitoring/deep_view.rs`, `src/monitoring/charts.rs`, `src/monitoring/follow_up.rs` | `tests/requests/app/monitoring/breakdowns.rs`, `tests/requests/app/monitoring/charts.rs`, `tests/requests/app/monitoring/follow_up.rs` |
@@ -20,7 +24,7 @@ A test (`tests/requests/feature_map.rs`) fails when a route or a queue worker of
 | Ad Account settings and Campaign settings | `/ad-accounts/{id}/settings`, `/ad-accounts/{id}/campaigns/{campaign}/settings` | `src/controllers/monitoring.rs`, `src/controllers/monitoring/campaign_settings.rs`, `src/monitoring/campaign_settings.rs` | `tests/requests/app/monitoring/campaign_settings.rs`, `tests/requests/app/monitoring/pages.rs` |
 | Trial and Subscription | `/subscription`, `/subscription/portal`, `/stripe/webhook`, `/billing` | `src/controllers/billing.rs`, `src/billing.rs`, `src/billing/setup.rs`, `src/monitoring/access.rs`, `src/workspace/billing.rs` | `tests/requests/app/billing.rs`, `tests/requests/app/public.rs` |
 | Workspace settings and removal | `/settings`, `/remove/{kind}/{id}`, `/ad-accounts/{id}/remove` | `src/controllers/control.rs`, `src/removal.rs`, `src/workspace/control.rs` | `tests/requests/app/control.rs` |
-| Data retention | `RetentionWorker` | `src/monitoring/retention.rs`, `src/monitoring/schedule.rs`, `src/removal.rs`, `src/workspace/retention.rs`, `src/identity/mod.rs` | `tests/requests/app/retention.rs` |
+| Data retention | `RetentionWorker` | `src/monitoring/retention.rs`, `src/monitoring/schedule.rs`, `src/removal.rs`, `src/workspace/retention.rs`, `src/workspace/investigations.rs`, `src/identity/mod.rs` | `tests/requests/app/retention.rs`, `tests/requests/app/investigations.rs` |
 | Health checks | `/_health`, `/_ping`, `/_readiness` | Loco | `tests/requests/page.rs` |
 | Application credentials | Startup, tasks, workers and scoped operator commands | `src/settings.rs`, `src/settings/credentials.rs`, `src/bin/credentials.rs`, `src/app.rs` | `tests/requests/credentials.rs`, `tests/requests/sealed_commands.rs` |
 
@@ -50,7 +54,7 @@ The first collection stores the last 60 completed days, then older ranges of 92 
 
 ## Google Ads client
 
-The Google Ads REST v25 client (`src/google_ads.rs`) uses only `googleAds:search`, the stored Google Connection refresh token, and `login-customer-id` for manager access. It sends no developer token. Currency and IANA time zone come from the Ad Account.
+The Google Ads REST v25 client (`src/google_ads.rs`) reads with `googleAds:search`, the stored Google Connection refresh token, and `login-customer-id` for manager access. It sends no developer token: Google retired them on 9 September 2026 and access levels belong to the Google Cloud project of the OAuth client. Currency and IANA time zone come from the Ad Account. The daily Campaign query also reads each budget's ID, whether it is shared and how many Campaigns use it (`campaign_budgets`). `src/google_ads/mutate.rs` sends Optimize changes (`campaignBudgets:mutate`, `campaigns:mutate`) only when `settings.optimize.live` is on (`docs/optimization.md`).
 
 Basic access has a project limit of 15,000 operations per day. Set `settings.google.daily_limit` to 2,880 for Explorer access. The database reserves operations atomically across Workspaces and counts every request, including pagination.
 
@@ -92,7 +96,7 @@ The Export (`/ad-accounts/{id}/export.pdf`) is a PDF written with the Typst libr
 
 The Export keeps the separate Assessment explanations, verified Market context source hosts, and Recommendation confidence and subjects of the page. Observations and explanations use their own stored translations. The Export of an Ad Account prints what its page and its breakdowns page show for the Window, in this order: any required data-quality explanation, the Assessment with its Result and period when available, the Update with each Campaign line and its Cause, the Metrics with a sparkline each, the Recommendations with their Finding and how to check them, the Campaigns with every Metric and its value in the days before, the charts (a trend for each Metric that the page offers, with the Account changes of the 8 weeks and their Follow-ups below the spend trend), the charts of the Deep check, and the earlier Updates of the Window. The Export of a Campaign prints what the Campaign page shows: its Updates, Metrics, Recommendations and other Findings, its charts with the Account changes and their Follow-ups, and its Deep check. `controllers::export::ad_account_export` and `campaign_export` build the Export from the view builders of the pages; `monitoring::export::source` writes it in Typst.
 
-Settings keys: `services.ai_url`, `services.ai_model`, `services.email_url`, and `services.test_now` (tests only).
+Settings keys: `services.ai_url`, `services.ai_model`, optional `services.ai_prices`, `services.email_url`, and `services.test_now` (tests only).
 
 ## Payments
 
@@ -114,8 +118,32 @@ Payment routes are `/subscription`, `/subscription/portal`, `/billing` (a redire
 
 ## Data retention
 
-`monitoring::schedule::hourly` queues a `RetentionJob` in the 03:00 UTC hour. `RetentionWorker` (`src/monitoring/retention.rs`) applies three rules with `Settings::now()` and calendar months (`chrono::Months`):
+`monitoring::schedule::hourly` queues a `RetentionJob` in the 03:00 UTC hour. `RetentionWorker` (`src/monitoring/retention.rs`) applies five rules with `Settings::now()` (month limits use calendar months, `chrono::Months`):
 
 1. Inactive Workspace: when the Access of a Workspace ended before 12 months ago, the job deletes the Workspace with `removal::delete_workspace`, the function behind User deletion in `/settings`. The Access ended at the later of the end of the Trial and the end of the paid period of the Subscription (`access::access_ended_at`). A Workspace whose User has a session that has not expired stays (`identity::signed_in`), so a returning User whose remembered Trial ended long ago keeps the new Workspace while signed in. When Google or Stripe does not confirm, no row is deleted and the next run tries again.
 2. Trial hash: the job deletes the `trial_history` rows whose `started_at` is before 24 months ago. A User who signs up again after that gets a new Trial.
 3. Account history: for each Ad Account, the job deletes the rows whose day is before the date 24 months before today in the time zone of the Ad Account (the same date that limits the first collection). The tables are `campaign_days`, `campaign_network_days`, `campaign_search_share_days`, `conversion_action_days`, `conversion_lag_totals`, `demographic_totals`, `hour_totals`, `keyword_quality`, `location_totals`, `updates`, `alerts`, `alert_evaluations`, `monitoring_runs`, `account_changes` (by `changed_at`), `monitoring_recommendations` (state `done` or `not_useful`, by `closed_day`) and `monitoring_findings` (inactive, by `last_day`; their Recommendations go with them). An active Finding and an open Recommendation stay. `weekly_emails`, `deep_checks`, `campaigns` and the settings of an Ad Account stay.
+
+4. Measurement: delete Workspace activity, anonymous operation totals and business snapshots before the UTC date 24 months ago. Subscription changes stay with their Workspace until removal.
+
+5. Agent investigations: delete a whole thread with its steps only when its newest investigation is more than 180 days old. Removing an Ad Account deletes investigations whose stored Ad Account list contains it and their follow-ups; removing a Workspace deletes all its investigations and steps.
+
+## Product measurement
+
+`src/workspace/measurement.rs` records daily page views, delivered Exports and feedback separately
+from Connected, Synced and Assessed activation activity. This covers Ad Account pages, Campaign
+pages and breakdowns, choosing Ad Accounts, feedback, the daily run and the Export. Global daily
+operation totals cover collection, Deep checks, Export rendering, Google Ads requests and AI
+requests (requested model, nullable usage tokens, duration and outcome). These totals hold no
+Workspace identifiers. The hourly scheduler keeps one business snapshot per UTC day, using the
+current local Trial and Subscription states. Subscription changes preserve observed status and
+scheduled-cancellation transitions without changing Access. Tests are in
+`tests/requests/app/monitoring/measurement.rs` and `tests/requests/app/billing.rs`.
+The Data retention job purges the three daily measurement tables after 24 months; removing a
+Workspace also removes its activity and Subscription changes. The privacy page explains usage
+measurement. No prices are configured by default; AI token costs need explicit model prices and
+are estimates.
+
+Optimize also supports an explicitly consented Shadow policy. The same decision pipeline stores immutable evaluations in `src/optimize/shadow.rs` and `src/workspace/shadow.rs`, separate from executable Proposals. `/optimize/shadows/{id}` shows proposed changes, abstentions, feedback and descriptive observations. Shadow has no approval or execution path; the authorization and REST adapter also refuse changes while an account is in Shadow. The migration is `m20261021_000022_shadow`, with request coverage in `tests/requests/app/shadow.rs` and `tests/requests/migration.rs`. The commercial case fixture is `tests/fixtures/optimize-commercial-independent.json`. Its expected decisions are independent provisional judgments, not evidence of commercial uplift.
+
+Optimize hardening also includes provider-confirmation recovery at `POST /optimize/proposals/{id}/recover`: an unverified User report closes only an Uncertain execution, leaves Investigate/Suspended, retires pending approvals and never sends to Google Ads. Request coverage is in `tests/requests/app/uncertain_recovery.rs`. `tests/requests/app/shadow_retention.rs` covers observation completion, exact own-change provenance, changed-resource collection and account-scoped snapshot retention.

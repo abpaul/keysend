@@ -51,6 +51,7 @@ fn change(campaign_id: Option<i64>, date: &str, old: &str, new: &str) -> Account
     AccountChange {
         changed_at: format!("{date} 10:00:00"),
         resource_name: "customers/1/changeEvents/1".into(),
+        change_resource_name: None,
         resource_type: "CAMPAIGN".into(),
         operation: "UPDATE".into(),
         campaign_id,

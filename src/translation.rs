@@ -266,7 +266,7 @@ pub async fn translate_account(
         .collect::<Vec<_>>();
     templates.sort_unstable();
     templates.dedup();
-    let (answers, requests) = request::translate(settings, key, language, &templates).await;
+    let (answers, requests) = request::translate(settings, store, key, language, &templates).await;
     outcome.requests = requests;
     let mut saved = Vec::new();
     for (item, masked) in &masked {

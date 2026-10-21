@@ -4,6 +4,8 @@
 {% block content %}
 <h1 class="heading-xl">{{ t(key="ad_accounts") }}</h1>
 
+{% include "monitoring/_refused.html" %}
+
 {% if accounts | length > 0 %}
 <ul class="plain-list accounts">
   {% for account in accounts %}

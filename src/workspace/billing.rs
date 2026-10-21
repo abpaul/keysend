@@ -48,7 +48,7 @@ impl WorkspaceStore<'_> {
     }
 
     pub async fn subscription(&self) -> Result<Option<Subscription>> {
-        self.db.query_one_raw(sql("SELECT stripe_subscription_id,created_at,status,period_start,period_end FROM subscriptions WHERE workspace_id=?",vec![self.workspace.id().into()])).await?.map(|row| Ok(Subscription{id:row.try_get("","stripe_subscription_id")?,created_at:row.try_get("","created_at")?,status:row.try_get::<String>("","status")?.parse().map_err(|()| loco_rs::Error::Message("Unknown subscription status".into()))?,period_start:row.try_get("","period_start")?,period_end:row.try_get("","period_end")?})).transpose()
+        self.db.query_one_raw(sql("SELECT stripe_subscription_id,created_at,status,period_start,period_end,cancel_at_period_end,canceled_at FROM subscriptions WHERE workspace_id=?",vec![self.workspace.id().into()])).await?.map(|row| Ok(Subscription{id:row.try_get("","stripe_subscription_id")?,created_at:row.try_get("","created_at")?,status:row.try_get::<String>("","status")?.parse().map_err(|()| loco_rs::Error::Message("Unknown subscription status".into()))?,period_start:row.try_get("","period_start")?,period_end:row.try_get("","period_end")?,cancel_at_period_end:row.try_get("","cancel_at_period_end")?,canceled_at:row.try_get("","canceled_at")?})).transpose()
     }
 
     pub async fn subscription_active(&self) -> Result<bool> {
@@ -79,9 +79,32 @@ impl WorkspaceStore<'_> {
             txn.execute_raw(sql("UPDATE billing_checkouts SET paid_at=COALESCE(paid_at,?) WHERE workspace_id=? AND id=?",vec![paid_at.into(),self.workspace.id().into(),checkout.id.clone().into()])).await?;
         }
         if let Some(subscription) = subscription {
-            txn.execute_raw(sql("INSERT INTO subscriptions(workspace_id,stripe_subscription_id,created_at,status,period_start,period_end) VALUES (?,?,?,?,?,?) ON CONFLICT(workspace_id) DO UPDATE SET stripe_subscription_id=excluded.stripe_subscription_id,created_at=excluded.created_at,status=excluded.status,period_start=excluded.period_start,period_end=excluded.period_end WHERE excluded.created_at>=subscriptions.created_at",vec![self.workspace.id().into(),subscription.id.clone().into(),subscription.created_at.into(),subscription.status.as_str().into(),subscription.period_start.into(),subscription.period_end.into()])).await?;
+            // Order observations within the same second so a cancellation toggle cannot collide.
+            let changes = txn.execute_raw(sql(
+                "INSERT INTO subscription_changes(workspace_id,observed_at,status,cancel_at_period_end) SELECT ?1,MAX(?2,COALESCE((SELECT MAX(observed_at)+1 FROM subscription_changes WHERE workspace_id=?1),?2)),?3,?4 WHERE NOT EXISTS(SELECT 1 FROM subscriptions WHERE workspace_id=?1 AND (created_at>?5 OR (status=?3 AND cancel_at_period_end=?4)))",
+                vec![self.workspace.id().into(), crate::settings::wall_clock().timestamp().into(), subscription.status.as_str().into(), subscription.cancel_at_period_end.into(), subscription.created_at.into()],
+            )).await.map(|_| ()).map_err(Into::into);
+            super::measurement::recorded(changes);
+            txn.execute_raw(sql("INSERT INTO subscriptions(workspace_id,stripe_subscription_id,created_at,status,period_start,period_end,cancel_at_period_end,canceled_at) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(workspace_id) DO UPDATE SET stripe_subscription_id=excluded.stripe_subscription_id,created_at=excluded.created_at,status=excluded.status,period_start=excluded.period_start,period_end=excluded.period_end,cancel_at_period_end=excluded.cancel_at_period_end,canceled_at=excluded.canceled_at WHERE excluded.created_at>=subscriptions.created_at",vec![self.workspace.id().into(),subscription.id.clone().into(),subscription.created_at.into(),subscription.status.as_str().into(),subscription.period_start.into(),subscription.period_end.into(),subscription.cancel_at_period_end.into(),subscription.canceled_at.into()])).await?;
         }
         txn.commit().await?;
         Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct SubscriptionChange {
+    pub observed_at: i64,
+    pub status: crate::billing::SubscriptionStatus,
+    pub cancel_at_period_end: bool,
+}
+
+impl WorkspaceStore<'_> {
+    pub async fn subscription_changes(&self) -> Result<Vec<SubscriptionChange>> {
+        self.db.query_all_raw(sql("SELECT observed_at,status,cancel_at_period_end FROM subscription_changes WHERE workspace_id=? ORDER BY observed_at,status", vec![self.workspace.id().into()])).await?.into_iter().map(|row| Ok(SubscriptionChange {
+            observed_at: row.try_get("", "observed_at")?,
+            status: row.try_get::<String>("", "status")?.parse().map_err(|()| loco_rs::Error::Message("Unknown subscription status".into()))?,
+            cancel_at_period_end: row.try_get("", "cancel_at_period_end")?,
+        })).collect()
     }
 }

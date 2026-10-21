@@ -188,6 +188,7 @@ fn a_budget_account_change_triggers_a_campaign_line_on_a_quiet_week() {
     let change = AccountChange {
         changed_at: "1970-03-04 10:00:00".into(),
         resource_name: "change/1".into(),
+        change_resource_name: None,
         resource_type: "CAMPAIGN_BUDGET".into(),
         operation: "UPDATE".into(),
         campaign_id: Some(701),
@@ -730,6 +731,8 @@ fn trial_and_subscription_access_expire_at_the_exact_boundary() {
         status: crate::billing::SubscriptionStatus::Active,
         period_start: 0,
         period_end: 1000,
+        cancel_at_period_end: false,
+        canceled_at: None,
     };
     assert!(access::subscription_open(Some(&subscription), 999));
     assert!(!access::subscription_open(Some(&subscription), 1000));
@@ -973,6 +976,7 @@ fn recent_budget_increase_suppresses_spend_alert_only() {
     let change = AccountChange {
         changed_at: "1970-03-04 10:00:00".into(),
         resource_name: "budget/1".into(),
+        change_resource_name: None,
         resource_type: "CAMPAIGN_BUDGET".into(),
         operation: "UPDATE".into(),
         campaign_id: Some(701),
@@ -1168,6 +1172,7 @@ fn fallback_orders_account_changes_by_newest_timestamp() {
     let changes = [1, 4, 2, 3].map(|day| AccountChange {
         changed_at: format!("1970-03-{day:02} 10:00:00"),
         resource_name: format!("budget/{day}"),
+        change_resource_name: None,
         resource_type: "CAMPAIGN_BUDGET".into(),
         operation: "UPDATE".into(),
         campaign_id: Some(701),

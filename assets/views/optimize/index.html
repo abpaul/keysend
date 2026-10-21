@@ -1,0 +1,66 @@
+{% extends "app/base.html" %}
+{% block title %}{{ t(key="optimize") }}{% endblock title %}
+{% block nav_optimize %} aria-current="page"{% endblock nav_optimize %}
+{% block content %}
+<h1 class="heading-xl">{{ t(key="optimize") }}</h1>
+<p class="lede">{{ t(key="opt_intro") }}</p>
+{% if stopped %}
+<div class="notice notice--alert" role="status"><p class="notice__title">{{ t(key="opt_stopped_title") }}</p><p>{{ t(key="opt_stopped_notice") }}</p>
+  <form method="post" action="/optimize/stop"><input type="hidden" name="stop" value="resume"><button class="button" type="submit">{{ t(key="opt_resume_all") }}</button></form></div>
+{% elif not live %}
+<div class="notice" role="status"><p>{{ t(key="opt_off") }}</p></div>
+{% endif %}
+{% if not access %}<div class="notice"><p>{{ t(key="opt_access") }}</p><a href="/subscription">{{ t(key="subscription") }}</a></div>{% endif %}
+<ol class="optimize-steps" aria-label="{{ t(key="opt_progress_title") }}">
+  <li><span class="optimize-steps__count">{{ accounts | length }}</span>{{ t(key="opt_step_found") }}</li>
+  <li><span class="optimize-steps__count">{{ open | length }}</span>{{ t(key="opt_step_recommended") }}</li>
+  <li><span class="optimize-steps__count">{{ running | length }}</span>{{ t(key="opt_step_approved") }}</li>
+  <li><span class="optimize-steps__count">{{ done | length }}</span>{{ t(key="opt_step_applied") }}</li>
+</ol>
+<section class="card" aria-labelledby="decide-title">
+  <h2 class="heading-m" id="decide-title">{{ t(key="opt_decide_title") }}</h2>
+  {% if open | length == 0 %}<p class="muted">{{ t(key="opt_decide_empty") }}</p>{% else %}
+  <ul class="plain-list optimize-list">{% for row in open %}<li>
+    <p class="small muted">{{ row.account }} · <span class="optimize-risk{% if row.high %} optimize-risk--high{% endif %}">{{ row.risk }}</span>{% if row.automatic %} · {{ t(key="opt_automatic_label") }}{% endif %}</p>
+    <h3 class="heading-s"><a href="/optimize/proposals/{{ row.id }}">{{ row.headline }}</a></h3>
+  </li>{% endfor %}</ul>{% endif %}
+</section>
+{% if running | length > 0 %}
+<section class="card" aria-labelledby="running-title">
+  <h2 class="heading-m" id="running-title">{{ t(key="opt_running_title") }}</h2>
+  <ul class="plain-list optimize-list">{% for row in running %}<li><p class="small muted">{{ row.account }} · {{ row.state }}</p><h3 class="heading-s"><a href="/optimize/proposals/{{ row.id }}">{{ row.headline }}</a></h3></li>{% endfor %}</ul>
+</section>
+{% endif %}
+{% if done | length > 0 %}
+<section class="card" aria-labelledby="done-title">
+  <h2 class="heading-m" id="done-title">{{ t(key="opt_done_title") }}</h2>
+  <ul class="plain-list optimize-list">{% for row in done %}<li><p class="small muted">{{ row.account }} · {{ row.state }}{% if row.outcome %} · {{ row.outcome }}{% endif %}</p><h3 class="heading-s"><a href="/optimize/proposals/{{ row.id }}">{{ row.headline }}</a></h3></li>{% endfor %}</ul>
+</section>
+{% endif %}
+{% if shadowing or shadows | length > 0 %}
+<section class="card" aria-labelledby="shadows-title">
+  <h2 class="heading-m" id="shadows-title">{{ t(key="opt_shadows_title") }}</h2>
+  <p class="small muted">{{ t(key="opt_shadows_intro") }}</p>
+  {% if shadows | length == 0 %}<p class="muted">{{ t(key="opt_shadows_empty") }}</p>{% else %}
+  <ul class="plain-list optimize-list">{% for row in shadows %}<li><p class="small muted">{{ row.account }} · {{ row.date }}</p><h3 class="heading-s"><a href="/optimize/shadows/{{ row.id }}">{{ row.counts }}</a></h3></li>{% endfor %}</ul>{% endif %}
+</section>
+{% endif %}
+<section class="card" aria-labelledby="accounts-title">
+  <h2 class="heading-m" id="accounts-title">{{ t(key="opt_accounts_title") }}</h2>
+  <ul class="plain-list optimize-list">{% for ad in accounts %}<li>
+    <h3 class="heading-s"><a href="/ad-accounts/{{ ad.id }}/optimize">{{ ad.name }}</a></h3>
+    <p class="small"><strong>{{ ad.mode }}</strong>{% if ad.autopilot %} · {{ ad.standing }}{% endif %}</p>
+    <p class="small muted">{% if ad.evaluated %}{{ t(key="opt_evaluated", date=ad.evaluated) }}{% else %}{{ t(key="opt_not_evaluated") }}{% endif %}</p>
+    {% if ad.held | length > 0 %}<ul class="small muted optimize-held">{% for hold in ad.held %}<li>{{ hold.text }}</li>{% endfor %}</ul>{% endif %}
+  </li>{% endfor %}</ul>
+</section>
+<section class="card" aria-labelledby="activity-title">
+  <h2 class="heading-m" id="activity-title">{{ t(key="opt_activity_title") }}</h2>
+  {% if activity | length == 0 %}<p class="muted">{{ t(key="opt_activity_empty") }}</p>{% else %}
+  <ul class="plain-list optimize-timeline">{% for event in activity %}<li><p>{{ event.text }}{% if event.proposal %} <a href="/optimize/proposals/{{ event.proposal }}">{{ t(key="opt_review") }}</a>{% endif %}</p><p class="small muted">{{ event.account }} · {{ event.date }}</p></li>{% endfor %}</ul>
+  <p><a href="/optimize/activity">{{ t(key="opt_activity_all") }}</a></p>{% endif %}
+</section>
+{% if not stopped %}
+<form class="optimize-stop" method="post" action="/optimize/stop"><input type="hidden" name="stop" value="stop"><p class="small muted">{{ t(key="opt_stop_hint") }}</p><button class="button button--warning" type="submit">{{ t(key="opt_stop_all") }}</button></form>
+{% endif %}
+{% endblock content %}

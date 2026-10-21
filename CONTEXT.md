@@ -1,6 +1,6 @@
 # KeySend
 
-KeySend watches your Google Ads every day, tells you in plain English how things stand, and brings what matters to your attention. It never changes the Ad Account, and every Recommendation shows its evidence.
+KeySend watches your Google Ads every day, tells you in plain English how things stand, and brings what matters to your attention. Every Recommendation shows its evidence. It changes an Ad Account only through a Proposal that the User approved or that an Autopilot policy allows, and only where applying is switched on.
 
 ## Language
 
@@ -21,7 +21,7 @@ One Google Ads customer ID. It has campaigns, an Account history, and Updates, a
 _Avoid_: Account, client, advertiser, customer
 
 **Campaign**:
-One Google Ads campaign of an Ad Account. KeySend shows each campaign on its own page and never changes it.
+One Google Ads campaign of an Ad Account. KeySend shows each campaign on its own page and changes it only through an applied Proposal.
 _Avoid_: Ad set, ad group, project
 
 **Branding**:
@@ -127,3 +127,27 @@ _Avoid_: Plan, tier, membership, Unlock
 **Access**:
 What a Workspace has during its Trial and while its Subscription is active: the pages, the Updates, the emails, and the Export of its Ad Accounts.
 _Avoid_: Unlock, entitlement, license, permission
+
+**Signal**:
+Something that code detects in the Account history that could justify a change of a Campaign, with its Metric, its days, its count, the chance of that count at the target, and its caveats. A Signal is not a decision.
+_Avoid_: Alert, issue, insight, Finding
+
+**Proposal**:
+One exact change of an Ad Account that code builds from a Signal: the kind, the Campaign, the value now and the proposed value, its risk, its reasons and its expiry. AI never writes a Proposal. It runs only after an Approval.
+_Avoid_: Recommendation, suggestion, action, task
+
+**Approval**:
+The User's decision to run one Proposal, bound to the fingerprint of its exact change; or the Autopilot's, under the policy version in force.
+_Avoid_: Consent, confirmation, sign-off
+
+**Optimization policy**:
+What KeySend may do in one Ad Account: its mode (Investigate, Recommend and apply, Autopilot), the changes the Autopilot may make without asking, the limits, the protected Campaigns. Each save is a new version.
+_Avoid_: Settings, rules, permissions
+
+**Autopilot**:
+The mode in which the Proposals that the Optimization policy allows run without asking. It is off by default, the User can switch it off at any time, and KeySend suspends it on a failure, a conflict, unreliable tracking, old data or unusual spend.
+_Avoid_: Automation, auto mode, agent
+
+**Outcome**:
+What followed an applied Proposal for its Campaign, judged after the observation window against the days before it and against the rest of the Ad Account. Like a Follow-up, it says what came after, never that the change caused it.
+_Avoid_: Impact, result, attribution, success

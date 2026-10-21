@@ -1,4 +1,4 @@
-// Usage: [KEYSEND_SESSION=<cookie>] node scripts/screenshot.mjs OUTPUT BASE PATH...
+// Usage: [KEYSEND_SESSION=<cookie>] [KEYSEND_SESSION_NAME=ks_admin] node scripts/screenshot.mjs OUTPUT BASE PATH...
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { load, openChromium } from './chromium.mjs';
@@ -12,7 +12,7 @@ const browser = await openChromium(join(out, 'chromium.log'));
 const { call, evaluate } = browser;
 let failed = false;
 try {
-  if (session) await call('Network.setCookie', { name: 'ks_session', value: session, url: base, httpOnly: true });
+  if (session) await call('Network.setCookie', { name: process.env.KEYSEND_SESSION_NAME || 'ks_session', value: session, url: base, httpOnly: true });
   for (const path of paths) {
     for (const width of [390, 1280]) {
       await call('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 600 });

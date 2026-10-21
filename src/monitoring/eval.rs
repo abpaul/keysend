@@ -5,7 +5,7 @@
 //! independent judge. Each scenario states what a competent consultant concludes from its
 //! data; the judge compares the report with that, so no AI answer is its own reference.
 
-mod scenarios;
+pub(crate) mod scenarios;
 
 use std::{collections::BTreeMap, fmt::Write, sync::Arc, sync::Mutex};
 
@@ -27,74 +27,74 @@ use crate::{
 };
 
 #[derive(Clone, Copy)]
-pub(super) struct Level {
-    spend: f64,
-    clicks: f64,
-    impressions: f64,
-    conversions: f64,
-    value: f64,
+pub(crate) struct Level {
+    pub(crate) spend: f64,
+    pub(crate) clicks: f64,
+    pub(crate) impressions: f64,
+    pub(crate) conversions: f64,
+    pub(crate) value: f64,
 }
 
-pub(super) struct Plan {
-    id: i64,
-    name: &'static str,
-    channel: &'static str,
-    before: Level,
-    after: Level,
-    since: i64,
-    year_ago: Option<(Level, Level)>,
-    lost_to_budget: Option<f64>,
+pub(crate) struct Plan {
+    pub(crate) id: i64,
+    pub(crate) name: &'static str,
+    pub(crate) channel: &'static str,
+    pub(crate) before: Level,
+    pub(crate) after: Level,
+    pub(crate) since: i64,
+    pub(crate) year_ago: Option<(Level, Level)>,
+    pub(crate) lost_to_budget: Option<f64>,
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct Row {
-    campaign: i64,
-    name: &'static str,
-    clicks: f64,
-    cost: f64,
-    conversions: f64,
-    value: f64,
-    strength: &'static str,
+pub(crate) struct Row {
+    pub(crate) campaign: i64,
+    pub(crate) name: &'static str,
+    pub(crate) clicks: f64,
+    pub(crate) cost: f64,
+    pub(crate) conversions: f64,
+    pub(crate) value: f64,
+    pub(crate) strength: &'static str,
 }
 
 /// A Recommendation of an earlier Deep check.
-pub(super) struct Past {
-    key: &'static str,
-    campaign: i64,
-    action: &'static str,
-    done: bool,
-    opened_ago: i64,
-    closed_ago: Option<i64>,
+pub(crate) struct Past {
+    pub(crate) key: &'static str,
+    pub(crate) campaign: i64,
+    pub(crate) action: &'static str,
+    pub(crate) done: bool,
+    pub(crate) opened_ago: i64,
+    pub(crate) closed_ago: Option<i64>,
 }
 
 #[derive(Default)]
-pub(super) struct Scenario {
-    key: &'static str,
-    business: &'static str,
-    website: &'static str,
-    currency: &'static str,
-    goal: &'static str,
-    target_cost: Option<f64>,
-    note: &'static str,
-    situation: &'static str,
-    essentials: &'static [&'static str],
-    mistakes: &'static [&'static str],
-    campaigns: Vec<Plan>,
-    conversion_actions: u32,
-    search_terms: Vec<Row>,
-    keywords: Vec<Row>,
-    landing_pages: Vec<Row>,
-    ads: Vec<Row>,
-    locations: Vec<(&'static str, Row)>,
-    devices: Vec<(&'static str, Row)>,
-    margin: Option<f64>,
-    customer_value: Option<f64>,
-    close_rate: Option<f64>,
-    target_roas: Option<f64>,
+pub(crate) struct Scenario {
+    pub(crate) key: &'static str,
+    pub(crate) business: &'static str,
+    pub(crate) website: &'static str,
+    pub(crate) currency: &'static str,
+    pub(crate) goal: &'static str,
+    pub(crate) target_cost: Option<f64>,
+    pub(crate) note: &'static str,
+    pub(crate) situation: &'static str,
+    pub(crate) essentials: &'static [&'static str],
+    pub(crate) mistakes: &'static [&'static str],
+    pub(crate) campaigns: Vec<Plan>,
+    pub(crate) conversion_actions: u32,
+    pub(crate) search_terms: Vec<Row>,
+    pub(crate) keywords: Vec<Row>,
+    pub(crate) landing_pages: Vec<Row>,
+    pub(crate) ads: Vec<Row>,
+    pub(crate) locations: Vec<(&'static str, Row)>,
+    pub(crate) devices: Vec<(&'static str, Row)>,
+    pub(crate) margin: Option<f64>,
+    pub(crate) customer_value: Option<f64>,
+    pub(crate) close_rate: Option<f64>,
+    pub(crate) target_roas: Option<f64>,
     /// The share of conversions in each conversion lag bucket of Google Ads. The history
     /// records only the conversions that have arrived by the end day.
-    lag: &'static [(&'static str, f64)],
-    history: Vec<Past>,
+    pub(crate) lag: &'static [(&'static str, f64)],
+    pub(crate) history: Vec<Past>,
 }
 
 const LAG_DAYS: [(&str, i64); 19] = [
@@ -138,7 +138,7 @@ fn arrived(lag: &[(&str, f64)], age: i64) -> f64 {
 
 const HISTORY_DAYS: i64 = 430;
 
-fn end() -> i64 {
+pub(crate) fn end() -> i64 {
     day_number(chrono::NaiveDate::from_ymd_opt(2026, 10, 15).unwrap())
 }
 
@@ -207,7 +207,7 @@ fn audit_row(row: &Row, name: &str) -> AuditRow {
     }
 }
 
-pub(super) struct Built {
+pub(crate) struct Built {
     pub days: Vec<CampaignDay>,
     pub campaigns: Vec<Campaign>,
     pub rules: Resolved,
@@ -215,7 +215,7 @@ pub(super) struct Built {
     pub first: i64,
 }
 
-fn build(scenario: &Scenario) -> Built {
+pub(crate) fn build(scenario: &Scenario) -> Built {
     let end = end();
     let days = history(scenario);
     let total = metrics::sum(&days, end - 29, end, None);
@@ -417,7 +417,7 @@ async fn report(settings: &Settings, scenario: &Scenario, built: &Built) -> Repo
             devices: BTreeMap::new(),
         },
     );
-    let update = update::generate(settings, detection, &built.rules)
+    let update = update::generate(settings, None, detection, &built.rules)
         .await
         .expect("an Update");
     let mut business = Business {
@@ -429,6 +429,7 @@ async fn report(settings: &Settings, scenario: &Scenario, built: &Built) -> Repo
     };
     business.research = super::business::research(
         settings,
+        None,
         &business,
         &built
             .campaigns
@@ -480,7 +481,7 @@ async fn report(settings: &Settings, scenario: &Scenario, built: &Built) -> Repo
             .collect(),
         days: built.days.clone(),
     };
-    let review = deep_check::review(settings, &built.check, &context, &built.rules).await;
+    let review = deep_check::review(settings, None, &built.check, &context, &built.rules).await;
     let (assessment, recommendations) = match review {
         Ok(review) => (Some(review.assessment), review.recommendations),
         Err(error) => {
@@ -614,7 +615,7 @@ async fn report(settings: &Settings, scenario: &Scenario, built: &Built) -> Repo
     }
 }
 
-fn settings(url: &str) -> Settings {
+pub(crate) fn settings(url: &str) -> Settings {
     Settings {
         postdeploy: Default::default(),
         postdeploy_key: None,
@@ -627,6 +628,8 @@ fn settings(url: &str) -> Settings {
             ..Default::default()
         },
         monitoring: Default::default(),
+        agent: Default::default(),
+        optimize: Default::default(),
         openai_key: Some("evaluation".into()),
         email_key: None,
         email_recipient: None,
@@ -634,6 +637,7 @@ fn settings(url: &str) -> Settings {
         client_id: None,
         client_secret: None,
         master_key: None,
+        admin_emails: Vec::new(),
         origin: "http://localhost".into(),
         redirect_uri: String::new(),
         secure: false,
@@ -812,6 +816,7 @@ fn researches_a_real_business_and_verifies_its_facts_on_their_pages() {
         .unwrap()
         .block_on(super::business::research(
             &settings(&variable("KEYSEND_EVAL_AI_URL")),
+            None,
             &business,
             &[],
             &[],
